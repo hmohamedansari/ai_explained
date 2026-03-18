@@ -1,0 +1,78 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const modules = await getCollection('modules');
+  return modules.map(mod => ({ params: { module: mod.id }, props: { mod } }));
+}
+
+const { module: moduleSlug } = Astro.params;
+const { mod } = Astro.props;
+
+
+const allLessons = await getCollection('concepts', ({ data }) => !data.draft);
+const lessons = allLessons
+  .filter(l => l.data.module === moduleSlug)
+  .sort((a, b) => a.data.order - b.data.order);
+
+const totalMinutes = lessons.reduce((acc, l) => acc + (l.data.estimatedMinutes ?? 0), 0);
+---
+
+<BaseLayout title={mod.data.title} description={mod.data.description}>
+  <Header />
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+    <!-- Module hero -->
+    <div class="mb-14">
+      <div class="text-5xl mb-5">{mod.data.icon}</div>
+      <h1 class="text-4xl font-semibold text-white mb-4">{mod.data.title}</h1>
+      <p class="text-xl text-slate-400 max-w-2xl mb-6">{mod.data.description}</p>
+      <div class="flex items-center gap-4 text-sm text-slate-500">
+        <span>{lessons.length} lessons</span>
+        <span class="text-white/20">·</span>
+        {totalMinutes > 0 && <span>~{totalMinutes} min total</span>}
+      </div>
+    </div>
+
+    <!-- Lessons -->
+    <div class="space-y-3">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Lessons</h2>
+      {lessons.map((lesson, i) => (
+        <a
+          href={`/learn/${moduleSlug}/${lesson.slug}`}
+          class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
+                 hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
+        >
+          <div class="w-8 h-8 rounded-full border border-white/10 group-hover:border-brand-500/40
+                      flex items-center justify-center text-xs font-mono text-slate-500
+                      group-hover:text-brand-400 transition-colors shrink-0">
+            {i + 1}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
+              {lesson.data.title}
+            </p>
+            <p class="text-sm text-slate-500 truncate">{lesson.data.description}</p>
+          </div>
+          {lesson.data.estimatedMinutes && (
+            <span class="text-xs text-slate-600 shrink-0">{lesson.data.estimatedMinutes} min</span>
+          )}
+          <span class="text-slate-600 group-hover:text-brand-400 transition-colors text-sm shrink-0">→</span>
+        </a>
+      ))}
+    </div>
+
+    {lessons.length > 0 && (
+      <div class="mt-8">
+        <a href={`/learn/${moduleSlug}/${lessons[0].slug}`} class="btn-primary">
+          Start module →
+        </a>
+      </div>
+    )}
+  </main>
+
+  <Footer />
+</BaseLayout>

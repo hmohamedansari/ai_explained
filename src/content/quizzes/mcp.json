@@ -1,0 +1,85 @@
+{
+  "title": "MCP Quiz",
+  "concept": "mcp",
+  "questions": [
+    {
+      "id": "m1",
+      "type": "multiple-choice",
+      "question": "MCP is built on top of which underlying protocol?",
+      "options": [
+        "REST over HTTP",
+        "GraphQL subscriptions",
+        "JSON-RPC 2.0",
+        "WebSockets with a custom framing layer"
+      ],
+      "answer": 2,
+      "explanation": "MCP uses JSON-RPC 2.0 — a dead-simple request/response/notification protocol over JSON. No REST, no GraphQL, just JSON-RPC. This travels over either stdio pipes (local) or HTTP+SSE (remote).",
+      "audiences": ["experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "m2",
+      "type": "multiple-choice",
+      "question": "What is the key difference between MCP Tools and MCP Resources?",
+      "options": [
+        "Tools are for reading data; Resources are for writing data",
+        "Tools are model-controlled (LLM decides when to call); Resources are app-controlled (host decides what to expose)",
+        "Tools require authentication; Resources do not",
+        "Resources support streaming; Tools do not"
+      ],
+      "answer": 1,
+      "explanation": "Tools are model-controlled — the LLM autonomously decides when to invoke them. Resources are application-controlled — the host exposes them as readable data that the LLM or app can fetch. Prompts are a third primitive that are user-controlled.",
+      "audiences": ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "m3",
+      "type": "multiple-choice",
+      "question": "You're running an MCP server on a remote host and want Claude Code to connect to it. Which transport should you use?",
+      "options": [
+        "stdio — it works for both local and remote",
+        "HTTP + SSE — designed for remote, multi-client scenarios",
+        "WebSocket — the preferred MCP remote transport",
+        "gRPC — better performance than JSON-RPC"
+      ],
+      "answer": 1,
+      "explanation": "stdio only works for local subprocesses (stdin/stdout pipes). For remote servers, use HTTP + SSE: the client POSTs requests to /message, and the server pushes responses via Server-Sent Events on /sse.",
+      "audiences": ["experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "m4",
+      "type": "true-false",
+      "question": "When Claude calls an MCP tool, it knows the tool came from an MCP server rather than being a native tool.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "False. Claude sees all tools — native and MCP — as identical tool definitions in its context. It has no awareness of whether a tool is native (bash, read) or sourced from an MCP server. Routing is entirely the host application's responsibility.",
+      "audiences": ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "m5",
+      "type": "multiple-choice",
+      "question": "An MCP tool returns this response. What should the LLM do next?\n\n```json\n{ \"content\": [{\"type\": \"text\", \"text\": \"DB connection timeout\"}], \"isError\": true }```",
+      "options": [
+        "Treat it as a successful result and summarize the text",
+        "Crash — isError: true is a fatal signal",
+        "Reason about the failure: retry, ask the user, or try a different approach",
+        "Ignore the result and call the tool again immediately"
+      ],
+      "answer": 2,
+      "explanation": "isError: true signals a tool-level failure (the tool ran but reported an error). This is distinct from a protocol error. The model should reason about it — perhaps retry with different params, inform the user, or try an alternative. It should not treat the error message as successful output.",
+      "audiences": ["experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "m6",
+      "type": "multiple-choice",
+      "question": "From a strategic standpoint, what problem does MCP solve that matters most for an organization?",
+      "options": [
+        "It makes AI responses faster by caching results",
+        "It eliminates N×M custom integrations — any compliant AI client works with any compliant server",
+        "It provides built-in security for all AI tool calls",
+        "It replaces the need for API keys and authentication"
+      ],
+      "answer": 1,
+      "explanation": "Before MCP: connecting N AI models to M services required N×M custom integrations. With MCP: N clients + M servers = N+M things to build. Any MCP-compliant client (Claude, Cursor, custom agent) works with any MCP server (GitHub, Postgres, your internal tools) without custom glue code.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

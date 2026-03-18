@@ -1,0 +1,35 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import RoleSelector from '@/components/onboarding/RoleSelector';
+---
+
+<BaseLayout
+  title="Find Your Path"
+  description="Answer a few questions and we'll send you to the right learning path."
+>
+  <Header />
+
+  <main class="flex-1 flex items-center">
+    <div class="max-w-4xl mx-auto px-6 py-24 text-center w-full">
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 text-slate-400 text-xs font-medium mb-8">
+        Step 1 of 1
+      </div>
+
+      <h1 class="text-4xl font-semibold text-white mb-4">Which describes you best?</h1>
+      <p class="text-lg text-slate-400 mb-12 max-w-xl mx-auto">
+        We'll tailor the depth, analogies, and examples to what you actually care about.
+        You can always switch paths later.
+      </p>
+
+      <RoleSelector client:load />
+
+      <p class="text-sm text-slate-600 mt-10">
+        Not sure? <a href="/learn" class="text-brand-400 hover:text-brand-300 transition-colors">Browse all content</a> instead.
+      </p>
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

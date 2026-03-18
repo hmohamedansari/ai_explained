@@ -1,0 +1,89 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const allLessons = await getCollection('concepts', ({ data }) =>
+  !data.draft && data.audiences.includes('tech-leader')
+);
+const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
+---
+
+<BaseLayout
+  title="Tech Leader Path"
+  description="The mental model for AI agents — built for CTOs, VPs, and architects."
+>
+  <Header />
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+    <!-- Path hero -->
+    <div class="mb-14">
+      <div class="text-5xl mb-5">🏛️</div>
+      <h1 class="text-4xl font-semibold text-white mb-4">Tech Leader Path</h1>
+      <p class="text-xl text-slate-400 max-w-2xl mb-6">
+        You've built and led systems for years. This path gives you the accurate mental model
+        for how AI agents work — no boilerplate, no hand-waving. Just the concepts that
+        inform good technical decisions.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Big picture first</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Minimal code</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Decision-focused</span>
+      </div>
+    </div>
+
+    <!-- What you'll learn -->
+    <div class="p-6 rounded-xl border border-white/10 bg-surface-1 mb-10">
+      <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500 mb-4">What you'll come away with</h2>
+      <ul class="space-y-3">
+        {[
+          'Why AI agents are fundamentally different from traditional software — and what that means for architecture',
+          'What tools, MCP, and skills actually are at the protocol level (not marketing)',
+          'How to evaluate AI tooling choices: build vs buy, local vs cloud, open protocol vs proprietary',
+          'The security and trust model — what an AI agent can and cannot do on its own',
+        ].map(item => (
+          <li class="flex items-start gap-3 text-slate-300 text-sm">
+            <span class="text-brand-400 mt-0.5 shrink-0">✓</span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <!-- Lesson list -->
+    <div class="space-y-3">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Your curriculum</h2>
+      {sorted.map((lesson, i) => (
+        <a
+          href={`/learn/${lesson.data.module}/${lesson.slug}`}
+          class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
+                 hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
+        >
+          <div class="w-8 h-8 rounded-full border border-white/10 group-hover:border-brand-500/40
+                      flex items-center justify-center text-xs font-mono text-slate-500
+                      group-hover:text-brand-400 transition-colors shrink-0">
+            {i + 1}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
+              {lesson.data.title}
+            </p>
+            <p class="text-sm text-slate-500 truncate">{lesson.data.description}</p>
+          </div>
+          <span class="text-slate-600 group-hover:text-brand-400 transition-colors text-sm shrink-0">→</span>
+        </a>
+      ))}
+    </div>
+
+    {sorted.length > 0 && (
+      <div class="mt-8">
+        <a href={`/learn/${sorted[0].data.module}/${sorted[0].slug}`} class="btn-primary">
+          Start here →
+        </a>
+      </div>
+    )}
+  </main>
+
+  <Footer />
+</BaseLayout>

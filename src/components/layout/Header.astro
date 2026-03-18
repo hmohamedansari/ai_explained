@@ -1,0 +1,41 @@
+---
+const navLinks = [
+  { href: '/learn', label: 'Learn' },
+  { href: '/paths', label: 'Learning Paths' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header class="sticky top-0 z-50 border-b border-white/10 bg-surface/80 backdrop-blur-md">
+  <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+
+    <!-- Logo -->
+    <a href="/" class="flex items-center gap-2.5 font-semibold text-white hover:text-brand-400 transition-colors">
+      <span class="text-2xl">🤖</span>
+      <span class="text-lg tracking-tight">AI Explained</span>
+    </a>
+
+    <!-- Nav -->
+    <nav class="hidden md:flex items-center gap-1">
+      {navLinks.map(link => (
+        <a
+          href={link.href}
+          class:list={[
+            'px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            currentPath.startsWith(link.href)
+              ? 'bg-brand-600/20 text-brand-300'
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          ]}
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>
+
+    <!-- CTA -->
+    <a href="/onboarding" class="btn-primary text-sm hidden sm:inline-flex">
+      Find my path →
+    </a>
+  </div>
+</header>

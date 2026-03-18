@@ -1,0 +1,76 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const allModules = await getCollection('modules', ({ data }) => !data.draft);
+const sortedModules = allModules.sort((a, b) => a.data.order - b.data.order);
+
+const allLessons = await getCollection('concepts', ({ data }) => !data.draft);
+---
+
+<BaseLayout title="Learn" description="All learning modules.">
+  <Header />
+
+  <main class="flex-1 max-w-5xl mx-auto px-6 py-16">
+    <div class="mb-12">
+      <h1 class="text-4xl font-semibold text-white mb-3">All Modules</h1>
+      <p class="text-lg text-slate-400">
+        Everything we've built so far. Pick a module or{' '}
+        <a href="/onboarding" class="text-brand-400 hover:text-brand-300 transition-colors">
+          find the right path for you
+        </a>.
+      </p>
+    </div>
+
+    <div class="space-y-6">
+      {sortedModules.map(mod => {
+        const lessons = allLessons
+          .filter(l => l.data.module === mod.id)
+          .sort((a, b) => a.data.order - b.data.order);
+
+        return (
+          <div class="rounded-xl border border-white/10 bg-surface-1 overflow-hidden">
+            <!-- Module header -->
+            <div class="p-6 border-b border-white/10 flex items-start gap-4">
+              <span class="text-3xl">{mod.data.icon}</span>
+              <div class="flex-1 min-w-0">
+                <a
+                  href={`/learn/${mod.id}`}
+                  class="text-xl font-semibold text-white hover:text-brand-300 transition-colors"
+                >
+                  {mod.data.title}
+                </a>
+                <p class="text-slate-400 mt-1 text-sm">{mod.data.description}</p>
+              </div>
+              <a href={`/learn/${mod.id}`} class="btn-secondary text-xs shrink-0">
+                Open →
+              </a>
+            </div>
+
+            <!-- Lesson list -->
+            <div class="divide-y divide-white/5">
+              {lessons.map(lesson => (
+                <a
+                  href={`/learn/${mod.id}/${lesson.slug}`}
+                  class="flex items-center gap-4 px-6 py-4 hover:bg-surface-2 transition-colors group"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-white/20 group-hover:bg-brand-400 transition-colors shrink-0" />
+                  <span class="flex-1 text-sm text-slate-300 group-hover:text-white transition-colors">
+                    {lesson.data.title}
+                  </span>
+                  {lesson.data.estimatedMinutes && (
+                    <span class="text-xs text-slate-600">{lesson.data.estimatedMinutes} min</span>
+                  )}
+                </a>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

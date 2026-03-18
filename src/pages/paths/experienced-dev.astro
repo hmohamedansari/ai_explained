@@ -1,0 +1,87 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import { getCollection } from 'astro:content';
+
+const allLessons = await getCollection('concepts', ({ data }) =>
+  !data.draft && data.audiences.includes('experienced-dev')
+);
+const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
+---
+
+<BaseLayout
+  title="Experienced Developer Path"
+  description="Protocol internals, full code examples, and the edge cases worth knowing."
+>
+  <Header />
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+    <div class="mb-14">
+      <div class="text-5xl mb-5">⚙️</div>
+      <h1 class="text-4xl font-semibold text-white mb-4">Experienced Developer Path</h1>
+      <p class="text-xl text-slate-400 max-w-2xl mb-6">
+        You know your way around systems. This path skips the hand-holding and goes straight
+        to protocol internals, full implementations, parallel tool calls, error handling,
+        and building production-ready MCP servers.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Protocol depth</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Full code examples</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Edge cases</span>
+      </div>
+    </div>
+
+    <div class="p-6 rounded-xl border border-white/10 bg-surface-1 mb-10">
+      <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500 mb-4">What you'll come away with</h2>
+      <ul class="space-y-3">
+        {[
+          'The full tool_use / tool_result loop including parallel calls and stop_reason mechanics',
+          'JSON-RPC internals — the actual wire format of MCP messages',
+          'Building a working MCP server in Python and TypeScript',
+          'Transport selection: stdio vs HTTP+SSE and the new Streamable HTTP spec',
+          'Error handling at both the protocol and tool layer',
+        ].map(item => (
+          <li class="flex items-start gap-3 text-slate-300 text-sm">
+            <span class="text-brand-400 mt-0.5 shrink-0">✓</span>
+            {item}
+          </li>
+        ))}
+      </ul>
+    </div>
+
+    <div class="space-y-3">
+      <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Your curriculum</h2>
+      {sorted.map((lesson, i) => (
+        <a
+          href={`/learn/${lesson.data.module}/${lesson.slug}`}
+          class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
+                 hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
+        >
+          <div class="w-8 h-8 rounded-full border border-white/10 group-hover:border-brand-500/40
+                      flex items-center justify-center text-xs font-mono text-slate-500
+                      group-hover:text-brand-400 transition-colors shrink-0">
+            {i + 1}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
+              {lesson.data.title}
+            </p>
+            <p class="text-sm text-slate-500 truncate">{lesson.data.description}</p>
+          </div>
+          <span class="text-slate-600 group-hover:text-brand-400 transition-colors text-sm shrink-0">→</span>
+        </a>
+      ))}
+    </div>
+
+    {sorted.length > 0 && (
+      <div class="mt-8">
+        <a href={`/learn/${sorted[0].data.module}/${sorted[0].slug}`} class="btn-primary">
+          Start here →
+        </a>
+      </div>
+    )}
+  </main>
+
+  <Footer />
+</BaseLayout>

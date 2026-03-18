@@ -1,0 +1,85 @@
+{
+  "title": "Tools Quiz",
+  "concept": "tools",
+  "questions": [
+    {
+      "id": "t1",
+      "type": "multiple-choice",
+      "question": "When Claude 'calls a tool', what is actually happening?",
+      "options": [
+        "Claude directly executes code on the host machine",
+        "Claude emits a tool_use JSON block and the host app executes it",
+        "Claude sends an HTTP request to an external API",
+        "Claude writes code to a file and runs it"
+      ],
+      "answer": 1,
+      "explanation": "Claude is a stateless text transformer — it never runs code directly. It emits a tool_use block (structured JSON), and the host application (e.g. Claude Code) actually executes the function and returns the result as tool_result.",
+      "audiences": ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "t2",
+      "type": "multiple-choice",
+      "question": "What does stop_reason: 'tool_use' tell the host application?",
+      "options": [
+        "The conversation is over",
+        "Claude encountered an error",
+        "Execute the tool calls and send results back before showing output to the user",
+        "Claude is waiting for user input"
+      ],
+      "answer": 2,
+      "explanation": "stop_reason: 'tool_use' means 'don't end the turn yet'. The host must execute the requested tools, return the results as tool_result messages, and call the API again. The turn only ends when stop_reason is 'end_turn'.",
+      "audiences": ["new-dev", "experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "t3",
+      "type": "true-false",
+      "question": "A tool definition requires a description field to work — without it, the API call will fail.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "False — the API won't reject a missing description, but the model heavily relies on the description to decide when and how to use the tool. A missing or vague description leads to wrong or inconsistent tool usage. The description is the primary signal the model uses.",
+      "audiences": ["new-dev", "experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "t4",
+      "type": "multiple-choice",
+      "question": "You want to force Claude to use a specific tool called 'lookup_policy'. Which tool_choice config achieves this?",
+      "options": [
+        "{ \"type\": \"auto\" }",
+        "{ \"type\": \"any\" }",
+        "{ \"type\": \"tool\", \"name\": \"lookup_policy\" }",
+        "{ \"type\": \"required\", \"name\": \"lookup_policy\" }"
+      ],
+      "answer": 2,
+      "explanation": "{ \"type\": \"tool\", \"name\": \"lookup_policy\" } forces Claude to call that specific tool. 'auto' lets the model decide, 'any' forces at least one tool call but lets the model choose which.",
+      "audiences": ["experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "t5",
+      "type": "code-spot",
+      "question": "This tool_result has a bug that will cause Claude to misinterpret a failure as success. Spot it:\n\n```json\n{\n  \"type\": \"tool_result\",\n  \"tool_use_id\": \"abc123\",\n  \"content\": \"Error: permission denied on /etc/shadow\"\n}\n```",
+      "options": [
+        "The tool_use_id format is wrong",
+        "The content should be an array, not a string",
+        "Missing is_error: true — Claude will treat the error message as successful output",
+        "The type field should be 'tool_response'"
+      ],
+      "answer": 2,
+      "explanation": "Without is_error: true, Claude treats the content as a successful result. It might summarize 'Error: permission denied' as if it were real data. Always set is_error: true when the tool failed so Claude knows to reason about the failure.",
+      "audiences": ["experienced-dev", "sre-devops"]
+    },
+    {
+      "id": "t6",
+      "type": "multiple-choice",
+      "question": "As a tech leader evaluating AI tooling: tools are best described as what?",
+      "options": [
+        "Plugins that extend the AI model's internal capabilities",
+        "The mechanism by which an AI can request that the host app take actions on its behalf",
+        "Scripts that run automatically when certain keywords are detected",
+        "APIs that the AI directly calls over the network"
+      ],
+      "answer": 1,
+      "explanation": "Tools are the bridge between the AI's 'thinking' (text generation) and real-world action. The AI requests, the host executes. This separation is fundamental — it means the AI can never take an action the host hasn't explicitly enabled and executed.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

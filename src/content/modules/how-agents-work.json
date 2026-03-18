@@ -1,0 +1,8 @@
+{
+  "title": "How AI Agents Work",
+  "description": "The foundational model — what LLMs actually are, how tools extend them, and how the request/execute/return loop powers every AI agent you'll ever build or use.",
+  "order": 1,
+  "icon": "🤖",
+  "color": "brand",
+  "audiences": ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
+}

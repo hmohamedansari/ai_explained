@@ -1,0 +1,85 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Sidebar from '@/components/layout/Sidebar.astro';
+import Footer from '@/components/layout/Footer.astro';
+import LessonProgress from '@/components/layout/LessonProgress.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  lesson: CollectionEntry<'concepts'>;
+  prevLesson?: { slug: string; title: string } | null;
+  nextLesson?: { slug: string; title: string } | null;
+}
+
+const { lesson, prevLesson, nextLesson } = Astro.props;
+const { title, description, estimatedMinutes, module: moduleSlug } = lesson.data;
+---
+
+<BaseLayout title={title} description={description}>
+  <Header />
+
+  <div class="flex flex-1 min-h-0">
+    <!-- Sidebar -->
+    <Sidebar currentModule={moduleSlug} currentLesson={lesson.slug} />
+
+    <!-- Main content -->
+    <main class="flex-1 min-w-0 overflow-y-auto">
+      <div class="max-w-3xl mx-auto px-6 py-12">
+
+        <!-- Lesson header -->
+        <div class="mb-10">
+          <div class="flex items-center gap-3 text-sm text-slate-500 mb-4">
+            <a
+              href={`/learn/${moduleSlug}`}
+              class="hover:text-brand-400 transition-colors capitalize"
+            >
+              {moduleSlug.replace(/-/g, ' ')}
+            </a>
+            <span>/</span>
+            {estimatedMinutes && (
+              <span>{estimatedMinutes} min read</span>
+            )}
+          </div>
+          <h1 class="text-3xl font-semibold text-white mb-3">{title}</h1>
+          <p class="text-lg text-slate-400">{description}</p>
+        </div>
+
+        <!-- Lesson body -->
+        <article class="prose-lesson">
+          <slot />
+        </article>
+
+        <!-- Prev / Next navigation -->
+        <nav class="mt-16 pt-8 border-t border-white/10 grid grid-cols-2 gap-4">
+          {prevLesson ? (
+            <a
+              href={`/learn/${moduleSlug}/${prevLesson.slug}`}
+              class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                     hover:border-brand-500/40 hover:bg-surface-1 transition-all text-left"
+            >
+              <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">← Previous</span>
+              <span class="text-sm font-medium text-slate-300">{prevLesson.title}</span>
+            </a>
+          ) : <div />}
+
+          {nextLesson ? (
+            <a
+              href={`/learn/${moduleSlug}/${nextLesson.slug}`}
+              class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                     hover:border-brand-500/40 hover:bg-surface-1 transition-all text-right ml-auto w-full"
+            >
+              <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">Next →</span>
+              <span class="text-sm font-medium text-slate-300">{nextLesson.title}</span>
+            </a>
+          ) : <div />}
+        </nav>
+      </div>
+    </main>
+
+    <!-- Right rail: lesson progress / quiz CTA -->
+    <LessonProgress lesson={lesson} />
+  </div>
+
+  <Footer />
+</BaseLayout>
