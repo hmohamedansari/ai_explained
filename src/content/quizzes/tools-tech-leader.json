@@ -1,0 +1,60 @@
+{
+  "title": "Tools — Tech Leader",
+  "concept": "tools-tech-leader",
+  "questions": [
+    {
+      "id": "ttl1",
+      "type": "multiple-choice",
+      "question": "In the tool-calling architecture, what role does the host application play?",
+      "options": [
+        "It trains the model to use tools correctly.",
+        "It decides whether to execute, modify, or reject every tool request the model makes.",
+        "It translates the model's natural-language output into structured API calls.",
+        "It provides the model with direct access to external systems."
+      ],
+      "answer": 1,
+      "explanation": "The host application is the gatekeeper. The model can only request actions — it never executes them directly. The host receives each request and applies its own validation, authorization, and business logic before deciding whether to proceed.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ttl2",
+      "type": "multiple-choice",
+      "question": "Why is starting with a narrow set of exposed tools a recommended strategy?",
+      "options": [
+        "Models perform worse when given access to many tools.",
+        "Each additional tool increases the potential blast radius if the model makes a poor decision, and widening access later is easier than narrowing it after an incident.",
+        "Tool definitions consume most of the context window, leaving little room for user input.",
+        "Regulatory compliance requires limiting AI systems to fewer than five tools."
+      ],
+      "answer": 1,
+      "explanation": "More tools mean more capability but also a wider scope of impact. Starting narrow follows the same principle of least privilege used in API and IAM design — you can always grant more access, but revoking it after a problem is harder.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ttl3",
+      "type": "true-false",
+      "question": "When a tool call fails, the model stops execution and requires a human operator to intervene before it can continue.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer": 1,
+      "explanation": "When a tool call fails, the error information is returned to the model as text. The model can reason about the failure and decide on a next step — retrying with different parameters, trying an alternative tool, or explaining the situation to the user — without requiring human intervention.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ttl4",
+      "type": "multiple-choice",
+      "question": "What is the primary architectural advantage of the model requesting actions rather than executing them directly?",
+      "options": [
+        "It reduces latency by eliminating network round trips between the model and external systems.",
+        "It allows the model to learn from the results of each action and improve over time.",
+        "It creates a natural control and audit point where every AI-initiated action passes through application-owned validation, authorization, and logging.",
+        "It ensures the model's outputs are always deterministic and repeatable."
+      ],
+      "answer": 2,
+      "explanation": "Because every tool call passes through the host application, you get a built-in control point for security, permissions, and auditing. This is the fundamental trust model — the model proposes, the host disposes — and it is what makes deploying AI capabilities manageable from a governance perspective.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

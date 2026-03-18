@@ -1,0 +1,48 @@
+{
+  "title": "Architecture Overview — SRE / DevOps",
+  "concept": "architecture-overview-sre-devops",
+  "questions": [
+    {
+      "id": "aosre1",
+      "type": "multiple-choice",
+      "question": "From an infrastructure perspective, what is the key operational property of LLM API calls?",
+      "options": [
+        "They require sticky sessions and connection pooling",
+        "They are stateless — no session affinity needed, trivial to horizontally scale",
+        "They require persistent WebSocket connections",
+        "They must be routed to a specific GPU for consistency"
+      ],
+      "answer": 1,
+      "explanation": "Every LLM API call is a fresh forward pass — no session state, no connection affinity. This means you can load-balance freely, retry on any node, and scale horizontally without coordination. Operationally excellent.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "aosre2",
+      "type": "multiple-choice",
+      "question": "You're deploying MCP servers for a production AI agent in K8s. Which transport should you use?",
+      "options": [
+        "stdio — spawn MCP servers as child processes in the agent pod",
+        "HTTP + SSE — deploy MCP servers as independent services with health checks, replicas, and network policies",
+        "WebSocket — the only transport that supports production workloads",
+        "gRPC — better performance than JSON-RPC"
+      ],
+      "answer": 1,
+      "explanation": "For production: HTTP + SSE. MCP servers become independent Deployments with their own lifecycle, scaling, health checks, and network policies. stdio (child processes) is fine for development and single-user setups but doesn't give you independent scaling or fault isolation.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "aosre3",
+      "type": "multiple-choice",
+      "question": "An AI agent has access to a 'kubectl' tool, a 'database-query' tool, and a 'slack-notify' tool. What's the primary security control?",
+      "options": [
+        "Rate limiting the LLM API calls",
+        "The three trust boundaries: tool definitions scope what the model can request, the host gates execution, and the underlying services enforce their own auth",
+        "Encrypting the tool definitions",
+        "Running the agent in a separate namespace"
+      ],
+      "answer": 1,
+      "explanation": "Defense in depth across three boundaries: (1) tool definitions scope what the model can even request, (2) the host application can reject or gate requests, (3) the underlying services enforce their own auth (K8s RBAC, database permissions, Slack OAuth scopes). All three matter.",
+      "audiences": ["sre-devops"]
+    }
+  ]
+}

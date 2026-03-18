@@ -1,0 +1,43 @@
+{
+  "title": "Architecture Overview — New Developer",
+  "concept": "architecture-overview-new-dev",
+  "questions": [
+    {
+      "id": "aond1",
+      "type": "multiple-choice",
+      "question": "When an AI agent 'uses a tool', what actually happens?",
+      "options": [
+        "The AI directly connects to the internet and runs code",
+        "The AI sends a structured request to the host app, which actually executes it and sends the result back",
+        "The AI downloads and installs the tool, then runs it",
+        "The tool runs automatically whenever the AI mentions it"
+      ],
+      "answer": 1,
+      "explanation": "The AI is like a smart friend who can suggest actions but can't pick up your phone. It sends a structured message saying 'I'd like to do X with these inputs', the host app does it, and sends the result back. The AI never directly executes anything.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "aond2",
+      "type": "true-false",
+      "question": "Skills are special plugins you install — they require a database and a server to work.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "False! Skills are just text files (like recipe cards) that get loaded into the AI's context when needed. No database, no server, no installation. Just a markdown file on disk that the host reads at the right time.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "aond3",
+      "type": "multiple-choice",
+      "question": "MCP is best described as:",
+      "options": [
+        "A programming language for AI agents",
+        "A universal standard for connecting AI agents to external services — like USB-C for AI",
+        "A type of AI model that's smarter than others",
+        "A way to train AI models on your own data"
+      ],
+      "answer": 1,
+      "explanation": "MCP (Model Context Protocol) is a standard protocol — like USB-C standardized phone chargers, MCP standardizes how AI agents connect to services like GitHub, databases, and file systems. One standard instead of custom code for every integration.",
+      "audiences": ["new-dev"]
+    }
+  ]
+}

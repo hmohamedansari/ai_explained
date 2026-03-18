@@ -1,0 +1,43 @@
+{
+  "title": "Architecture Overview — Tech Leader",
+  "concept": "architecture-overview-tech-leader",
+  "questions": [
+    {
+      "id": "aotl1",
+      "type": "multiple-choice",
+      "question": "Your AI agent accidentally ran a destructive database query. Which architectural layer failed?",
+      "options": [
+        "The model — it shouldn't have generated that query",
+        "The tools layer — the tool definition was too permissive (exposed write access when read-only would suffice)",
+        "The MCP layer — the protocol should block dangerous queries",
+        "The skills layer — the agent wasn't given the right instructions"
+      ],
+      "answer": 1,
+      "explanation": "The tool set IS the permission model. Exposing a write-capable database tool when read-only suffices is like giving an intern root access. The fix is at the tools layer: scope the tool to read-only queries. The model will work within whatever boundaries you define.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "aotl2",
+      "type": "true-false",
+      "question": "If you switch from Claude to a different AI model, your MCP server integrations need to be rebuilt from scratch.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "False. MCP is a standard protocol — any compliant client works with any compliant server. Your MCP servers survive a model switch. This is the vendor independence value of standardizing on MCP for AI integrations.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "aotl3",
+      "type": "multiple-choice",
+      "question": "From a governance perspective, what makes the tools architecture fundamentally different from giving an AI model direct API access?",
+      "options": [
+        "Tools are faster than direct API calls",
+        "The model proposes actions but the host application decides whether to execute them — creating an auditable control point",
+        "Tools encrypt the data automatically",
+        "The model can only use one tool at a time"
+      ],
+      "answer": 1,
+      "explanation": "The model never executes anything directly. It emits a structured request, and the host application gates execution. This creates a natural audit point — every proposed action is logged, can be reviewed, and can be blocked. This is the fundamental trust model.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

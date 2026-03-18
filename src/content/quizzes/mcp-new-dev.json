@@ -1,0 +1,57 @@
+{
+  "title": "MCP — New Developer",
+  "concept": "mcp-new-dev",
+  "questions": [
+    {
+      "id": "mnd1",
+      "type": "multiple-choice",
+      "question": "What is the best analogy for what MCP (Model Context Protocol) does?",
+      "options": [
+        "It is a new AI model that is smarter than other LLMs",
+        "It is a universal standard for connecting AI models to external services — like USB-C for AI",
+        "It is a database that stores all of your project files for the AI to read",
+        "It is a security system that prevents AI from accessing your data"
+      ],
+      "answer": 1,
+      "explanation": "MCP is a standard protocol — not a model, database, or security system. Just like USB-C gave devices one universal plug, MCP gives AI models one universal way to connect to external services like GitHub, databases, and file systems.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "mnd2",
+      "type": "multiple-choice",
+      "question": "Which of the following is an example of an MCP 'tool' (as opposed to a 'resource' or 'prompt')?",
+      "options": [
+        "Viewing the database schema for a table",
+        "A reusable template for reviewing code",
+        "Creating a new GitHub issue",
+        "Reading the contents of a README file"
+      ],
+      "answer": 2,
+      "explanation": "A tool is an action — it does something or changes something in the outside world. Creating a GitHub issue is an action. Viewing a schema or reading a file are resources (read-only data), and a reusable review template is a prompt.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "mnd3",
+      "type": "true-false",
+      "question": "An MCP server replaces the AI model — it generates text responses on its own without needing an LLM.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "An MCP server does not generate text or replace the AI model. It is a translator that sits between the AI model and an external service. The AI model still does the thinking and text generation; the MCP server just handles the connection to outside services.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "mnd4",
+      "type": "multiple-choice",
+      "question": "What are the three kinds of capabilities an MCP server can provide?",
+      "options": [
+        "Models, Tokens, and Context Windows",
+        "Tools, Resources, and Prompts",
+        "APIs, Databases, and File Systems",
+        "Authentication, Authorization, and Encryption"
+      ],
+      "answer": 1,
+      "explanation": "Every MCP server can offer Tools (actions the AI can perform), Resources (data the AI can read), and Prompts (reusable instruction templates). These three capabilities cover the main ways an AI model needs to interact with external services.",
+      "audiences": ["new-dev"]
+    }
+  ]
+}

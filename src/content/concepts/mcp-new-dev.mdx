@@ -1,0 +1,194 @@
+---
+title: "MCP — For New Developers"
+description: "How AI agents connect to the outside world — MCP explained from scratch with plain-language examples and diagrams."
+module: "how-agents-work"
+order: 3
+audiences: ["new-dev"]
+estimatedMinutes: 12
+tags: ["mcp", "protocol", "beginner", "integration", "practical"]
+draft: false
+---
+
+## The problem: AI is smart but isolated
+
+In the previous lessons you learned that an LLM generates text by predicting the next token. You also learned that it is **stateless** — it has no memory between calls and no built-in connection to the outside world.
+
+That creates a practical gap. Imagine you are a developer and you want Claude to:
+
+- Check the open pull requests on your **actual** GitHub repo.
+- Query your **actual** production database for slow queries.
+- Read the **actual** files on your laptop.
+
+Claude was trained on a massive amount of text, but it was *not* trained on your private repos, your database, or your local files. It has no way to reach out and look at those things — unless you give it one.
+
+That "way to reach out" is what **MCP** is all about.
+
+## The analogy: MCP is USB-C for AI
+
+Think back to 2012. If you had a drawer of phone chargers, every brand used a different plug — Micro-USB, Lightning, a barrel connector, something proprietary. Charging a friend's phone meant hunting for the right cable.
+
+Then USB-C arrived. One plug, one standard. Any USB-C cable works with any USB-C device.
+
+**MCP — the Model Context Protocol — is the USB-C of AI integrations.**
+
+Before MCP, every AI tool had its own custom way to connect to external services. If you wanted Claude to talk to GitHub, you wrote custom code. If you wanted it to talk to Slack, you wrote completely different custom code. If you switched from one AI tool to another, you started over.
+
+MCP says: let's agree on a single standard way for AI models to connect to *any* service. Build a connection once, and it works everywhere MCP is supported.
+
+## What is an MCP server?
+
+An MCP **server** is a small program that sits between the AI model and the external service you want to connect to. Its job is translation.
+
+Think of it this way. You speak English. Your colleague speaks Japanese. You hire a translator who is fluent in both languages. Now you can have a full conversation without either of you learning the other's language.
+
+An MCP server does the same thing:
+
+```
+┌─────────┐       ┌────────────┐       ┌──────────┐
+│  Claude  │ ───── │ MCP Server │ ───── │  GitHub  │
+│ (speaks  │       │(translator)│       │(speaks   │
+│  "AI")   │       │            │       │  "API")  │
+└─────────┘       └────────────┘       └──────────┘
+```
+
+Claude does not need to know the details of the GitHub API. The MCP server handles that. Claude just needs to know how to talk to MCP servers — and that part is the same no matter what service is on the other end.
+
+## The three things an MCP server can provide
+
+Every MCP server can offer up to three kinds of capabilities. You do not need to memorize the technical details — just the big idea behind each one.
+
+### 1. Tools — things the AI can *do*
+
+A tool is an action. It changes something in the outside world or fetches a specific result.
+
+Examples:
+- "Create a new GitHub issue titled *Fix login bug*."
+- "Send a Slack message to the #engineering channel."
+- "Run this SQL query against the staging database."
+
+When Claude decides it needs to perform an action, it calls the appropriate tool through the MCP server. The server carries out the action and sends the result back.
+
+### 2. Resources — things the AI can *read*
+
+A resource is a piece of data the AI can look at. It does not change anything — it just provides information.
+
+Examples:
+- "Show me the database schema for the users table."
+- "Give me the contents of the README file in the main branch."
+- "List all the environment variables configured in this project."
+
+Resources let Claude understand the context of your project without you having to copy-paste everything into the chat.
+
+### 3. Prompts — reusable templates
+
+A prompt is a pre-written instruction template that you can invoke by name.
+
+Examples:
+- "Review this code for security issues" — a carefully crafted review template.
+- "Summarize this pull request for a non-technical stakeholder."
+- "Generate test cases for this function."
+
+Prompts are handy because they package up expertise. Someone on your team can write a great code-review prompt once, share it via the MCP server, and everyone benefits.
+
+### Quick summary table
+
+| Capability | What it does | Analogy |
+|---|---|---|
+| **Tool** | Performs an action | Pressing a button on a remote control |
+| **Resource** | Provides data to read | Opening a book to a specific page |
+| **Prompt** | Reusable instruction template | A recipe card you follow step-by-step |
+
+## How it works: a step-by-step walkthrough
+
+Let's trace a real example end to end. You are using Claude and you type:
+
+> "What are the open pull requests on my project?"
+
+Here is what happens:
+
+```
+Step 1   You type your question
+           │
+           ▼
+Step 2   Claude reads your message and realizes it needs
+         to check GitHub. It decides to call the
+         "list_pull_requests" tool.
+           │
+           ▼
+Step 3   Claude sends a request to the GitHub MCP server:
+         "list open pull requests for repo acme/widgets"
+           │
+           ▼
+Step 4   The MCP server translates that into a real
+         GitHub API call and sends it to GitHub.
+           │
+           ▼
+Step 5   GitHub responds with the data — three open PRs.
+           │
+           ▼
+Step 6   The MCP server sends that data back to Claude
+         in a standard format.
+           │
+           ▼
+Step 7   Claude reads the data, summarizes it, and
+         replies to you in plain English:
+
+         "You have 3 open pull requests:
+          1. Fix login bug (#42) — opened by Alice
+          2. Add dark mode (#43) — opened by Bob
+          3. Update dependencies (#44) — opened by you"
+```
+
+Notice that **you** did not have to write any API code. You did not have to read GitHub's API documentation. You just asked a question in plain English, and the MCP server handled the plumbing.
+
+## Why should you care as a new developer?
+
+Three reasons:
+
+**1. You will encounter MCP servers in real tools.** Claude Code, Cursor, Windsurf, and other AI-powered development tools already support MCP. When you install a plugin that "connects Claude to your database" or "lets the AI manage your cloud infrastructure," there is a good chance MCP is running under the hood.
+
+**2. You can build your own MCP server.** MCP servers are just programs. If you know the basics of writing a web server (or even a simple script), you can build an MCP server that exposes your own tools and resources to any AI that supports the protocol. There are SDKs in Python, TypeScript, and other languages that handle the hard parts for you.
+
+**3. It is a standard, not a product.** Because MCP is an open protocol, learning it once carries over to many tools and services. It is like learning HTTP — you do not learn it for one website; you learn it because the whole web runs on it.
+
+## What MCP is *not*
+
+A few common misconceptions to clear up early:
+
+- **MCP is not an AI model.** It does not generate text or make predictions. It is the plumbing that connects a model to outside services.
+- **MCP is not magic.** The AI still needs permission to use tools, and the MCP server still needs valid credentials (API keys, tokens) to access services on your behalf. Security still matters.
+- **MCP is not the only way to connect AI to services.** You can always write custom code. MCP just standardizes the pattern so you do not reinvent the wheel every time.
+
+## A quick mental model to take with you
+
+```
+┌──────────────────────────────────────────────────┐
+│                  Your question                    │
+│         "Check my open pull requests"             │
+└────────────────────┬─────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────────┐
+│              AI Model (Claude)                    │
+│  "I need the list_pull_requests tool."            │
+└────────────────────┬─────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────────┐
+│              MCP Server (GitHub)                  │
+│  Translates request → GitHub API call             │
+│  Translates response → standard format            │
+└────────────────────┬─────────────────────────────┘
+                     │
+                     ▼
+┌──────────────────────────────────────────────────┐
+│           External Service (GitHub)               │
+│  Returns the actual data                          │
+└──────────────────────────────────────────────────┘
+```
+
+**MCP is USB-C for AI.** One standard plug. Many services. No more charger drawer.
+
+## What's next?
+
+Now that you understand how AI models connect to the outside world through MCP, upcoming lessons will explore how agents combine LLMs, MCP tools, memory, and decision-making loops to accomplish complex tasks autonomously. That is where the real power shows up.

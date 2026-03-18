@@ -1,0 +1,57 @@
+{
+  "title": "Tools — New Developer",
+  "concept": "tools-new-dev",
+  "questions": [
+    {
+      "id": "tnd1",
+      "type": "multiple-choice",
+      "question": "When a model wants to use a tool, what does it actually do?",
+      "options": [
+        "It directly calls the external API and returns the result to the user",
+        "It sends back a structured request asking the host application to run the tool",
+        "It pauses the conversation and waits for the user to run the tool manually",
+        "It searches the internet for the answer and caches it for later"
+      ],
+      "answer": 1,
+      "explanation": "The model cannot interact with the outside world on its own. Instead, it returns a structured tool_use block — essentially a polite, precise request — asking the host application to execute the tool. The host runs it, sends the result back, and the model continues.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "tnd2",
+      "type": "true-false",
+      "question": "A stop_reason of \"tool_use\" means the model's response is ready to be shown to the user.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "A stop_reason of \"tool_use\" means the opposite — the model is NOT done yet. It is saying: \"I need you to run this tool and send me the result before I can give a final answer.\" Only when the stop_reason is \"end_turn\" is the response ready for the user.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "tnd3",
+      "type": "multiple-choice",
+      "question": "What are the three main parts of a tool definition?",
+      "options": [
+        "endpoint, auth_token, and rate_limit",
+        "name, description, and input_schema",
+        "model, temperature, and max_tokens",
+        "role, content, and stop_reason"
+      ],
+      "answer": 1,
+      "explanation": "A tool definition has a name (a short identifier), a description (plain-language explanation of what it does), and an input_schema (what inputs the tool needs and their types). The description is especially important because that is how the model decides when to use the tool.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "tnd4",
+      "type": "multiple-choice",
+      "question": "Why does the host application run tools instead of letting the model call APIs directly?",
+      "options": [
+        "Because models are not fast enough to make network requests",
+        "Because API providers block requests from AI models",
+        "Because it keeps the host in control — it can validate inputs, handle errors, and refuse dangerous actions",
+        "Because tool results need to be encrypted before the model can read them"
+      ],
+      "answer": 2,
+      "explanation": "Having the host execute tools is a deliberate safety and reliability design. The host decides which tools exist, validates every input, handles errors gracefully, and can refuse to run anything dangerous. The model suggests actions; the host decides whether to carry them out.",
+      "audiences": ["new-dev"]
+    }
+  ]
+}

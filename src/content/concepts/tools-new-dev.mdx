@@ -1,0 +1,189 @@
+---
+title: "Tools — For New Developers"
+description: "How AI models interact with the real world — the request/execute/return loop explained from scratch with simple examples."
+module: "how-agents-work"
+order: 2
+audiences: ["new-dev"]
+estimatedMinutes: 12
+tags: ["tools", "function-calling", "beginner", "api", "practical"]
+draft: false
+---
+
+## The Big Limitation: LLMs Cannot Do Things
+
+Large language models are impressive. They can write code, summarize documents, translate languages, and explain complex topics. But there is one critical thing they cannot do: **they cannot reach out and interact with the real world on their own.**
+
+A model cannot check the weather. It cannot look up your database. It cannot send an email. It cannot call an API. All it can do is read text in and write text out. That is it.
+
+So how do AI assistants seem to do all of these things? The answer is **tools** — sometimes called **function calling**. Tools are the mechanism that lets a model *ask* for something to happen in the real world, get the result back, and then keep going.
+
+---
+
+## The Analogy: A Smart Friend Who Cannot Pick Up Your Phone
+
+Imagine you have a really smart friend and you are texting them. You ask: "What is the weather like in Berlin right now?"
+
+Your friend is brilliant, but they are not in front of a computer. They cannot check the weather themselves. So instead, they text you back:
+
+> "Hey, can you open your weather app and look up Berlin for me? Tell me what it says."
+
+You open the app, see that it is 14 degrees and cloudy in Berlin, and text them back: "14 degrees, cloudy."
+
+Now your friend has the information they needed. They reply: "Sounds like a cool, overcast day in Berlin — you might want to bring a jacket."
+
+That back-and-forth is *exactly* how tools work with LLMs:
+
+1. **You ask the model a question** that requires real-world information.
+2. **The model cannot get that information itself**, so it sends back a structured request: "Please run this tool with these inputs."
+3. **Your application (the host) runs the tool** — makes the API call, queries the database, whatever is needed.
+4. **The result goes back to the model.**
+5. **The model reads the result and gives you a final answer.**
+
+The model never touches the outside world directly. It just asks, politely and precisely, for someone else to do it.
+
+---
+
+## What Does a Tool Definition Look Like?
+
+Before the model can ask for a tool, it needs to know what tools are available. You tell it by providing **tool definitions** — simple descriptions of what each tool does and what inputs it needs.
+
+Here is a stripped-down example for a weather tool:
+
+```json
+// A tool definition tells the model:
+// "Here is a tool you can use. Here is what it does and what inputs it needs."
+{
+  "name": "get_weather",
+  "description": "Get the current weather for a given city.",
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "city": {
+        "type": "string",
+        "description": "The name of the city, e.g. 'Berlin'"
+      }
+    },
+    "required": ["city"]
+  }
+}
+```
+
+That is all there is to it. A tool definition has three parts:
+
+- **name** — a short identifier the model will use when it wants to call the tool.
+- **description** — a plain-language explanation of what the tool does. This is how the model decides *when* to use it.
+- **input_schema** — what inputs the tool needs, what type each one is, and which ones are required.
+
+You can define as many tools as you like. A coding assistant might have tools for reading files, searching code, and running terminal commands. A customer support bot might have tools for looking up orders and issuing refunds.
+
+---
+
+## Walking Through a Complete Example
+
+Let us trace through the full flow, step by step, using that weather tool.
+
+### Step 1 — You send a message
+
+You send the model this message:
+
+> "What's the weather in Berlin?"
+
+### Step 2 — The model decides to use a tool
+
+The model looks at your question, sees that it has a tool called `get_weather` available, and decides that it needs to call it. Instead of replying with a normal text answer, it sends back a response that looks like this:
+
+```json
+// The model's response — notice it is NOT a text reply.
+// It is a structured request to call a tool.
+{
+  "role": "assistant",
+  "stop_reason": "tool_use",
+  "content": [
+    {
+      "type": "tool_use",
+      "id": "tool_01ABC",
+      "name": "get_weather",
+      "input": {
+        "city": "Berlin"
+      }
+    }
+  ]
+}
+```
+
+Two things to notice here:
+
+- The **`stop_reason`** is `"tool_use"`, not `"end_turn"`. This is the model's way of saying: *"I am not done yet. Do not show this to the user. I need you to run a tool first and give me the result."*
+- The **`content`** contains a `tool_use` block with the tool's name and the inputs the model chose. The model figured out on its own that `"Berlin"` should go in the `city` field.
+
+### Step 3 — Your application runs the tool
+
+Your code sees the `tool_use` block, calls the actual weather API (or whatever service you have), and gets back real data. Let us say the API returns that it is 14 degrees and cloudy.
+
+### Step 4 — You send the result back to the model
+
+You add the tool result to the conversation and send it back:
+
+```json
+// You tell the model what the tool returned.
+{
+  "role": "user",
+  "content": [
+    {
+      "type": "tool_result",
+      "tool_use_id": "tool_01ABC",
+      "content": "Current weather in Berlin: 14°C, cloudy, wind 12 km/h"
+    }
+  ]
+}
+```
+
+Notice the `tool_use_id` matches the `id` from the model's request. This is how the model knows which tool call this result belongs to — important when multiple tools are called at once.
+
+### Step 5 — The model gives a final answer
+
+Now the model has the real-world information it needed. It responds with a natural-language summary:
+
+> "It's currently 14 degrees and cloudy in Berlin, with a light wind at 12 km/h. You might want a jacket if you're heading out!"
+
+The `stop_reason` this time is `"end_turn"` — the model is done, and this text is ready to show to the user.
+
+---
+
+## The Loop in Plain Language
+
+Here is the whole cycle, compressed:
+
+1. **User** sends a question.
+2. **Model** responds with `tool_use` (structured request + `stop_reason: "tool_use"`).
+3. **Host** executes the tool and gets real data.
+4. **Host** sends the `tool_result` back to the model.
+5. **Model** responds with a final answer (`stop_reason: "end_turn"`).
+
+This is sometimes called the **request / execute / return** loop. The model requests, the host executes, the result returns — and then the model continues.
+
+A model can also call **multiple tools** before giving a final answer. For example, if you ask "What's the weather in Berlin and Tokyo?", the model might emit two `tool_use` blocks in one response. Your application runs both, sends both results back, and the model summarizes everything at the end.
+
+---
+
+## Why Does It Work This Way?
+
+You might wonder: why not just let the model call APIs directly?
+
+There are a few good reasons:
+
+- **Safety.** The host application is in full control. It decides which tools exist, validates the inputs, and can refuse to run anything dangerous. The model cannot do anything you have not explicitly allowed.
+- **Flexibility.** The same model can work with completely different tools depending on the application. A coding tool gives it file-system access. A customer service tool gives it order-lookup access. The model itself does not change — only the tools do.
+- **Reliability.** If something goes wrong with a tool call, the host can handle the error, retry, or ask the user for clarification. The model does not need to manage network errors or API rate limits.
+
+---
+
+## Key Takeaways
+
+- LLMs can only read and write text. They **cannot** interact with the outside world on their own.
+- **Tools** bridge that gap. They let the model ask the host to do something, get the result, and continue.
+- A **tool definition** tells the model what tools are available, what each one does, and what inputs it needs.
+- When the model wants to use a tool, it sets `stop_reason` to `"tool_use"` — this means "run the tool first, then send me the result."
+- The host is always in control. The model suggests actions; the host decides whether to execute them.
+
+Tools are one of the most important concepts in modern AI development. Almost every useful AI application — coding assistants, search engines, customer support bots — relies on this pattern. Once you understand the request / execute / return loop, you have the foundation for understanding how AI agents work.

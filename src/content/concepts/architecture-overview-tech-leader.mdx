@@ -1,0 +1,85 @@
+---
+title: "Architecture Overview — For Tech Leaders"
+description: "The three-layer model that powers every AI agent — and the architectural decisions each layer puts on your plate."
+module: "how-agents-work"
+order: 0
+audiences: ["tech-leader"]
+estimatedMinutes: 6
+tags: ["architecture", "strategy", "overview", "mental-model"]
+draft: false
+---
+
+## The Mental Model in One Sentence
+
+> An AI agent is a stateless text predictor surrounded by a host application that gives it eyes, hands, and memory.
+
+The model itself — Claude, GPT, Gemini — is a function: text in, text out. Everything it can *perceive* (read files, query databases) and *affect* (write code, create tickets) comes from three layers built around it. Understanding these layers is how you evaluate, scope, and govern AI agent deployments.
+
+---
+
+## The Three Layers
+
+### 1. Tools — What the Agent Can Do
+
+Tools are the actions an AI agent can request. The critical word is *request* — the model never executes anything directly. It proposes an action (in structured JSON), and the host application decides whether to execute it.
+
+**Why this matters for you:**
+- **You control the blast radius.** Expose a read-only database tool and the agent can query but never modify. Expose a write tool and it can. The tool set IS the permission model.
+- **Audit is built in.** Every action the model wants to take is a structured request you can log, review, and gate.
+- **The model can recover from failures.** If a tool returns an error, the model reasons about alternatives — retry, ask the user, try a different approach. This isn't scripted fallback logic; it's adaptive.
+
+### 2. Skills — What the Agent Knows (On Demand)
+
+Skills are expert knowledge files loaded into the model's context right before a specific task. Think of them as surgical reference cards — the agent doesn't memorize every procedure, it loads the right protocol before operating.
+
+**Why this matters for you:**
+- **Institutional knowledge becomes portable.** Team conventions, API best practices, deployment runbooks — encoded as files, version-controlled, loaded automatically.
+- **Context window is a finite resource.** Skills compete with conversation history for space. Loading everything all the time wastes budget. Just-in-time loading is the architecture.
+
+### 3. MCP — How the Agent Connects to Everything
+
+MCP (Model Context Protocol) is the standard protocol for connecting AI agents to external systems. Before MCP: N models × M services = N×M custom integrations. With MCP: N + M.
+
+**Why this matters for you:**
+- **Vendor independence.** Your MCP servers work with any compliant AI client. Switch from Claude to another model? The integrations survive.
+- **Build vs buy.** Community MCP servers exist for GitHub, Postgres, filesystem, Slack. Build custom ones for internal systems.
+- **Microservices analogy.** MCP servers are to AI agents what microservices are to web apps — small, focused, independently deployable.
+
+---
+
+## How They Stack Together
+
+```
+┌─────────────────────────────────────────┐
+│              AI Model (LLM)             │
+│  Reads skills → expert context          │
+│  Calls tools → actions it wants taken   │
+└──────────────┬──────────────────────────┘
+               │ structured requests
+     ┌─────────▼──────────┐
+     │   Host Application  │  ← You control this layer
+     │   (permission gate)  │
+     └─────┬─────────┬─────┘
+           │         │
+    Native tools   MCP Servers
+    (built-in)     (GitHub, DB, internal...)
+```
+
+The host application is **your** control plane. It decides which tools to expose, which skills to load, and which MCP servers to connect. The model proposes; the host disposes.
+
+---
+
+## The Decisions This Architecture Puts on Your Plate
+
+| Decision | Layer | Key tradeoff |
+|---|---|---|
+| Which actions can the agent take? | Tools | Capability vs blast radius |
+| What knowledge does the agent need? | Skills | Breadth vs context budget |
+| Which systems does the agent connect to? | MCP | Integration scope vs maintenance |
+| How much autonomy does the agent get? | Host | Speed vs human oversight |
+
+---
+
+## Key Takeaway
+
+The model is the brain. Tools, Skills, and MCP are what make it useful. Your job is governing what it can see and do — and the architecture gives you clean control points at every layer.

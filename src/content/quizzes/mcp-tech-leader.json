@@ -1,0 +1,62 @@
+{
+  "title": "MCP — Tech Leader",
+  "concept": "mcp-tech-leader",
+  "questions": [
+    {
+      "id": "mtl1",
+      "type": "multiple-choice",
+      "question": "Your organization has 4 AI models and 10 internal services. Without a standard protocol, how many custom integrations do you need — and how does MCP change that?",
+      "options": [
+        "14 integrations either way — the protocol doesn't reduce the number of connections",
+        "40 custom integrations without a standard (4×10); with MCP, 14 (4 clients + 10 servers)",
+        "40 custom integrations without a standard; MCP reduces it to 10 since only the servers matter",
+        "10 integrations either way — you only need one per service regardless of how many models consume it"
+      ],
+      "answer": 1,
+      "explanation": "Without a standard, every model needs a bespoke integration with every service: 4×10 = 40. MCP turns this into N+M: you build one MCP client per model (4) and one MCP server per service (10), for a total of 14. Any client can talk to any server through the standard protocol.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "mtl2",
+      "type": "multiple-choice",
+      "question": "Your security team asks: 'Who decides what the AI agent is allowed to do?' Using MCP's governance framework, what is the most accurate answer?",
+      "options": [
+        "The AI model controls everything — it decides what to read, what actions to take, and which workflows to run",
+        "The user controls everything — the AI only acts on explicit, step-by-step user instructions",
+        "Control is split three ways: the model decides when to invoke tools, the application controls which data resources are exposed, and the user selects which prompt workflows to run",
+        "The MCP server controls everything — it decides what to expose and the model has no discretion"
+      ],
+      "answer": 2,
+      "explanation": "MCP defines three control models that map to different governance responsibilities. Tools are model-controlled (the AI reasons about when to call them, within boundaries you set). Resources are application-controlled (the host application determines what data the agent can see). Prompts are user-controlled (the human selects which workflow templates to invoke). This separation gives security teams a structured way to reason about authorization at each layer.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "mtl3",
+      "type": "multiple-choice",
+      "question": "Your CTO is concerned about vendor lock-in with your current AI provider. You have built 15 custom tool integrations using that provider's proprietary function-calling API. What is the strongest argument for migrating to MCP?",
+      "options": [
+        "MCP is faster than proprietary APIs, so your tools will perform better",
+        "MCP servers are provider-agnostic — your integration investment carries over if you switch AI providers, since any MCP client works with any MCP server",
+        "MCP eliminates the need for authentication and access control on your internal services",
+        "MCP automatically converts your existing proprietary integrations into standard format with no engineering effort"
+      ],
+      "answer": 1,
+      "explanation": "The core strategic value of MCP is vendor independence. MCP servers expose capabilities through a standard protocol that is not tied to any AI provider. If you switch models or run multiple providers, your entire server inventory works unchanged. Proprietary integrations, by contrast, must be rebuilt from scratch for each new provider. MCP does not eliminate auth concerns or auto-convert existing integrations — but it ensures your future integration investment is portable.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "mtl4",
+      "type": "multiple-choice",
+      "question": "You are prioritizing which internal systems to expose via MCP servers first. Which approach best balances value and risk?",
+      "options": [
+        "Start with deployment and production database write access — these have the highest impact on developer productivity",
+        "Build all MCP servers simultaneously so the full catalog is available from day one",
+        "Start with read-only, high-value servers (documentation search, codebase search, schema inspection) and add action-oriented servers once your governance model is proven",
+        "Wait until MCP is fully mature before building any servers — early adoption carries too much risk"
+      ],
+      "answer": 2,
+      "explanation": "Read-only MCP servers deliver immediate value to AI-assisted workflows with minimal risk — the agent can see information but cannot change anything. This lets your team build confidence in the governance model, monitoring, and access controls. Action-oriented servers (deployments, writes, ticket creation) should follow once those foundations are solid. Building everything at once spreads effort too thin, and starting with high-risk write operations before governance is proven invites incidents.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

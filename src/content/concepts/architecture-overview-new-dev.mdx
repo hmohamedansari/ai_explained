@@ -1,0 +1,132 @@
+---
+title: "Architecture Overview — For New Developers"
+description: "The big picture of how AI agents work — three simple building blocks that turn a text predictor into something that can actually do things."
+module: "how-agents-work"
+order: 0
+audiences: ["new-dev"]
+estimatedMinutes: 8
+tags: ["architecture", "overview", "beginner", "mental-model"]
+draft: false
+---
+
+## What's an AI Agent, Really?
+
+You've probably used ChatGPT or Claude to answer questions. That's an AI *model* — a really good text predictor. But a model by itself can't do much in the real world. It can't check your email, read your code, or create a file on your computer.
+
+An AI **agent** is what you get when you give that model superpowers — the ability to *see things* (read files, check APIs) and *do things* (run commands, write code, create tickets).
+
+Those superpowers come from three building blocks. Learn these and everything else makes sense.
+
+---
+
+## Building Block 1: Tools
+
+**What they are:** Actions the AI can ask to perform.
+
+Here's the key insight: **the AI never actually does anything itself.** It sends a message saying "I'd like to run this command" or "I'd like to check the weather." A separate program (the *host app*) actually does it and sends the result back.
+
+Think of it like texting a friend:
+1. You text: "Hey, can you check if the pizza place is open?"
+2. Your friend checks and texts back: "Yeah, they're open until 10"
+3. You reply to the person who asked: "The pizza place is open until 10!"
+
+The AI is like you in this scenario — it can ask for things and use the answers, but it can't pick up your friend's phone.
+
+```
+You (user): "What's the weather in Berlin?"
+
+AI model thinks: "I should use the weather tool"
+AI sends: { "tool": "get_weather", "city": "Berlin" }
+
+Host app runs the tool, gets: "18°C, partly cloudy"
+Host sends result back to AI
+
+AI responds: "It's 18°C and partly cloudy in Berlin!"
+```
+
+---
+
+## Building Block 2: Skills
+
+**What they are:** Expert knowledge loaded at just the right time.
+
+The AI was trained on a lot of text, but it can't know everything about every library, every team's coding style, or every company's conventions. And there's a limit to how much information you can feed it at once (the *context window*).
+
+Skills solve this. They're just text files — like cheat sheets — that get loaded into the AI's memory right before a specific task.
+
+Think of it like a recipe card:
+- You don't memorize every recipe in the world
+- When you want to make lasagna, you pull out the lasagna recipe card
+- Now you have expert instructions for exactly what you're about to do
+
+```
+User: "Generate a Word document with the quarterly report"
+
+Host app thinks: "This is a Word doc task"
+Host loads: docx/SKILL.md (2000 words of python-docx best practices)
+AI now has expert knowledge about making Word docs
+→ Writes better code than it would from memory alone
+```
+
+---
+
+## Building Block 3: MCP (Model Context Protocol)
+
+**What it is:** A universal way for AI agents to connect to external services.
+
+Before MCP, connecting an AI to GitHub required custom code. Connecting to a database required different custom code. Connecting to Slack? More custom code. Every combination was different.
+
+MCP is like **USB-C for AI**. Remember when every phone had a different charger? USB-C standardized that — one cable works with everything. MCP does the same for AI integrations.
+
+An MCP server is a small program that sits between the AI and a service:
+
+```
+AI agent
+   │
+   ├── GitHub MCP server ──→ GitHub
+   ├── Database MCP server ──→ PostgreSQL
+   └── Filesystem MCP server ──→ Your files
+```
+
+MCP servers provide three things:
+- **Tools** — actions the AI can take ("create a GitHub issue")
+- **Resources** — data the AI can read ("show me the database schema")
+- **Prompts** — reusable templates ("review this code for bugs")
+
+---
+
+## How They All Fit Together
+
+```
+┌─────────────────────────────────────────┐
+│              AI Model                    │
+│                                          │
+│  Has skills loaded → knows HOW to do it  │
+│  Has tools available → knows WHAT it can │
+│  Has MCP connections → knows WHERE to go │
+└──────────────┬───────────────────────────┘
+               │ "I'd like to do X"
+     ┌─────────▼──────────┐
+     │   Host Application  │  ← The middleman
+     └─────┬─────────┬─────┘
+           │         │
+    Built-in tools  MCP Servers
+    (run commands,  (GitHub, database,
+     read files)    Slack, etc.)
+```
+
+Here's the beautiful part: **the AI doesn't know or care where a tool comes from.** Whether it's built into the host app or comes from an MCP server, it just sees a list of available tools and uses them. The host handles the wiring.
+
+---
+
+## The One Thing to Remember
+
+> The AI model is a brain in a jar. Tools give it hands. Skills give it expertise. MCP gives it connections to the outside world.
+
+Without these three things, it can only answer questions from its training data. With them, it becomes an agent that can actually get things done.
+
+---
+
+## What's Next
+
+The following lessons dive deep into each building block. You'll learn exactly how tools work (with code you can run), how MCP connects everything, and how skills make the agent smarter at specific tasks.

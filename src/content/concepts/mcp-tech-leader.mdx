@@ -1,0 +1,100 @@
+---
+title: "MCP — For Tech Leaders"
+description: "Why MCP matters for your AI strategy — the standard protocol that eliminates vendor lock-in and turns N×M integration problems into N+M."
+module: "how-agents-work"
+order: 3
+audiences: ["tech-leader"]
+estimatedMinutes: 8
+tags: ["mcp", "protocol", "strategy", "integration", "vendor-lock-in"]
+draft: false
+---
+
+## The Integration Problem You Already Know
+
+Every technology leader has lived through the integration tax. You adopt a new platform — a CRM, an analytics tool, an internal service — and immediately face the question: how does everything else connect to it? Each connection is custom glue. Each custom integration is a maintenance burden. Multiply the number of systems by the number of consumers and you get a combinatorial explosion of bespoke connectors that nobody wants to own.
+
+AI is recreating this problem at speed. Your organization wants AI agents that can read from databases, trigger deployments, search internal wikis, file tickets, query monitoring dashboards, and interact with dozens of other systems. Without a standard, every AI model needs a custom integration for every service. N models talking to M services means N×M integrations — each one hand-built, each one fragile, each one tightly coupled to a specific model provider's API conventions.
+
+This is the problem the **Model Context Protocol (MCP)** solves.
+
+---
+
+## The USB-C Analogy
+
+Before USB-C, every device had its own connector. Your phone used one cable, your laptop another, your headphones a third. Every manufacturer shipped a proprietary charger. Travel meant carrying a bag of cables.
+
+USB-C replaced that chaos with a single standard. One connector, many devices. The cable doesn't care whether it's plugging into a phone, a monitor, or a laptop. The device doesn't care who made the cable.
+
+MCP is USB-C for AI integrations. It defines a standard protocol that sits between AI agents (clients) and external services (servers). Any MCP-compatible client can talk to any MCP-compatible server. The client doesn't need to know the internals of the service. The server doesn't need to know which AI model is calling it. The protocol handles the handshake.
+
+The result: your N×M integration problem becomes **N+M**. Build one MCP server for each service. Build one MCP client for each AI model. Everything connects to everything.
+
+---
+
+## What MCP Servers Expose
+
+An MCP server makes a service available to AI agents through three categories of capability. These are not technical trivia — they map directly to governance concerns.
+
+**Tools** are actions the AI can take. "Create a Jira ticket." "Run a database query." "Deploy to staging." Tools are the verbs — they let the agent do things in the world on behalf of a user.
+
+**Resources** are data the AI can read. "The contents of this file." "The schema of this database." "The last 50 log entries." Resources are the nouns — they give the agent information to reason about.
+
+**Prompts** are reusable interaction templates. "Summarize this pull request using our team's format." "Generate a post-incident review following our template." Prompts are the playbooks — they encode repeatable patterns so every invocation follows the same structure.
+
+This three-part model matters because it maps to three distinct control models.
+
+---
+
+## Three Control Models — A Governance Framework
+
+MCP's design bakes in a governance structure that matters more than the protocol details.
+
+**Model-controlled (Tools).** The AI model decides when to invoke a tool based on its reasoning. If the user says "file a bug for this error," the model determines which tool to call and with what parameters. This is where you need guardrails: approval workflows, scoped permissions, and audit logging, because the AI is making execution decisions.
+
+**Application-controlled (Resources).** The host application — the IDE, the chat interface, the orchestration layer — decides which resources to attach to the agent's context. The model doesn't go browsing on its own. The application selects what the agent can see. This is where your data access policies live: the application enforces what context the agent receives.
+
+**User-controlled (Prompts).** The human user selects which prompt templates to invoke. The AI doesn't autonomously choose a prompt — the user picks the workflow. This is where you maintain human agency: the user decides which playbook to run.
+
+This separation is not an implementation detail. It is a framework for deciding who authorizes what. When your security team asks "who controls what the AI can do," MCP gives you a structured answer: the model controls tool invocation within the boundaries you set, the application controls data exposure, and the user controls workflow selection.
+
+---
+
+## Build vs. Buy
+
+The MCP ecosystem already includes community-maintained servers for common services: GitHub, GitLab, PostgreSQL, Slack, filesystem access, web search, and dozens more. For widely-used tools, you may not need to build anything — you adopt a server, configure permissions, and connect it to your AI client.
+
+For internal systems — your proprietary APIs, your custom data stores, your internal tooling — you build MCP servers. An MCP server is a lightweight wrapper that translates your service's capabilities into the standard MCP interface. If you've built REST APIs or gRPC services, you know the pattern. The effort is comparable to building any other integration adapter, except you build it once and it works with every MCP-compatible AI client.
+
+Think of MCP servers the way you think about microservices. Each one owns a bounded domain. Each one exposes a clean interface. Each one can be developed, deployed, versioned, and maintained independently. Your MCP server inventory becomes a catalog of AI-accessible capabilities — and like any service catalog, it compounds in value as it grows.
+
+---
+
+## Vendor Independence
+
+This is where MCP delivers strategic leverage. Without a standard protocol, your AI integrations are coupled to a specific provider. If you build custom tool integrations for one model provider's function-calling API, switching providers means rebuilding every integration from scratch. Your integration investment is locked in.
+
+With MCP, the investment is portable. Your MCP servers don't know or care which AI model is on the other end. If you switch from one AI provider to another — or run multiple providers for different use cases — your entire server inventory carries over unchanged. The new client connects to the same servers through the same protocol.
+
+This is the same dynamic that made containerization transformative. Docker didn't just solve packaging — it decoupled applications from infrastructure. MCP decouples AI capabilities from AI providers. Your investment in making internal systems AI-accessible survives any change in your model strategy.
+
+---
+
+## What This Means for Technical Strategy
+
+If you are making decisions about AI infrastructure, MCP changes the calculus in concrete ways.
+
+**Standardize on MCP for AI integrations.** Rather than building ad-hoc connectors for each AI experiment, invest in MCP servers for your critical internal systems. Each server you build is reusable across every current and future AI initiative.
+
+**Treat MCP servers like microservices.** Give them owners, version them, monitor them, put them through the same CI/CD pipelines as your other services. They are production infrastructure, not demo glue.
+
+**Use the governance model.** Map Tools, Resources, and Prompts to your existing access-control and approval frameworks. Decide which tools require human approval before execution. Decide which resources are available in which environments. Audit tool invocations the same way you audit API calls.
+
+**Evaluate AI providers on MCP support.** As you assess AI models and platforms, MCP compatibility is a criterion that protects your integration investment. Providers that support MCP give you optionality. Providers that require proprietary integration patterns create lock-in.
+
+**Start with high-value, low-risk servers.** Read-only access to documentation, codebase search, database schema inspection — these deliver immediate value to AI-assisted workflows with minimal risk. Action-oriented servers (deployment, ticket creation, data modification) can follow once your governance model is proven.
+
+---
+
+## Key Takeaway
+
+MCP is an integration standard, not a product feature. It turns the combinatorial explosion of AI-to-service integrations into a linear problem, decouples your AI capability investment from any single provider, and provides a governance framework for controlling what AI agents can see and do. For technology leaders, the strategic move is to treat MCP servers as durable infrastructure — an AI-accessible service catalog that compounds in value over time and survives any shift in the model landscape.

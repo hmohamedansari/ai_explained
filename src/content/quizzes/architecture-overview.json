@@ -1,0 +1,48 @@
+{
+  "title": "Architecture Overview — Experienced Developer",
+  "concept": "architecture-overview",
+  "questions": [
+    {
+      "id": "aoed1",
+      "type": "multiple-choice",
+      "question": "In the Claude Code architecture, when the model emits a tool_use block for an MCP-sourced tool, what happens at the host layer?",
+      "options": [
+        "The model connects directly to the MCP server",
+        "The host routes the call to the correct MCP server via JSON-RPC tools/call — the model has no awareness of whether the tool is native or MCP",
+        "The host converts the tool_use into a REST API call",
+        "The MCP server intercepts the model output directly"
+      ],
+      "answer": 1,
+      "explanation": "The model sees all tools — native and MCP — as identical tool definitions. It has no awareness of the source. The host maintains the routing table: it maps tool names to either native execution or MCP server JSON-RPC calls. This abstraction is what makes MCP transparent to the model.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "aoed2",
+      "type": "multiple-choice",
+      "question": "Skills expand what the model KNOWS, tools expand what it can DO, and MCP expands what it can CONNECT to. What's the one thing none of them change?",
+      "options": [
+        "The model's response time",
+        "The model itself — it's still a stateless text transformer, text in, text or tool_use out",
+        "The context window size",
+        "The host application's permissions"
+      ],
+      "answer": 1,
+      "explanation": "This is the core mental model: the model is a stateless function. Tools, skills, and MCP expand what it can perceive and affect, but the model itself doesn't change. Same weights, same architecture, same stateless text-in/text-out behavior. Everything is built around it, not inside it.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "aoed3",
+      "type": "multiple-choice",
+      "question": "A skill file and an MCP resource both provide information to the model. What's the key architectural difference?",
+      "options": [
+        "Skills are faster to load",
+        "Skills are static files loaded deterministically by the host; MCP resources are dynamic data served by an external process via the MCP protocol",
+        "MCP resources can only contain JSON",
+        "Skills work offline while MCP resources require internet"
+      ],
+      "answer": 1,
+      "explanation": "Skills: static files, deterministic path lookup, zero infrastructure. MCP resources: dynamic data served by a running process, can be subscribed to for live updates, served via JSON-RPC. Use skills for curated instructions that rarely change. Use resources for live data from external systems.",
+      "audiences": ["experienced-dev"]
+    }
+  ]
+}

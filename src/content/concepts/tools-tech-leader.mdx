@@ -1,0 +1,102 @@
+---
+title: "Tools — For Tech Leaders"
+description: "What tools mean for AI architecture — the trust model, the control boundary, and what it means that the model never executes anything directly."
+module: "how-agents-work"
+order: 2
+audiences: ["tech-leader"]
+estimatedMinutes: 8
+tags: ["tools", "function-calling", "strategy", "trust-model", "architecture"]
+draft: false
+---
+
+## The Model Never Does Anything
+
+This is the single most important fact about tools in an LLM architecture, and the one most frequently misunderstood: **the model never executes anything**. It cannot read a file. It cannot query a database. It cannot send an email. It cannot deploy code. It can only produce text — and some of that text happens to be a structured request asking your system to do those things on its behalf.
+
+Tools — sometimes called function calling — are the mechanism that turns a text-generation engine into something that can act on the world. But the acting is never done by the model. It is done by your code, running in your infrastructure, under your control.
+
+This distinction is not pedantic. It is the foundation of the entire security and trust model for AI-powered systems.
+
+---
+
+## The Control Boundary
+
+Every tool-using AI system has an implicit boundary: the model sits on one side, and the execution environment sits on the other. The model can request actions. Your application decides whether to honor those requests.
+
+Think of it as a **consultant and an executive**. You hire a consultant for their judgment and breadth of knowledge. They analyze a situation and recommend a course of action: "We should consolidate these three vendor contracts," or "Spin up a new staging environment with these specifications." But the consultant does not have signing authority. They do not have access to your procurement system. They hand you a recommendation, and you decide whether to execute it, modify it, or reject it entirely.
+
+The LLM is the consultant. Your host application is the executive. The model produces a structured recommendation — "call the `search_database` function with these parameters" — and your application layer decides what happens next. It can execute the call exactly as requested. It can apply additional validation, rate limits, or permission checks. It can refuse the call entirely and return an error to the model. It can log the request for audit purposes regardless of whether it executes.
+
+**The model proposes. The host disposes.** This is not a limitation — it is the architecture's most important feature.
+
+---
+
+## The Request-Execute-Return Loop
+
+Every tool interaction follows a three-step cycle:
+
+1. **The model generates a tool request.** Based on the conversation context, the model decides it needs information or needs to perform an action. It emits a structured request specifying which tool to call and what arguments to pass.
+
+2. **The host application executes (or doesn't).** Your code receives the request, applies whatever validation and authorization logic you have built, and either executes the underlying operation or returns an error. This is where your guardrails live — permission checks, input sanitization, rate limiting, scope constraints.
+
+3. **The result returns to the model.** The output of the tool call — success data or error information — is fed back into the model's context. The model reads the result and decides what to do next: it might answer the user's question, call another tool, or reason about an error and try a different approach.
+
+This loop can repeat multiple times within a single interaction. The model might search a database, read the results, realize it needs more detail, query again with different parameters, synthesize the findings, and produce a final answer — all within one conversation turn. Each step through the loop is a point where your application maintains control.
+
+---
+
+## You Define the Blast Radius
+
+The tools you expose to the model define the boundaries of what it can do. This is a design decision, not a technical limitation, and it deserves the same rigor you apply to API surface design or IAM policies.
+
+A model with access to a read-only database tool and a text-formatting tool is fundamentally different from a model with access to a database write tool and a deployment pipeline trigger. The model's reasoning capability is the same in both cases. What changes is the **blast radius** — the scope of impact if the model makes a poor decision or is manipulated through adversarial input.
+
+This leads to a practical framework for tool design:
+
+**Start narrow.** Expose the minimum set of tools needed for the use case. You can always widen access later; narrowing it after an incident is harder.
+
+**Prefer read over write.** Tools that retrieve information are inherently safer than tools that mutate state. When write access is necessary, add confirmation steps or scope constraints.
+
+**Treat tool definitions as your API contract.** The tool's name, description, and parameter schema are what the model uses to decide when and how to call it. Vague descriptions lead to misuse. Precise descriptions lead to predictable behavior.
+
+**Layer authorization.** The model should not be the only thing standing between a request and execution. Your tool implementation should enforce the same permission model your application would enforce for any other caller.
+
+---
+
+## Parallel Tool Calls
+
+Modern models can request multiple tool calls in a single turn. If a model needs to fetch a user's profile, check their order history, and look up current inventory, it can issue all three requests simultaneously rather than sequentially.
+
+This has direct efficiency implications. In a sequential model, three tool calls mean three round trips through the request-execute-return loop. With parallel calls, your application receives all three requests at once and can execute them concurrently — the same way you would parallelize independent API calls in any well-designed system.
+
+For your architecture, this means your tool execution layer should be designed for concurrency from the start. If tool calls are handled sequentially even when the model requests them in parallel, you are leaving performance on the table.
+
+---
+
+## Error Handling and Resilience
+
+When a tool call fails — a database times out, a permission check rejects the request, an external API returns an error — the model does not crash. It receives the error information as text, reasons about what went wrong, and decides on a next step. It might retry with different parameters, fall back to an alternative tool, or explain to the user what happened and what options remain.
+
+This creates a degree of built-in resilience. The model functions as an adaptive error-handling layer, capable of working around transient failures without requiring human intervention or pre-programmed retry logic for every failure mode. Your traditional retry and circuit-breaker patterns still apply at the infrastructure level, but the model adds a reasoning layer on top that can handle novel failure scenarios.
+
+The practical implication: **design your tool error responses to be informative.** A tool that returns "Error" gives the model nothing to work with. A tool that returns "Permission denied: the current user does not have write access to the production database" gives the model enough context to explain the situation to the user or try an alternative approach.
+
+---
+
+## The Decisions This Informs
+
+Understanding the tool model changes how you approach several strategic decisions:
+
+**What to expose.** Every tool you give the model is a capability and a risk surface. Map your tools the way you map API endpoints — with clear ownership, documented behavior, and defined authorization.
+
+**How to audit.** Because every tool call passes through your application layer, you have a natural audit point. Log every request and every result. You now have a complete record of what the AI attempted and what actually happened — something you cannot easily get from a human operator.
+
+**Where to put guardrails.** The model is not your security boundary. Your tool execution layer is. Apply the same defense-in-depth thinking you apply to any external-facing API: validate inputs, enforce permissions, constrain scope, and assume the caller might be wrong.
+
+**How to evolve.** Adding new capabilities to your AI system means defining new tools, not retraining the model. Removing capabilities means removing tools. This gives you a deployment model that is modular, reversible, and testable — each tool can be developed, tested, and deployed independently.
+
+---
+
+## Key Takeaway
+
+Tools are the mechanism that bridges the gap between a model that generates text and a system that takes action. But the critical architectural insight is that the bridge has a gatekeeper — your application. The model never touches the real world directly. It requests, your system decides, and every interaction passes through a control point you own. This is not a workaround or a temporary limitation. It is the trust model, and it is the reason you can deploy AI capabilities with the same confidence you bring to any well-designed service architecture.

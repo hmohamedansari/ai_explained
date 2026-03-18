@@ -1,0 +1,163 @@
+---
+title: "Architecture Overview — For SRE / DevOps"
+description: "The runtime architecture of an AI agent — process model, trust boundaries, transport layers, and where each component fits in your infra."
+module: "how-agents-work"
+order: 0
+audiences: ["sre-devops"]
+estimatedMinutes: 8
+tags: ["architecture", "infrastructure", "overview", "process-model", "trust-boundaries"]
+draft: false
+---
+
+## Runtime Architecture
+
+An AI agent is three layers at runtime. Map them to your infra and everything else follows.
+
+```
+┌─────────────────────────────────────────┐
+│              LLM (API call)             │
+│  Stateless. No session affinity.        │
+│  Input: tokens → Output: tokens/tool_use│
+└──────────────┬──────────────────────────┘
+               │ HTTPS (API-hosted) or
+               │ local inference (self-hosted)
+     ┌─────────▼──────────┐
+     │   Host Application  │  ← Your process
+     │  (Claude Code, etc) │
+     └─────┬─────────┬─────┘
+           │         │
+    Native tools   MCP Servers
+    (subprocesses) (stdio: child process)
+                   (HTTP+SSE: remote service)
+```
+
+**Key property:** The LLM is stateless. Every API call is a fresh forward pass. No session state, no sticky routing, no connection pooling. This is operationally excellent — horizontal scaling is trivial.
+
+---
+
+## Layer 1: Tools — The Action Interface
+
+Tools are structured function calls. The model emits a JSON request, the host executes it, and returns the result.
+
+**What you care about:**
+- **Process model**: Native tools (bash, file operations) run as subprocesses of the host. They inherit the host's user permissions, environment, and filesystem access.
+- **Trust boundary**: The model proposes, the host disposes. Every tool call passes through a permission layer before execution. This is your primary security control.
+- **Blast radius**: More tools = more capability = wider attack surface. Tool scoping is access control.
+- **Observability**: Every tool call is a structured event (name, args, result, duration). Trivial to log, alert on, and audit.
+
+```
+tool_use event:
+  name: "bash"
+  args: { "command": "kubectl get pods -n production" }
+  duration_ms: 340
+  result_size_bytes: 2048
+  is_error: false
+```
+
+---
+
+## Layer 2: Skills — Configuration as Context
+
+Skills are markdown files loaded into the LLM's context before specific tasks. From an ops perspective, they're configuration artifacts.
+
+**What you care about:**
+- **File I/O at request time**: Each skill load is a filesystem read. Negligible latency (~1-5ms) but it happens per-request.
+- **Token budget**: A 2,000-word skill costs ~2,500 tokens of the context window. This is a resource that competes with conversation history and tool results.
+- **Version control**: Skill files go in the repo. Changes should be code-reviewed — a bad skill degrades output quality team-wide.
+- **No runtime dependencies**: No database, no embedding service, no retrieval pipeline. Just files on disk. Zero infrastructure.
+
+---
+
+## Layer 3: MCP — The Integration Protocol
+
+MCP (Model Context Protocol) standardizes how the host connects to external systems. Two transport modes, each with different infra implications.
+
+### stdio (local)
+```
+Host process
+  └── spawns MCP server as child process
+      └── communicates via stdin/stdout pipes
+```
+- Lifecycle: server lives and dies with the host
+- Security: runs as the host's user — inherits all permissions
+- Use for: local filesystem, CLI tools, development
+- Monitoring: process-level (check if child is alive, stderr for logs)
+
+### HTTP + SSE (remote)
+```
+Host process
+  └── HTTP POST to /message (requests)
+  └── SSE stream from /sse (responses)
+      └── MCP server (remote, multi-client)
+```
+- Lifecycle: independent — runs as a service (systemd, container, pod)
+- Security: needs auth (OAuth 2.0 recommended), TLS, network policy
+- Use for: shared services, remote infra, multi-tenant
+- Monitoring: standard HTTP observability (latency, error rates, connection health)
+
+### What MCP servers expose
+
+| Primitive | Controlled by | Ops implication |
+|---|---|---|
+| Tools | Model (autonomous) | Actions the AI takes — audit these |
+| Resources | Host app | Data the AI reads — scope carefully |
+| Prompts | User | Templates — low risk, user-initiated |
+
+---
+
+## Trust Boundaries
+
+```
+┌─ Trust boundary 1: What the model can REQUEST ─┐
+│  Defined by: tool definitions exposed to the LLM │
+└─────────────────┬────────────────────────────────┘
+                  │
+┌─ Trust boundary 2: What the host EXECUTES ──────┐
+│  Defined by: permission layer in the host app     │
+│  (Claude Code prompts the user for risky actions) │
+└─────────────────┬────────────────────────────────┘
+                  │
+┌─ Trust boundary 3: What the service ALLOWS ─────┐
+│  Defined by: MCP server scoping, OAuth scopes,    │
+│  database user permissions, K8s RBAC, etc.         │
+└──────────────────────────────────────────────────┘
+```
+
+Defense in depth. The model can only request what tools are defined. The host can reject requests. The underlying service has its own auth. Three layers of control.
+
+---
+
+## Deployment Topology
+
+**Development / single-user:**
+```
+Laptop
+├── Claude Code (host)
+│   ├── native tools (bash, file I/O)
+│   └── MCP servers (stdio, child processes)
+└── LLM API calls → Anthropic cloud
+```
+
+**Production / shared:**
+```
+K8s cluster
+├── AI agent pod (host)
+│   ├── native tools (sandboxed)
+│   └── MCP clients → MCP server pods (HTTP+SSE)
+│       ├── github-mcp (Deployment, 2 replicas)
+│       ├── postgres-mcp (Deployment, 1 replica)
+│       └── internal-api-mcp (Deployment, 3 replicas)
+└── LLM API calls → Anthropic cloud (or local Ollama)
+```
+
+MCP servers in production are just services. Deploy them like you deploy anything else — containers, health checks, resource limits, network policies.
+
+---
+
+## Key Takeaways
+
+- The LLM is stateless — no session affinity, trivial to scale
+- Tools are structured events — easy to log, audit, and gate
+- Skills are config files — version control them like `.eslintrc`
+- MCP servers are services — deploy them like microservices
+- Three trust boundaries give you defense in depth
