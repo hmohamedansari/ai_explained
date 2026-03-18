@@ -4,8 +4,7 @@ import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
 
 export default defineConfig({
-  site: 'https://hmohamedansari.github.io',
-  base: '/ai_explained',
+  site: 'https://hmohamedansari.com',
   integrations: [
     mdx(),
     react(),
