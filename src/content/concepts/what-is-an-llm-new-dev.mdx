@@ -1,0 +1,125 @@
+---
+title: "What is an LLM — For New Developers"
+description: "A plain-language introduction to Large Language Models — what they are, how they work at a high level, and why they matter for the code you'll write."
+module: "how-agents-work"
+order: 1
+audiences: ["new-dev"]
+estimatedMinutes: 10
+tags: ["llm", "fundamentals", "beginner", "mental-model"]
+draft: false
+---
+
+## So what *is* a Large Language Model?
+
+You have probably already used one. If you have ever typed a question into ChatGPT, Claude, or GitHub Copilot and received a surprisingly coherent answer, you were talking to a Large Language Model — an **LLM**.
+
+Here is a starting analogy: **an LLM is like autocomplete on steroids.** Your phone's keyboard predicts the next word you might type. An LLM does the same thing, except it was trained on an enormous slice of human text — books, code, websites, academic papers — and it predicts not just the next word but entire paragraphs of coherent, contextual text.
+
+Now let's correct that analogy, because it undersells what is actually happening. Your phone's autocomplete has almost no understanding of what you mean. An LLM, on the other hand, has developed *internal representations* of language, logic, and structure during training. It does not just parrot back text it has seen before. It combines patterns in novel ways, follows instructions, writes working code, and reasons through problems. Think of it less like a tape recorder and more like a very well-read colleague who has studied millions of examples of how to solve problems — and can apply that knowledge to your specific question.
+
+## Tokens: the atoms of an LLM's world
+
+LLMs do not read characters or words the way you do. They break text into **tokens** — small chunks that might be a word, part of a word, or even a single character.
+
+Here is a concrete example. The string `"Hello world"` gets split into tokens roughly like this:
+
+```
+"Hello" -> [15496]
+" world" -> [1917]
+```
+
+That is two tokens. Notice that the space before "world" is part of the token — whitespace matters.
+
+A longer phrase like `"I'm learning to code"` might become:
+
+```
+"I" -> [40]
+"'m" -> [2287]
+" learning" -> [6975]
+" to" -> [311]
+" code" -> [2082]
+```
+
+Five tokens. Contractions, punctuation, and spaces all affect how text is split.
+
+Why does this matter to you as a developer? Because **LLMs charge by the token and think in tokens.** The number of tokens you send (your prompt) plus the number of tokens the model generates (its response) determines the cost of an API call and how long it takes.
+
+## The context window: a whiteboard that gets erased
+
+Every LLM has a **context window** — the maximum number of tokens it can consider at once. Think of it like a whiteboard in a meeting room. You can write a lot on it, but it has a fixed size. Once it is full, you cannot fit anything else without erasing something.
+
+For example, Claude's context window can hold 200,000 tokens — roughly the length of a long novel. That means you can paste in a large codebase, a detailed set of instructions, *and* a question, and the model can reason about all of it at the same time.
+
+But here is the critical thing: **once a conversation exceeds the context window, the oldest parts are dropped.** The model does not summarize them or store them secretly. They are simply gone from its perspective.
+
+## Stateless: it forgets everything between calls
+
+This is one of the most important things to internalize early:
+
+> **An LLM has no memory between API calls.** Every request starts from a blank slate.
+
+When you use ChatGPT or Claude in a chat interface, it *looks* like the model remembers your earlier messages. What is actually happening is that the application re-sends the entire conversation history with every new message. The model reads it all from scratch each time.
+
+This means if you are building an application that uses an LLM, **you** are responsible for storing conversation history and sending it back with each request. The model itself is stateless — like an HTTP server that does not use sessions.
+
+## Temperature: creativity vs. predictability
+
+When an LLM generates text, it picks the next token from a probability distribution. The **temperature** setting controls how "creative" or "random" those picks are.
+
+- **Temperature 0** — The model almost always picks the most probable next token. Responses are consistent and deterministic. Good for code generation, factual lookups, and structured output.
+- **Temperature 1** — The model samples more broadly. Responses are more varied, creative, and occasionally surprising. Good for brainstorming, creative writing, and generating diverse options.
+
+Think of it like tuning a radio dial between "play it safe" and "surprise me."
+
+For most developer tasks — generating code, answering technical questions, extracting data — you will want a low temperature. You can always experiment and adjust.
+
+## Making your first API call
+
+Let's make this concrete. Here is a minimal Python example that sends a message to Claude and prints the response:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # Uses ANTHROPIC_API_KEY env var
+
+message = client.messages.create(
+    model="claude-sonnet-4-20250514",
+    max_tokens=256,
+    messages=[
+        {
+            "role": "user",
+            "content": "Explain what a function is in one sentence."
+        }
+    ]
+)
+
+print(message.content[0].text)
+```
+
+Let's break down what is happening:
+
+1. **`model`** — which LLM to use. Different models have different capabilities, speeds, and costs.
+2. **`max_tokens`** — the maximum number of tokens the model is allowed to generate in its response. This is a safety cap so you do not accidentally spend more than intended.
+3. **`messages`** — a list of messages forming the conversation. Each message has a `role` (`"user"` or `"assistant"`) and `content`. This is how you provide context and conversation history.
+
+The response comes back as a structured object. The actual generated text lives in `message.content[0].text`.
+
+That is it. Under the hood, your text gets tokenized, fed into the model, and the model generates tokens one at a time until it reaches `max_tokens` or decides it is finished.
+
+## Putting it all together
+
+Here is a quick mental model you can carry with you:
+
+| Concept | One-liner |
+|---|---|
+| **LLM** | A model trained on massive text data that predicts and generates language. |
+| **Token** | A small chunk of text — the basic unit the model reads and writes. |
+| **Context window** | The maximum amount of text the model can see at once. |
+| **Stateless** | The model has no memory between API calls. You must re-send context every time. |
+| **Temperature** | A dial from predictable (0) to creative (1). |
+
+You do not need to understand the math behind neural networks to use LLMs effectively. What you *do* need is a clear mental model of what goes in (tokens in a context window), what comes out (generated tokens), and what the model does *not* do (remember previous calls or access the internet on its own).
+
+## What's next?
+
+Now that you have the fundamentals, the next lesson will explore how LLMs get combined with tools and memory systems to become **agents** — programs that can take actions in the real world, not just generate text. That is where things get really interesting for developers.

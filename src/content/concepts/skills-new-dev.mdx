@@ -1,0 +1,159 @@
+---
+title: "Skills — For New Developers"
+description: "What skill files are, why they exist, and how to create your own — giving AI agents expert knowledge exactly when they need it."
+module: "how-agents-work"
+order: 4
+audiences: ["new-dev"]
+estimatedMinutes: 8
+tags: ["skills", "prompt-engineering", "beginner", "practical"]
+draft: false
+---
+
+## The Problem: Claude Can't Know Everything
+
+Claude was trained on a huge amount of text, but it cannot know every detail about every library, framework, or internal convention your team uses. Maybe you use a niche Python package with tricky defaults. Maybe your company has a specific way of structuring API responses. Maybe a library released a breaking change after Claude's training data was collected.
+
+On top of that, the context window — the amount of text Claude can consider at once — has a hard limit. You cannot paste an entire library's documentation into every prompt. You need a way to give Claude the *right* knowledge at the *right* time.
+
+That is exactly what skills solve.
+
+---
+
+## What Is a Skill?
+
+A skill is a **markdown file containing expert instructions** that Claude reads right before performing a specific task. It is not code. It is not a plugin. It is just a document — written in plain language — that tells Claude how to do something well.
+
+Think of it like a **recipe card**. You do not memorize every recipe you have ever encountered. Instead, when you want to make a specific dish, you pull out the card for that dish and follow the instructions. A skill works the same way: Claude pulls out the relevant "card" right before it starts working, so it has precise, up-to-date guidance loaded into its context.
+
+Skills typically live in your project as files named `SKILL.md` (or similar), organized by topic. They might cover things like:
+
+- How to generate Word documents with `python-docx`
+- Your team's conventions for writing database migrations
+- The correct way to structure error responses in your API
+- How to use a specific testing framework your company prefers
+
+---
+
+## A Real Example: Generating Word Documents
+
+Let's say you have a project that needs to generate Word documents using the Python library `python-docx`. Claude knows the basics of this library, but it might not know all the quirks — like how to set custom fonts correctly, how to handle page breaks between sections, or how to add a table of contents.
+
+So you create a skill file at `docx/SKILL.md` in your project:
+
+```markdown
+# Generating Word Documents with python-docx
+
+## Key Rules
+- Always create a new Document() rather than modifying the default template,
+  unless the user explicitly provides a template file.
+- Set the default font on the style *before* adding content:
+  style = doc.styles['Normal']
+  font = style.font
+  font.name = 'Calibri'
+  font.size = Pt(11)
+- Use `doc.add_page_break()` between major sections.
+- For tables, always set `table.style = 'Light Grid Accent 1'`
+  unless the user requests something different.
+
+## Common Pitfalls
+- Do NOT use `doc.add_heading()` with level 0 — it creates a
+  Title style, which behaves differently across Word versions.
+  Use level 1 as the top-level heading.
+- When adding images, always specify width with `Inches()` or `Cm()`.
+  Unspecified dimensions cause images to render at their native
+  resolution, which can overflow the page.
+
+## Structure
+1. Create the document and set styles
+2. Add the title (heading level 1)
+3. Add body content section by section
+4. Save with a descriptive filename
+```
+
+That is roughly 200 words of focused, practical guidance. It is not a full tutorial — it is a cheat sheet for an expert.
+
+---
+
+## How It Works, Step by Step
+
+Here is what happens when skills are in play:
+
+**Step 1 — You make a request.**
+You ask Claude: "Generate a Word document summarizing this quarter's sales data."
+
+**Step 2 — Claude recognizes the task.**
+Claude sees that this task involves generating a `.docx` file. It checks whether a relevant skill file exists in the project.
+
+**Step 3 — Claude reads the skill file.**
+Claude opens `docx/SKILL.md` and loads those expert instructions into its context. This happens automatically — you do not need to paste the file contents yourself.
+
+**Step 4 — Claude now has targeted expertise.**
+With roughly 200 words of best practices loaded, Claude knows to set fonts on the style first, use heading level 1 instead of level 0, specify image dimensions, and follow your preferred table style.
+
+**Step 5 — Claude writes better code.**
+Instead of producing generic code that *might* work, Claude produces code that follows the specific patterns and avoids the specific pitfalls described in the skill. The output is closer to what an experienced developer on your team would write.
+
+The whole point is that **those 200 words of skill content are worth far more than 200 words of general knowledge**, because they are precisely targeted at the task at hand.
+
+---
+
+## Creating Your Own Skill File
+
+You can create a skill file for any task where you find yourself repeatedly correcting Claude or adding the same instructions. Here is a simple process:
+
+### 1. Identify the pattern
+
+Think about a task where Claude's output is *okay* but not *great*. Maybe it keeps using the wrong assertion style in tests, or it forgets to add error handling in a specific way your team prefers.
+
+### 2. Write the file
+
+Create a markdown file in your project. Keep it focused and practical. A good skill file has:
+
+- **A clear title** so Claude knows what it covers
+- **Key rules** — the 3-7 most important things to get right
+- **Common pitfalls** — mistakes to avoid
+- **A short example** if the pattern is hard to describe in words
+
+Here is a minimal example for a team that uses `pytest`:
+
+```markdown
+# Writing Tests with pytest
+
+## Rules
+- Use `pytest.raises` as a context manager for exception tests,
+  never try/except.
+- Name test files `test_<module>.py` and test functions `test_<behavior>`.
+- Use fixtures for any setup that more than one test needs.
+  Define fixtures in `conftest.py`, not in the test file.
+- Always add a one-line docstring to each test function explaining
+  what behavior it verifies.
+
+## Pitfalls
+- Do not use `assertEqual` or any unittest-style assertions.
+  Use plain `assert` statements — pytest rewrites them for
+  clear failure messages.
+- Do not use `@pytest.fixture(autouse=True)` unless the fixture
+  is needed by every single test in the file.
+```
+
+### 3. Put it where Claude can find it
+
+Store the file in your project repository, in a location that makes sense for your team. Common patterns include:
+
+- A `skills/` directory at the project root
+- A `SKILL.md` file inside the relevant module folder (like `docx/SKILL.md`)
+- A `.claude/skills/` directory if you are using Claude Code
+
+The key is consistency. Pick a convention and stick with it so that skill files are easy to find and maintain.
+
+### 4. Keep it maintained
+
+A skill file is only useful if it is accurate. When your team's conventions change, update the skill file. When you discover a new pitfall, add it. Treat skill files like living documentation — they are part of your codebase, not write-once artifacts.
+
+---
+
+## Why This Matters
+
+Skills are one of the most practical prompt engineering patterns you can learn. They take five minutes to write and they pay off every time Claude performs that task. Instead of hoping Claude guesses your preferences, you are explicitly telling it what "good" looks like — and that makes the output more reliable, more consistent, and more useful.
+
+You do not need to be a prompt engineering expert to write a skill file. If you can write a checklist, you can write a skill. Start with one task that Claude does not quite get right, write a short skill file for it, and see the difference.

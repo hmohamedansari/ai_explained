@@ -1,0 +1,57 @@
+{
+  "title": "LLM Fundamentals — New Developer",
+  "concept": "what-is-an-llm-new-dev",
+  "questions": [
+    {
+      "id": "lnd1",
+      "type": "multiple-choice",
+      "question": "What is a token in the context of an LLM?",
+      "options": [
+        "A small chunk of text that the model uses as its basic unit of input and output",
+        "A security credential used to authenticate API requests",
+        "A billing unit that equals exactly one word",
+        "A special character that marks the end of a prompt"
+      ],
+      "answer": 0,
+      "explanation": "Tokens are the fundamental units that LLMs read and generate. They are small pieces of text — sometimes a whole word, sometimes part of a word, sometimes punctuation or whitespace. They are not the same as words, and they are not related to authentication tokens.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "lnd2",
+      "type": "true-false",
+      "question": "An LLM automatically remembers everything you said in previous API calls without you resending that information.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "LLMs are stateless — they have no memory between API calls. Every request starts from a blank slate. If you want the model to 'remember' earlier messages, your application must resend the full conversation history with each new request.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "lnd3",
+      "type": "multiple-choice",
+      "question": "What does the context window of an LLM represent?",
+      "options": [
+        "The visual interface where the model displays its output",
+        "The maximum number of tokens the model can consider at once",
+        "The time limit for how long the model can spend on a request",
+        "The number of previous conversations the model stores in memory"
+      ],
+      "answer": 1,
+      "explanation": "The context window is the maximum amount of text (measured in tokens) that the model can see and reason about in a single request. Once this limit is exceeded, the oldest content is dropped — like running out of space on a whiteboard.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "lnd4",
+      "type": "multiple-choice",
+      "question": "If you want an LLM to generate consistent, predictable code output, which temperature setting should you use?",
+      "options": [
+        "Temperature 1 — maximum creativity",
+        "Temperature 0.5 — balanced",
+        "Temperature 0 — most deterministic",
+        "Temperature has no effect on code generation"
+      ],
+      "answer": 2,
+      "explanation": "A temperature of 0 makes the model pick the most probable next token almost every time, producing consistent and predictable output. This is generally preferred for code generation and other tasks where you want reliability over variety.",
+      "audiences": ["new-dev"]
+    }
+  ]
+}

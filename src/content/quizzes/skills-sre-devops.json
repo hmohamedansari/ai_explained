@@ -1,0 +1,43 @@
+{
+  "title": "Skills — SRE / DevOps",
+  "concept": "skills-sre-devops",
+  "questions": [
+    {
+      "id": "ssre1",
+      "type": "multiple-choice",
+      "question": "A 2,000-word skill file is loaded into every agent request. What is the primary operational concern?",
+      "options": [
+        "The file might contain syntax errors that crash the agent",
+        "It consumes ~2,500 tokens from the context window on every request, reducing space for conversation and tool results",
+        "Markdown files are slower to parse than JSON, causing latency spikes",
+        "The skill file needs to be compiled before the agent can use it"
+      ],
+      "answer": 1,
+      "explanation": "Skill files consume tokens from the context window — a finite resource shared with conversation history, tool results, and the model's reasoning space. A 2,000-word file costs ~2,500 tokens per request. This is the primary resource tradeoff to monitor.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "ssre2",
+      "type": "true-false",
+      "question": "Skills require a vector database or embedding service to work — the host performs semantic search to find the right skill file.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "False. Skills are discovered through deterministic file path lookups — no embeddings, no vector store, no semantic search. The host checks known locations (current directory, project root, ~/.claude/) and reads matching files. Zero infrastructure required.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "ssre3",
+      "type": "multiple-choice",
+      "question": "Your org has 30 teams using AI agents. You need consistent coding standards enforced across all projects. What's the best approach?",
+      "options": [
+        "Fine-tune a custom model with your standards baked into the weights",
+        "Create org-level skill files in a shared config repo, layered with project-specific overrides — versioned and code-reviewed like any config",
+        "Add the standards to every user's system prompt manually",
+        "Build an MCP server that returns the standards on every request"
+      ],
+      "answer": 1,
+      "explanation": "Org-level skill files in a shared repo give you version control, PR review, CODEOWNERS, and layering (org → project → task-specific). This mirrors how you'd manage .eslintrc or Terraform modules across teams — codified standards, reviewed changes, consistent enforcement.",
+      "audiences": ["sre-devops"]
+    }
+  ]
+}

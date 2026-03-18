@@ -1,0 +1,62 @@
+{
+  "title": "LLM Fundamentals — SRE / DevOps",
+  "concept": "what-is-an-llm-sre-devops",
+  "questions": [
+    {
+      "id": "lsre1",
+      "type": "multiple-choice",
+      "question": "A 70B parameter model in FP16 requires approximately how much GPU memory just to load the weights?",
+      "options": [
+        "~35 GB",
+        "~70 GB",
+        "~140 GB",
+        "~280 GB"
+      ],
+      "answer": 2,
+      "explanation": "In FP16, each parameter takes 2 bytes. 70 billion × 2 bytes = 140 GB. This is before accounting for the KV cache, optimizer states, or any batching overhead. This is why a 70B model typically requires 2–4x A100 80GB GPUs.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "lsre2",
+      "type": "multiple-choice",
+      "question": "Your LLM service processes independent requests from multiple users. What load balancing strategy is sufficient?",
+      "options": [
+        "Sticky sessions based on user ID, because the model maintains conversation state",
+        "Consistent hashing by session token to ensure context continuity",
+        "Round-robin — each request is stateless and any replica can serve it",
+        "Least-connections with session affinity to avoid context cache misses"
+      ],
+      "answer": 2,
+      "explanation": "LLM inference is stateless. The model has no memory between requests — conversation history is re-sent in full with each API call. Any replica can serve any request, so round-robin (or any stateless strategy) works. No session affinity is needed.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "lsre3",
+      "type": "multiple-choice",
+      "question": "Your monitoring dashboard shows normal Tokens Per Second but Time to First Token (TTFT) p99 has spiked 3x. What is the most likely cause?",
+      "options": [
+        "GPU memory is leaking due to a driver bug",
+        "Input prompts have gotten significantly longer, increasing prefill compute time",
+        "The model weights have become corrupted on disk",
+        "Network bandwidth to the client has degraded"
+      ],
+      "answer": 1,
+      "explanation": "TTFT is dominated by the prefill phase, which processes all input tokens. If prompts have grown longer (e.g., more context being stuffed in), prefill takes longer, spiking TTFT. TPS stays normal because the decode phase (token generation) is unaffected by input length. This is a common pattern when developers increase context window usage without informing the infra team.",
+      "audiences": ["sre-devops"]
+    },
+    {
+      "id": "lsre4",
+      "type": "multiple-choice",
+      "question": "You're evaluating API-hosted vs self-hosted LLMs for a workload processing ~500K tokens/day. Which is the strongest argument for API-hosted?",
+      "options": [
+        "API-hosted gives you full control over model quantization and batching parameters",
+        "At 500K tokens/day, GPU-hours for self-hosted are almost certainly cheaper",
+        "API-hosted avoids the operational burden of GPU drivers, CUDA, scaling, and health checks — and at low volume the per-token cost is lower than maintaining idle GPU capacity",
+        "API-hosted guarantees lower latency because the provider's GPUs are faster"
+      ],
+      "answer": 2,
+      "explanation": "At ~500K tokens/day, you're well below the volume where self-hosting becomes cost-effective. A single GPU node costs ~$25–30/hr whether it's serving requests or idle. With API pricing, you pay only for tokens processed. You also avoid the significant operational overhead of managing GPU infrastructure, drivers, model serving, and scaling.",
+      "audiences": ["sre-devops"]
+    }
+  ]
+}

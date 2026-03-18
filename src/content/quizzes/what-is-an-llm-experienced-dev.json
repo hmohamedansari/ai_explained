@@ -1,0 +1,62 @@
+{
+  "title": "LLM Fundamentals — Experienced Developer",
+  "concept": "what-is-an-llm-experienced-dev",
+  "questions": [
+    {
+      "id": "led1",
+      "type": "multiple-choice",
+      "question": "Why does dividing by sqrt(d_k) matter in the attention formula Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) * V?",
+      "options": [
+        "It normalizes the output vectors to unit length",
+        "It prevents dot products from growing large and pushing softmax into regions with vanishing gradients",
+        "It reduces the computational complexity from O(n^2) to O(n log n)",
+        "It ensures the query and key matrices have the same dimensionality"
+      ],
+      "answer": 1,
+      "explanation": "Without the scaling factor, large dot products push the softmax into saturated regions where gradients are extremely small, making training unstable. Dividing by sqrt(d_k) keeps the variance of the dot products at roughly 1, keeping the softmax in a useful range.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "led2",
+      "type": "multiple-choice",
+      "question": "A chatbot maintains a 40-message conversation. The user sends message 41. How does the LLM 'remember' the earlier messages?",
+      "options": [
+        "The model stores a hidden state server-side from the previous call",
+        "The client re-sends all 41 messages in a single prompt, and the model processes them in one forward pass",
+        "The model retrieves earlier messages from a fine-tuning checkpoint",
+        "A separate memory module injects summaries into the model's weights at inference time"
+      ],
+      "answer": 1,
+      "explanation": "LLMs are stateless — each API call is an independent forward pass with no server-side memory. The client application is responsible for re-sending the full conversation history every time. This is why costs grow with conversation length: you pay for all previous messages on every call.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "led3",
+      "type": "code-spot",
+      "question": "This function estimates whether a prompt fits in the context window. There's a bug that will cause it to under-count tokens and potentially blow the context limit. Spot it:\n\n```python\ndef fits_in_context(prompt: str, max_tokens: int = 128000) -> bool:\n    # Rough estimate: 1 token ≈ 4 characters\n    estimated_tokens = len(prompt) / 4\n    return estimated_tokens < max_tokens\n```",
+      "options": [
+        "max_tokens should default to 200000, not 128000",
+        "The function should return estimated_tokens <= max_tokens (off-by-one)",
+        "Character-based estimation is unreliable — code, non-English text, and whitespace tokenize at very different ratios. Use the actual tokenizer.",
+        "The division should be len(prompt) / 3 for a safer estimate"
+      ],
+      "answer": 2,
+      "explanation": "The '1 token = 4 characters' heuristic breaks down badly for code (where short symbols each become separate tokens), non-English text (which tokenizes 2-3x less efficiently), and whitespace-heavy formatting. The only reliable method is running the actual tokenizer (e.g., tiktoken) against the text. A 'safe' ratio doesn't exist because the variance is too high.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "led4",
+      "type": "multiple-choice",
+      "question": "You set temperature=0.7 and top_p=0.9 for an API call. The model's forward pass produces logits where one token has 98% probability. How many tokens are in the candidate set for sampling?",
+      "options": [
+        "The full vocabulary (~100k tokens) since temperature > 0",
+        "Approximately 70% of the vocabulary due to temperature scaling",
+        "Exactly 1 — the 98% token alone exceeds the top_p=0.9 threshold",
+        "It depends on top_k, which must also be set"
+      ],
+      "answer": 2,
+      "explanation": "Top-p (nucleus sampling) selects the smallest set of tokens whose cumulative probability exceeds p. If one token holds 98% of the probability mass after temperature scaling, it alone exceeds the 0.9 threshold, so the candidate set contains just that one token. This is why top-p is adaptive — it narrows aggressively when the model is confident and widens when the distribution is flat.",
+      "audiences": ["experienced-dev"]
+    }
+  ]
+}

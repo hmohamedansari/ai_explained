@@ -1,0 +1,107 @@
+---
+title: "What is an LLM — For Tech Leaders"
+description: "The accurate mental model for Large Language Models — what they actually are, what they can and can't do, and what that means for your technical strategy."
+module: "how-agents-work"
+order: 1
+audiences: ["tech-leader"]
+estimatedMinutes: 8
+tags: ["llm", "fundamentals", "strategy", "mental-model"]
+draft: false
+---
+
+## The One-Sentence Mental Model
+
+An LLM is a **stateless function** that takes text in and returns text out.
+
+That's it. No memory between calls. No internal database. No understanding. It is a mathematical function — a very large, very expensive one — that predicts what text should come next given the text it received. Every decision you make about LLM architecture flows from this single fact.
+
+---
+
+## What an LLM Actually Is
+
+Think of an LLM the way you think about a **pure function in a microservice**: same input, roughly same output, no side effects, no persistent state. The model was trained on enormous amounts of text, and that training compressed patterns of language, logic, and knowledge into billions of numerical weights. At runtime, it applies those weights to whatever input you give it.
+
+It does **not**:
+
+- Store your previous conversations (unless you send them back in)
+- Query a database to look things up
+- "Think" or "reason" in the way humans do — it produces text that *looks* like reasoning because reasoning-shaped text was in its training data
+- Learn from your usage (the weights are frozen after training)
+
+**Why this matters for your strategy:** If someone on your team says "the LLM will remember that from last time" or "it knows our codebase," they are wrong — unless your system explicitly passes that context in every single call. There is no implicit memory. There is no magic.
+
+---
+
+## Four Concepts That Drive Every Architecture Decision
+
+### 1. Tokens — The Unit of Work
+
+LLMs don't read words. They read **tokens** — chunks that are roughly three-quarters of an English word. "Unbelievable" is three tokens. A 10-page document is roughly 3,000 tokens.
+
+**Why this matters:** You are billed per token — both input and output. A system that naively dumps an entire codebase into every LLM call is the equivalent of running a full table scan on every API request. Token efficiency is cost efficiency.
+
+### 2. Context Window — The Working Memory Constraint
+
+The context window is the **total number of tokens the model can see in a single call** — your input, any documents you attach, and the output it generates. Modern models range from 128K to 1M+ tokens. That sounds huge, but it fills up fast when you're passing conversation history, retrieved documents, and system instructions.
+
+Think of it like RAM: it sets a hard ceiling on how much information the model can consider at once. Anything outside the window might as well not exist.
+
+**Why this matters:** This is the constraint that shapes your retrieval architecture. You cannot feed the model "everything." You must build systems that select the *right* context — retrieval-augmented generation (RAG), smart summarization, or chunking strategies. Teams that ignore this constraint build systems that silently degrade as inputs grow.
+
+### 3. Temperature — The Creativity vs. Determinism Dial
+
+Temperature is a parameter (0.0 to ~2.0) that controls randomness in the output. At **temperature 0**, the model almost always picks the most probable next token — deterministic, predictable, boring. At **higher temperatures**, it explores less probable options — more creative, more varied, more likely to hallucinate.
+
+Think of it like a configuration knob on a recommendation engine: you can tune for precision or serendipity.
+
+**Why this matters:** Code generation and data extraction want low temperature (you want the *right* answer). Brainstorming, copywriting, and creative tasks want higher temperature. A single temperature setting across your entire platform is almost certainly wrong. This should be configurable per use case.
+
+### 4. Inference — The Runtime Cost Model
+
+Training is the one-time cost of creating the model. **Inference** is the ongoing cost every time someone uses it. Each API call spins up GPU compute, processes tokens in, generates tokens out, and bills you for both.
+
+The cost model is closer to **compute-on-demand** (like Lambda) than to a licensed database. Costs scale linearly with usage and with the size of each request.
+
+**Why this matters:** Unlike traditional SaaS with fixed per-seat pricing, LLM costs are usage-driven and can spike unpredictably. You need monitoring, budgets, and rate limits from day one — not after the first surprise invoice. Smaller models running simpler tasks can often handle 80% of your volume at a fraction of the cost of your flagship model.
+
+---
+
+## What LLMs Are Good At
+
+- **Translation between formats:** "Take this JSON and make it a summary email." Structure-to-structure, structure-to-prose, prose-to-structure.
+- **Pattern completion:** Generating code that follows established patterns, drafting boilerplate, filling templates.
+- **Synthesis and summarization:** Compressing large volumes of text into actionable summaries.
+- **Classification and extraction:** Sorting support tickets, pulling entities from documents, tagging content.
+- **Flexible natural-language interfaces:** Letting users interact with systems in plain English instead of rigid forms.
+
+---
+
+## What LLMs Are Bad At
+
+- **Precision math and logic:** They approximate. They will confidently produce wrong arithmetic. Never trust an LLM to be your calculator.
+- **Guaranteeing factual accuracy:** They generate plausible text, not verified truth. If your use case requires correctness, you need validation layers, retrieval from authoritative sources, or human review.
+- **Maintaining state across calls:** Every call starts from zero. Anything resembling "memory" is your engineering team passing prior context back in.
+- **Deterministic, repeatable output:** Even at temperature 0, outputs can vary slightly. If your system requires byte-identical output on every run, an LLM is the wrong tool.
+- **Operating on live data:** The model's training data has a cutoff date. It does not know what happened yesterday unless you tell it.
+
+---
+
+## The Architecture Implications
+
+Now that you have the mental model, here is what it means in practice:
+
+**Treat the LLM as a stateless compute layer.** Just as you would not store session state inside a Lambda function, do not assume the LLM retains anything. Your application layer owns context management, conversation history, and user state.
+
+**Budget for context like you budget for bandwidth.** Every token you send costs money and competes for space in the context window. Build retrieval pipelines that are selective, not exhaustive.
+
+**Layer validation on top.** The LLM generates; your system verifies. Structured output parsing, schema validation, and domain-specific checks are not optional — they are load-bearing parts of your architecture.
+
+**Plan for model portability.** Models improve rapidly. The provider you choose today may not be the best choice in six months. Abstract your LLM calls behind a clean interface so you can swap models without rewriting your application.
+
+**Right-size your model to the task.** Not every request needs your largest, most expensive model. Route simple classification tasks to smaller models and reserve the flagship for complex generation. This is the LLM equivalent of not running every query against your production database.
+
+---
+
+## Key Takeaway
+
+An LLM is a powerful, stateless text-transformation function with a hard memory ceiling, a tunable creativity dial, and a usage-based cost model. It is not a database, not a reasoning engine, and not a replacement for your application logic. The teams that build well with LLMs are the ones that internalize these constraints and architect around them — not the ones that treat the model as magic.

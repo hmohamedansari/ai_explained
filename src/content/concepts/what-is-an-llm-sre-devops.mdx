@@ -1,0 +1,129 @@
+---
+title: "What is an LLM — For SRE / DevOps"
+description: "LLMs from an infrastructure perspective — resource requirements, inference costs, latency characteristics, and what you need to know to run them reliably."
+module: "how-agents-work"
+order: 1
+audiences: ["sre-devops"]
+estimatedMinutes: 10
+tags: ["llm", "infrastructure", "deployment", "costs", "latency"]
+draft: false
+---
+
+## The 30-Second Mental Model
+
+A Large Language Model (LLM) is a function: **text in, text out**. It takes a sequence of tokens (words, subwords, punctuation), runs them through billions of learned parameters, and predicts the next token — one at a time, autoregressively. There's no database, no lookup table, no persistent state. Every request starts from scratch.
+
+From an ops perspective, this is the key insight: an LLM is a **stateless, compute-heavy prediction engine**. Each API call is independent. There's no session affinity, no sticky state between requests. This makes horizontal scaling straightforward — any replica can serve any request.
+
+---
+
+## Model Sizes and What They Mean for Your Infrastructure
+
+When you see "7B", "70B", or "400B+", that's the parameter count — the number of learned weights in the model. This directly determines your resource requirements.
+
+| Model Size | Parameters | GPU Memory (FP16) | Typical Hardware |
+|------------|------------|-------------------|------------------|
+| Small | 7–8B | ~16 GB | Single A10G / L4 |
+| Medium | 70B | ~140 GB | 2–4x A100 80GB |
+| Large | 400B+ | ~800 GB+ | 8x A100 / H100 cluster |
+
+**The rule of thumb**: in FP16 (half-precision), each parameter takes 2 bytes. So a 70B model needs ~140 GB of GPU memory just to load the weights — before you account for the KV cache (the per-request memory that grows with context length).
+
+Quantization (INT8, INT4) cuts memory requirements roughly in half or quarter, at some quality cost. For many operational use cases — summarization, classification, routing — quantized models work fine.
+
+---
+
+## Inference as a Compute Workload
+
+LLM inference has two distinct phases, and they stress your hardware differently:
+
+### Prefill (Prompt Processing)
+The model processes all input tokens in parallel. This phase is **compute-bound** — it maxes out your GPU's FLOPs. Longer prompts mean longer prefill. A 100K-token context window prompt takes meaningfully longer to process than a 1K-token prompt.
+
+### Decode (Token Generation)
+The model generates output tokens one at a time. This phase is **memory-bandwidth-bound** — the GPU needs to read the entire model's weights from memory for each token. This is why GPU memory bandwidth (e.g., A100's 2 TB/s vs H100's 3.35 TB/s) matters so much for generation speed.
+
+**Implication for capacity planning**: throughput (requests/second) depends on batching. Modern inference servers (vLLM, TGI) batch multiple requests together so the GPU stays busy during decode. You're not serving one request at a time — you're packing them.
+
+---
+
+## Latency: Two Numbers You Need to Track
+
+Forget "response time" as a single metric. LLM latency breaks into two:
+
+- **Time to First Token (TTFT)**: How long from request to the first token arriving. Dominated by prefill time. This is what users perceive as "is it stuck?" For API-hosted models, network latency adds on top.
+
+- **Tokens Per Second (TPS)**: How fast tokens stream after the first one. Typically 30–80+ tokens/sec for hosted APIs, lower for self-hosted depending on hardware. A 500-token response at 50 TPS takes 10 seconds of streaming.
+
+**For monitoring**: alert on TTFT p99 spikes (often means the provider is overloaded or your prompt is too long). Track TPS to catch GPU degradation or thermal throttling on self-hosted infra.
+
+---
+
+## Context Window = Memory Pressure
+
+The context window is the maximum number of tokens the model can process in a single request (input + output combined). Claude supports up to 200K tokens. GPT-4o supports 128K.
+
+Here's why you care: the **KV cache** — the per-request memory that stores attention state — grows with context length. With standard attention, memory scales quadratically with sequence length. At 200K tokens, the KV cache alone can consume tens of gigabytes of GPU memory per request.
+
+**Operational implications**:
+- Longer contexts = fewer concurrent requests per GPU (the KV cache eats into your batch capacity)
+- If your application sends 100K+ token prompts, you need significantly more GPU headroom
+- Consider: do you actually need 200K context, or can you summarize/chunk to keep requests shorter?
+
+---
+
+## Temperature = Non-Deterministic Output
+
+Temperature controls randomness in token selection. At `temperature=0`, the model picks the most likely token every time (mostly deterministic). At higher values (0.7, 1.0), it samples more broadly.
+
+**Why you care**: if temperature > 0, the same input produces different outputs each run. This has real implications:
+
+- **Testing**: You can't assert exact output matches. Test for structure (valid JSON, correct fields) rather than exact strings.
+- **Reproducibility**: Incident response replay won't produce identical outputs. Log the full response, not just the prompt.
+- **Caching**: You can cache responses for identical prompts at `temperature=0`. At higher temperatures, caching is less useful since users may expect variation.
+
+---
+
+## API-Hosted vs Self-Hosted: The Ops Tradeoffs
+
+### API-Hosted (Anthropic, OpenAI, etc.)
+
+- **Cost model**: Pay per token (input tokens and output tokens priced separately). Anthropic's Claude charges per million tokens.
+- **Scaling**: Their problem. You get automatic scaling, no GPU procurement, no driver updates.
+- **Reliability**: You're dependent on their uptime. Build retry logic with exponential backoff. Implement circuit breakers. Consider multi-provider failover.
+- **Security**: Your data leaves your network. Review their data retention policies. For regulated workloads, check SOC 2 / HIPAA compliance.
+- **Latency floor**: Network round-trip + their queue time. You can't optimize below this.
+
+### Self-Hosted (vLLM, Ollama, TGI)
+
+- **Cost model**: GPU-hours. An 8xH100 node runs ~$25–30/hr on cloud. You're paying whether requests come in or not.
+- **Scaling**: Your problem. Autoscaling on GPU instances is slow (minutes to provision). Pre-warm capacity for expected load.
+- **Control**: Full control over model versions, quantization, batching config, network policy. No data leaves your infra.
+- **Operational burden**: You own GPU drivers, CUDA versions, model weight storage, health checks, OOM handling, and the inference server itself.
+
+**The decision matrix**: If you're running < 1M tokens/day, API-hosted is almost always cheaper and simpler. At 10M+ tokens/day with predictable load, self-hosted starts to make economic sense — but only if you have the team to operate GPU infrastructure.
+
+---
+
+## Statelessness: Your Scaling Superpower
+
+Every LLM request is independent. There's no connection state, no session, no "memory" between calls. The model's "memory" of a conversation exists only because the application re-sends the full conversation history with every API call.
+
+What this means for your architecture:
+
+- **Load balancing**: Round-robin works. No sticky sessions needed.
+- **Replicas**: Spin up identical replicas behind a load balancer. Each one can serve any request.
+- **Failure handling**: If a replica dies mid-request, retry on another replica. No state is lost (the client still has the prompt).
+- **Caching**: Identical prompts produce identical results (at temperature=0). A prompt-hash cache in front of your LLM layer can absorb repeated queries.
+
+The only caveat: if you're using streaming (SSE), the client has an open connection to a specific replica for the duration of the response. Handle this in your load balancer config (connection draining on deploys).
+
+---
+
+## Key Takeaways for Ops
+
+1. **LLMs are stateless and horizontally scalable** — no session affinity, no shared state between requests.
+2. **GPU memory is the primary constraint** — model size, quantization level, context length, and batch size all compete for the same VRAM.
+3. **Monitor TTFT and TPS separately** — they measure different phases of inference and have different failure modes.
+4. **API-hosted is simpler; self-hosted gives control** — the break-even depends on your volume, latency requirements, and data sensitivity.
+5. **Temperature > 0 means non-deterministic outputs** — design your testing and caching strategies accordingly.

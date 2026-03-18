@@ -1,0 +1,62 @@
+{
+  "title": "Skills — Experienced Developer",
+  "concept": "skills-experienced-dev",
+  "questions": [
+    {
+      "id": "sed1",
+      "type": "multiple-choice",
+      "question": "Your team needs to ensure all AI-generated FastAPI code uses async handlers and Pydantic v2. What's the most appropriate approach?",
+      "options": [
+        "Fine-tune the model on your codebase so it learns your conventions",
+        "Build a RAG pipeline that retrieves relevant code examples from your repo",
+        "Create a skill file with the conventions and anti-patterns — it loads before code generation tasks",
+        "Add the rules to every user message as a prefix"
+      ],
+      "answer": 2,
+      "explanation": "This is a small, curated set of team conventions — exactly what skills are designed for. Fine-tuning is overkill and slow to iterate. RAG is for large corpora, not a few hundred words of rules. Prefixing every message wastes tokens and is error-prone. A skill file is versioned, deterministic, and loads automatically.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "sed2",
+      "type": "multiple-choice",
+      "question": "What is the fundamental difference between how skills and RAG provide context to the model?",
+      "options": [
+        "Skills use embeddings to find relevant content; RAG uses keyword matching",
+        "Skills load a specific file deterministically by path; RAG uses semantic search to find relevant chunks probabilistically",
+        "Skills are injected at training time; RAG is injected at inference time",
+        "Skills work only with Claude; RAG works with any model"
+      ],
+      "answer": 1,
+      "explanation": "Skills are deterministic file reads — same task type, same file, same content every time. RAG uses embeddings and vector search to find semantically relevant chunks, which is probabilistic (results vary by query). This distinction matters: skills are predictable but don't scale; RAG scales but introduces retrieval uncertainty.",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "sed3",
+      "type": "code-spot",
+      "question": "This skill file is poorly structured. What's the most impactful problem?\n\n```markdown\n# Everything About Python\n\nPython is a high-level, interpreted programming language created by Guido van Rossum.\nIt supports multiple paradigms including procedural, object-oriented, and functional.\nPython uses dynamic typing and garbage collection. The standard library includes\nmodules for file I/O, networking, regular expressions, unit testing, and more.\n\n## Data Types\nPython has several built-in data types: int, float, str, list, dict, tuple, set...\n[continues for 4,000 more words covering all of Python]\n```",
+      "options": [
+        "It should use JSON instead of markdown",
+        "It's too broad and too large — not scoped to a specific task, and at ~5,000 words it wastes ~6,500 tokens of context budget on generic knowledge the model already has",
+        "It needs more code examples",
+        "The heading structure is wrong — it should use H2 not H1"
+      ],
+      "answer": 1,
+      "explanation": "Two problems compound here: (1) No task scoping — 'Everything About Python' loads for every Python task, even when irrelevant. (2) Massive context cost — ~6,500 tokens of generic knowledge the model already knows from training. Good skills are narrow (scoped to a specific task/library), prescriptive (rules, not tutorials), and concise (<500 words).",
+      "audiences": ["experienced-dev"]
+    },
+    {
+      "id": "sed4",
+      "type": "multiple-choice",
+      "question": "Agent output quality degrades noticeably as conversations exceed 50K tokens. You have two 2,000-word skill files loading on every request. What's the most likely root cause?",
+      "options": [
+        "The skill files contain syntax errors that confuse the model",
+        "Skills only work in short conversations",
+        "The skills consume ~5,000 tokens per request, and as conversation history grows, the combined context pressure reduces the model's effective reasoning space",
+        "The model caches skill content and it becomes stale over time"
+      ],
+      "answer": 2,
+      "explanation": "Context window is a fixed resource. Skills (~5K tokens) + long conversation history + tool results all compete for space. As the conversation grows, the remaining space for the model to reason shrinks. Fix: trim skills to essentials, split into task-specific sub-skills so only one loads per task, or summarize conversation history.",
+      "audiences": ["experienced-dev"]
+    }
+  ]
+}

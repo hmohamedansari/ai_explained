@@ -1,0 +1,159 @@
+---
+title: "What is an LLM — For Experienced Developers"
+description: "The transformer architecture, tokenization mechanics, and inference pipeline — everything you need to understand how LLMs actually work under the hood."
+module: "how-agents-work"
+order: 1
+audiences: ["experienced-dev"]
+estimatedMinutes: 12
+tags: ["llm", "transformers", "tokenization", "inference", "architecture"]
+draft: false
+---
+
+## The Transformer in 90 Seconds
+
+An LLM is a transformer-based neural network trained to predict the next token in a sequence. That's the entire objective function: given tokens `[0..n]`, predict token `n+1`.
+
+The key architectural insight is **self-attention**. In older sequence models (RNNs, LSTMs), information had to flow sequentially — token 500 could only "see" token 1 through a chain of intermediate hidden states, and information degraded along the way. Self-attention lets every token attend to every other token directly, in parallel.
+
+For each token position, the model computes three vectors from the embedding: **Query (Q)**, **Key (K)**, and **Value (V)**. Attention scores are calculated as:
+
+```
+Attention(Q, K, V) = softmax(QK^T / sqrt(d_k)) * V
+```
+
+`QK^T` produces a matrix of pairwise similarity scores between all token positions. Dividing by `sqrt(d_k)` prevents the dot products from growing too large and saturating the softmax. The result is a weighted combination of value vectors — each token's output is a blend of information from every other token, weighted by relevance.
+
+Modern LLMs stack this into **multi-head attention**: multiple independent attention computations run in parallel, each learning different relationship patterns (syntactic, semantic, positional). A model like Claude uses dozens of these heads per layer, across many layers deep.
+
+---
+
+## Tokenization: Why It Matters More Than You Think
+
+LLMs don't operate on characters or words. They operate on **tokens** — subword units produced by algorithms like Byte-Pair Encoding (BPE).
+
+BPE works by starting with individual bytes, then iteratively merging the most frequent adjacent pairs into new tokens. The result: common words become single tokens (`" the"` -> one token), while rare words get split (`" cryptocurrency"` -> `" crypt"` + `"ocurrency"` or similar). The vocabulary is fixed at training time — typically 50k-100k tokens.
+
+```python
+import tiktoken
+
+enc = tiktoken.encoding_for_model("gpt-4")
+
+# Common word: 1 token
+print(enc.encode(" the"))        # [279]
+
+# Rare word: multiple tokens
+print(enc.encode(" defenestration"))  # [1059, 268, 455, 2066] — 4 tokens
+
+# Code is expensive
+print(len(enc.encode("const x = await fetch('/api/users');")))  # ~12 tokens
+
+# Whitespace and formatting cost tokens too
+compact = "if(x){return y;}"
+spaced  = "if (x) {\n  return y;\n}"
+print(len(enc.encode(compact)))  # ~8 tokens
+print(len(enc.encode(spaced)))   # ~12 tokens
+```
+
+This has direct engineering consequences:
+
+- **API costs** are per-token (both input and output). A 4,000-word document might be ~5,500 tokens. At $3/million input tokens, that's ~$0.017 per call — but if you're processing 100k documents, tokenization efficiency matters.
+- **Context window limits** are token limits, not character limits. A 200k context window sounds enormous until you realize a large codebase dump can consume it in one shot.
+- **Non-English text and code** tokenize less efficiently. The same semantic content in Japanese might use 2-3x more tokens than English because BPE vocabularies are trained predominantly on English text.
+
+---
+
+## The Inference Pipeline
+
+Here is what actually happens when you call an LLM API:
+
+```
+Your prompt (string)
+  → Tokenizer encodes to token IDs       [128, 5765, 319, ...]
+  → Token IDs pass through embedding layer → dense vectors
+  → Forward pass through N transformer layers (attention + FFN)
+  → Final layer outputs logits: a vector of ~100k floats
+  → Sampling strategy selects next token ID
+  → Repeat until stop condition
+  → Tokenizer decodes token IDs back to string
+```
+
+The model produces **one token at a time**. Each forward pass through the entire network yields a single probability distribution over the vocabulary. The output you see streaming in character-by-character is literally the model running one forward pass per token.
+
+This is why output is slower than input processing. Input tokens can be processed in parallel (they're all known upfront). Output tokens are sequential — each depends on all previous tokens including prior outputs.
+
+---
+
+## Sampling: temperature, top-p, top-k
+
+The forward pass outputs **logits** — raw unnormalized scores for each token in the vocabulary. Before selecting a token, these get transformed:
+
+**Temperature** scales the logits before softmax:
+
+```
+p_i = exp(logit_i / T) / sum(exp(logit_j / T))
+```
+
+- `T = 0`: argmax — always pick the highest-probability token. Deterministic but repetitive.
+- `T = 1.0`: sample from the unmodified distribution. Creative but occasionally incoherent.
+- `T > 1.0`: flattens the distribution — more randomness. Rarely useful in practice.
+
+**Top-k** restricts sampling to the `k` highest-probability tokens. If `k = 50`, the model can only pick from the 50 most likely next tokens, regardless of how the probability mass is distributed.
+
+**Top-p (nucleus sampling)** is more adaptive. It finds the smallest set of tokens whose cumulative probability exceeds `p`. If the model is 95% confident about one token, top-p with `p = 0.95` might only include that single token. If the distribution is flat, it might include hundreds.
+
+In practice, most API providers apply these in sequence: temperature first, then top-k, then top-p. For deterministic code generation, use `temperature=0`. For creative tasks, `temperature=0.7` with `top_p=0.9` is a common starting point.
+
+---
+
+## The Context Window Is a Fixed-Size Attention Matrix
+
+The context window is not a rolling buffer. It is the **maximum sequence length** the model can process in a single forward pass. For a 200k-token context window, the attention mechanism computes a 200k x 200k matrix of pairwise relationships.
+
+Every API call includes the **full conversation history** in the prompt. There's no server-side state. When you see a chatbot "remembering" earlier messages, it's because the client is re-sending the entire conversation every time.
+
+This means:
+
+- **Cost accumulates quadratically** with conversation length (you pay for all previous messages on every call).
+- **Long conversations degrade** not because the model "forgets" but because attention over very long sequences dilutes focus.
+- **You control the memory**. Your application decides what goes into the context. Summarizing old messages, dropping irrelevant turns, injecting retrieval results — these are all engineering decisions in your client code.
+
+---
+
+## Why LLMs Are Stateless (and Why That Matters)
+
+Each API call is a **completely independent forward pass**. The model has no memory between calls. No session. No connection state. It's a pure function: `f(tokens) -> next_token_probabilities`.
+
+This is fundamental to how you architect around LLMs:
+
+- **There's no "training" happening at inference time.** The model weights are frozen. Prompt engineering works because you're changing the input, not the model.
+- **"Context injection" is just concatenation.** RAG, system prompts, few-shot examples — they all work the same way: you're prepending text to the user's message so the model sees it during the forward pass.
+- **Reproducibility requires fixing the seed.** Even with `temperature=0`, floating-point nondeterminism in GPU operations can cause slight variations. Some APIs expose a `seed` parameter for reproducible outputs.
+
+---
+
+## Practical Systems Thinking
+
+**Token counting before sending:** Estimate costs and check context limits before making API calls. Use the tokenizer library directly — don't estimate from character counts.
+
+```python
+import tiktoken
+
+def estimate_cost(text: str, model: str = "gpt-4", per_million: float = 3.0) -> float:
+    enc = tiktoken.encoding_for_model(model)
+    tokens = len(enc.encode(text))
+    return tokens * per_million / 1_000_000
+
+# Check if content fits in context window
+def fits_in_context(messages: list[str], max_tokens: int = 128_000) -> bool:
+    enc = tiktoken.encoding_for_model("gpt-4")
+    total = sum(len(enc.encode(m)) for m in messages)
+    return total < max_tokens
+```
+
+**Prompt engineering is systems design.** The prompt is the interface contract between your application and the model. Treat it like an API: version it, test it against regressions, and keep it as short as possible (every token costs time and money).
+
+**Batching and caching matter.** Identical prompts produce cacheable results (when temperature=0). Many providers offer prompt caching — the prefix of your prompt that matches a cached version skips recomputation. Structure your prompts with stable prefixes (system prompt, tool definitions) and variable suffixes (user input).
+
+---
+
+> An LLM is a stateless function that maps a token sequence to a probability distribution over the next token. Everything else — memory, tools, agents, RAG — is scaffolding built around this core operation by your application code.

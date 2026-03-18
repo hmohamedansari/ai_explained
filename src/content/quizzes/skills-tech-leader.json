@@ -1,0 +1,46 @@
+{
+  "title": "Skills — Tech Leader",
+  "concept": "skills-tech-leader",
+  "questions": [
+    {
+      "id": "stl1",
+      "type": "multiple-choice",
+      "question": "Why is loading all expert knowledge into an agent's context window at once a poor long-term strategy?",
+      "options": [
+        "It increases API costs but has no effect on output quality.",
+        "It degrades the agent's attention and causes instructions to be ignored or inconsistently applied as complexity grows.",
+        "Large context windows are not supported by modern language models.",
+        "It prevents the agent from accessing external tools."
+      ],
+      "answer": 1,
+      "explanation": "Context windows are finite. As more instructions compete for attention, the agent's ability to follow any single instruction reliably decreases — a real and well-documented limitation, not just a cost concern.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "stl2",
+      "type": "true-false",
+      "question": "Skills are a feature of Anthropic's API that must be enabled through a specific endpoint or configuration flag.",
+      "options": [
+        "True",
+        "False"
+      ],
+      "answer": 1,
+      "explanation": "Skills are a prompt engineering pattern, not an API feature. They are markdown files in known locations that tools like Claude Code read into context on demand. Any team can adopt the pattern without special API access.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "stl3",
+      "type": "multiple-choice",
+      "question": "What is the primary organizational benefit of encoding team conventions as skill files rather than relying on senior engineers to enforce them?",
+      "options": [
+        "Skill files eliminate the need for code review entirely.",
+        "Skill files are faster to write than documentation.",
+        "Skill files make institutional knowledge version-controlled, consistently applied, and resilient to team turnover.",
+        "Skill files allow the AI agent to learn and permanently remember new conventions."
+      ],
+      "answer": 2,
+      "explanation": "The key organizational value is durability and consistency. Conventions captured in skill files survive team changes, are applied uniformly by the agent, and can be reviewed and iterated on like code — unlike knowledge that lives only in people's heads.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

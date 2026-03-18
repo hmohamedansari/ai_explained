@@ -1,0 +1,43 @@
+{
+  "title": "Skills — New Developer",
+  "concept": "skills-new-dev",
+  "questions": [
+    {
+      "id": "snd1",
+      "type": "multiple-choice",
+      "question": "What is a skill file?",
+      "options": [
+        "A compiled plugin that extends Claude's capabilities with new functions",
+        "A markdown file containing expert instructions that Claude reads before performing a specific task",
+        "A configuration file that changes Claude's model parameters like temperature",
+        "A log file where Claude records what it learned from previous conversations"
+      ],
+      "answer": 1,
+      "explanation": "A skill file is simply a markdown document filled with targeted, expert-level instructions. Claude reads it right before starting a task so it has precise guidance loaded into its context — like pulling out a recipe card before cooking a specific dish.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "snd2",
+      "type": "true-false",
+      "question": "Claude loads every skill file in your project into its context at the start of every conversation.",
+      "options": ["True", "False"],
+      "answer": 1,
+      "explanation": "Skill files are loaded only when they are relevant to the task at hand. Loading every skill file every time would waste context window space. Instead, Claude identifies which skill applies to the current request and reads just that one.",
+      "audiences": ["new-dev"]
+    },
+    {
+      "id": "snd3",
+      "type": "multiple-choice",
+      "question": "Why are skill files more effective than pasting an entire library's documentation into your prompt?",
+      "options": [
+        "Skill files use a special format that Claude processes faster than regular text",
+        "Skill files are encrypted so they bypass the context window limit",
+        "Skill files are short and focused, providing only the most relevant guidance without filling up the context window",
+        "Skill files are stored on a server that Claude can access at any time"
+      ],
+      "answer": 2,
+      "explanation": "The context window has a hard limit. A focused skill file of a few hundred words delivers the key rules and pitfalls for a specific task without wasting space on information that is not relevant. Targeted knowledge beats general knowledge when the context window is finite.",
+      "audiences": ["new-dev"]
+    }
+  ]
+}

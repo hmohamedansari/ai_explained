@@ -1,0 +1,62 @@
+{
+  "title": "LLM Fundamentals — Tech Leader",
+  "concept": "what-is-an-llm-tech-leader",
+  "questions": [
+    {
+      "id": "ltl1",
+      "type": "multiple-choice",
+      "question": "Your team is building a customer support agent. A product manager says: \"The LLM will learn from each conversation and get better over time.\" What is the correct response?",
+      "options": [
+        "True — LLMs continuously learn from production interactions",
+        "Partially true — the LLM updates its weights nightly with new data",
+        "False — the model's weights are frozen after training; any \"memory\" must be explicitly engineered by passing prior context into each call",
+        "False — but fine-tuning happens automatically when the model encounters new patterns"
+      ],
+      "answer": 2,
+      "explanation": "LLMs are stateless functions with frozen weights. They do not learn from usage. Any appearance of memory or improvement must be built by your application layer — storing conversation history, retrieving relevant context, or periodically fine-tuning a new model version on curated data. This is an engineering decision, not a model feature.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ltl2",
+      "type": "multiple-choice",
+      "question": "Your architecture team is designing a system where the LLM processes internal documents. The context window is 128K tokens, and the full document set is 2M tokens. What is the right approach?",
+      "options": [
+        "Upgrade to a model with a larger context window so all documents fit in a single call",
+        "Send all 2M tokens anyway — the model will focus on the important parts",
+        "Build a retrieval layer that selects the most relevant documents and sends only those within the context window",
+        "Split the documents evenly across multiple parallel LLM calls and merge the outputs"
+      ],
+      "answer": 2,
+      "explanation": "The context window is a hard ceiling — tokens beyond the limit are not processed at all. Blindly upgrading to larger windows is expensive and still has limits. The proven approach is retrieval-augmented generation (RAG): index your documents, retrieve only what is relevant to the query, and pass that curated subset to the model. This controls both cost and quality.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ltl3",
+      "type": "multiple-choice",
+      "question": "A finance team reports that your LLM-powered feature cost 5x more last month than the month before, even though user count only doubled. What is the most likely root cause?",
+      "options": [
+        "The LLM provider raised their prices without notice",
+        "LLM inference costs scale with token volume, not user count — longer inputs, richer context, or more calls per user all multiply cost independently of user growth",
+        "The model is using more GPU memory as it learns from more users",
+        "Costs are fixed per seat, so this must be a billing error"
+      ],
+      "answer": 1,
+      "explanation": "LLM costs are usage-driven: you pay per token in and per token out. If each user session now sends more context (longer conversation history, more retrieved documents, bigger system prompts), costs grow with token volume, not headcount. This is why monitoring per-request token usage and setting budgets are essential from day one.",
+      "audiences": ["tech-leader"]
+    },
+    {
+      "id": "ltl4",
+      "type": "multiple-choice",
+      "question": "You are evaluating whether to use an LLM to validate financial calculations in audit reports. Which concern should weigh most heavily in your decision?",
+      "options": [
+        "The LLM might be too slow for real-time validation",
+        "LLMs generate plausible-looking output, not verified truth — they can produce confident but incorrect arithmetic, making them unreliable as a sole validation layer for precision tasks",
+        "The training data cutoff means the LLM does not know current tax laws",
+        "The temperature setting might introduce randomness into the calculations"
+      ],
+      "answer": 1,
+      "explanation": "LLMs approximate — they are pattern-completion engines, not calculators. They will confidently produce wrong arithmetic. For any use case where correctness is non-negotiable (financial, medical, legal), the LLM should never be the sole authority. Use it for drafting, summarization, or classification, but layer deterministic validation (code, rules engines, human review) on top for precision tasks.",
+      "audiences": ["tech-leader"]
+    }
+  ]
+}

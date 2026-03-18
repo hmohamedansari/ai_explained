@@ -1,0 +1,58 @@
+---
+title: "Skills — For Tech Leaders"
+description: "How skills keep AI agents lean and expert at the same time — just-in-time knowledge loading as a context management strategy."
+module: "how-agents-work"
+order: 4
+audiences: ["tech-leader"]
+estimatedMinutes: 6
+tags: ["skills", "prompt-engineering", "context-management", "strategy"]
+draft: false
+---
+
+## The Context Window Is a Scarce Resource
+
+Every AI agent operates within a context window — a fixed budget of text it can hold in working memory at any given moment. Anything inside that window shapes the agent's behavior: its tone, its expertise, its awareness of constraints. Anything outside the window might as well not exist.
+
+This creates a fundamental tension. You want an agent that is an expert in many domains — code review, commit conventions, security policies, accessibility standards, your company's specific API patterns. But stuffing all of that knowledge into the context window at once is wasteful at best and destructive at worst. Irrelevant instructions compete for attention, crowd out the actual task, and burn through the token budget that could be spent on reasoning about the problem at hand.
+
+The question becomes: how do you build an agent that can act like a specialist in dozens of areas without paying the cost of carrying all that specialist knowledge at all times?
+
+## Skills: Just-in-Time Expert Knowledge
+
+Skills are a prompt engineering pattern — not an API feature, not a model capability, but a design convention used by tools like Claude Code. The idea is deceptively simple: store expert knowledge in markdown files placed in known locations, and have the agent load the right file at the right moment, just before it performs a specific kind of task.
+
+When a user asks the agent to, say, create a pull request, the agent recognizes the task category, looks for a matching skill file, reads it into its context, and then executes the task with that specialized guidance active. Once the task is done, the skill's content doesn't need to persist. The context window is freed up for whatever comes next.
+
+This is just-in-time retrieval-augmented prompting. The agent retrieves its own instructions on demand, rather than carrying an encyclopedia at all times.
+
+## The Surgeon's Reference Card
+
+Think of a surgeon preparing for a specific procedure. No surgeon memorizes every technique for every operation. Instead, they carry deep general expertise and know exactly where to find the protocol for the procedure at hand. Before operating, they review the reference card — the steps, the known risks, the institutional guidelines for that particular intervention. Once the procedure is complete, that card goes back in the drawer.
+
+Skills work the same way. The agent carries broad general capability from its training. The skill file is the reference card: a concise, opinionated document that encodes exactly what the agent needs to know for a specific class of task. The agent knows when to reach for it, loads it, applies it, and moves on.
+
+This is not the agent "learning." It is the agent being equipped with the right context at the right time — a distinction that matters when you are reasoning about reliability and predictability.
+
+## Why This Matters for Teams
+
+For technology leaders, the strategic value of skills goes beyond efficient context management. Skills are a mechanism for encoding institutional knowledge into AI-assisted workflows.
+
+Consider what typically lives in a team's collective expertise: coding conventions that aren't in any linter, review standards that exist only in senior engineers' heads, deployment checklists that evolved through hard-won incident postmortems, naming patterns that maintain consistency across dozens of services. This knowledge is fragile. It leaves when people leave. It degrades as teams scale. It is inconsistently applied even when everyone nominally agrees on it.
+
+Skills let you capture that knowledge in a format an AI agent can operationalize. A skill file for code review can encode your team's actual review philosophy — not generic best practices, but the specific things your senior engineers look for. A skill for commit messages can enforce the conventions your team has settled on after years of iteration. A skill for incident response can carry the hard-earned lessons from past outages.
+
+This transforms institutional knowledge from something that lives in people's heads into something that is version-controlled, reviewable, and consistently applied. You can iterate on a skill file the same way you iterate on code: propose a change, review it, merge it, and every future interaction with the agent reflects the update.
+
+## The Strategic Tradeoff
+
+The alternative to skills is one of two losing strategies. The first is to front-load everything: pack every instruction, convention, and guideline into the agent's system prompt and hope the context window is large enough. This works for small sets of instructions but collapses as organizational complexity grows. The context fills up, the agent's attention degrades, and you start seeing instructions ignored or blended together in unpredictable ways.
+
+The second losing strategy is to keep the agent generic and rely on human operators to supply the right context manually every time. This works when one expert is driving, but it doesn't scale. The whole point of an AI-assisted workflow is to reduce the burden on the human, not to shift it from "doing the work" to "remembering to tell the agent how to do the work."
+
+Skills chart a middle path. The agent stays lean by default — its baseline context is unburdened. But it becomes a specialist on demand, loading exactly the knowledge it needs, when it needs it. The organizational investment shifts from training people to remember conventions to maintaining a library of skill files that encode those conventions explicitly.
+
+## What to Take Away
+
+Skills are a context management strategy disguised as a simple file convention. They solve the tension between broad capability and finite context by treating expert knowledge as something to be loaded on demand rather than carried at all times. For teams building AI-powered workflows, they offer a concrete mechanism to make institutional knowledge durable, consistent, and automatically applied — without overwhelming the agent's working memory.
+
+The pattern is worth watching not because of its technical complexity — it is intentionally simple — but because of what it enables at the organizational level: a way to scale expertise without scaling headcount, and a way to preserve hard-won knowledge in a form that actually gets used.

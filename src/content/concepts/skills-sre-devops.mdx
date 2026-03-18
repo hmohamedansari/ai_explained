@@ -1,0 +1,122 @@
+---
+title: "Skills — For SRE / DevOps"
+description: "Skills from an infrastructure perspective — file layout, context budget, performance implications, and managing skill files across teams."
+module: "how-agents-work"
+order: 4
+audiences: ["sre-devops"]
+estimatedMinutes: 8
+tags: ["skills", "infrastructure", "context-management", "deployment", "performance"]
+draft: false
+---
+
+## What Skills Are (Ops Perspective)
+
+Skills are markdown files — plain `.md` files checked into your repo — that get loaded into the LLM's context window right before a specific task. No runtime, no database, no service to deploy. Just files.
+
+If you've managed `.editorconfig`, `.eslintrc`, or Terraform modules, skills are the same idea applied to AI: **codified standards that shape behavior automatically**.
+
+```
+project/
+├── .editorconfig          ← shapes how editors format code
+├── .eslintrc.json         ← shapes how linters flag code
+├── SKILL.md               ← shapes how the AI agent writes code
+└── docx/
+    └── SKILL.md           ← shapes how the AI makes Word documents
+```
+
+---
+
+## How the Host Discovers and Loads Skills
+
+When the AI agent gets a task, the host application (e.g., Claude Code) follows a deterministic discovery path:
+
+1. Check for `SKILL.md` in the current working directory
+2. Check for task-specific skill files (e.g., `docx/SKILL.md` when creating a Word doc)
+3. Check for project-level skills in known locations (`.claude/`, root of repo)
+4. Read the matching file(s) and inject into the LLM's context
+5. LLM processes the task with that expert knowledge loaded
+
+This is **not semantic search**. There's no embedding database, no vector store, no retrieval model. It's a file read — deterministic, predictable, zero infrastructure.
+
+---
+
+## Context Budget: The Resource You're Managing
+
+Every skill file consumes tokens from the context window. This is a finite resource — think of it like memory allocation.
+
+| Skill file size | Token cost | Context budget impact |
+|---|---|---|
+| 500 words (short) | ~650 tokens | Minimal — 0.3% of a 200K window |
+| 2,000 words (typical) | ~2,500 tokens | Noticeable — 1.25% of 200K |
+| 5,000 words (large) | ~6,500 tokens | Significant — 3.25% of 200K |
+
+Tokens consumed by skills are tokens that can't be used for:
+- Conversation history (what the user said)
+- Tool results (file contents, command output)
+- The model's reasoning space
+
+**Monitoring this matters.** If agents start producing shorter or less coherent responses as conversations get long, skill bloat could be a contributing factor. The fix is the same as any resource optimization: measure, profile, trim.
+
+---
+
+## Performance Implications
+
+Loading a skill adds latency to every request where it triggers:
+
+| Phase | Impact |
+|---|---|
+| File I/O | Negligible (~1-5ms for a local file read) |
+| Extra tokens in prompt | Real — more input tokens = more time to process |
+| Better output quality | The tradeoff — skills reduce rework and errors |
+
+For most use cases, the latency cost is marginal. But if you're running high-throughput AI pipelines (e.g., processing thousands of documents), skill-loading overhead compounds. Profile before optimizing.
+
+---
+
+## Version Control and Team Management
+
+Skill files should be treated like any other configuration artifact:
+
+**Version control**: Check them into the repo. Review changes in PRs. A bad skill file can degrade agent output quality across the entire team — treat it like a config change, not a doc update.
+
+**Shared vs project-specific**:
+```
+~/.claude/
+├── SKILL.md                    ← user-level (personal preferences)
+│
+org-config-repo/
+├── skills/
+│   ├── code-review.md          ← org-wide conventions
+│   └── incident-response.md    ← shared SRE playbook
+│
+project-repo/
+├── SKILL.md                    ← project-specific conventions
+└── deploy/
+    └── SKILL.md                ← deployment-specific instructions
+```
+
+**Layering**: Skills at different levels can coexist. More specific skills (project-level) take precedence when the host loads them alongside broader ones (org-level). This mirrors how `.gitconfig` layers global → local → worktree settings.
+
+**Ownership**: Assign CODEOWNERS to skill files. When a skill changes, the right people should review it — just like Terraform module changes or CI pipeline updates.
+
+---
+
+## When Skills Are the Right Tool
+
+| Scenario | Use skills? | Why |
+|---|---|---|
+| Team coding conventions | Yes | Deterministic, versioned, low-overhead |
+| Large documentation corpus (10K+ pages) | No | Use RAG with embeddings instead |
+| API-specific best practices | Yes | Small, focused, loads when needed |
+| Real-time data (logs, metrics) | No | Use MCP resources instead |
+| Deployment runbooks | Yes | Codify institutional knowledge as agent instructions |
+
+---
+
+## Key Takeaways
+
+- Skills are files, not services — zero infrastructure to deploy or maintain
+- They consume context window tokens — monitor the budget like any resource
+- Version control them, review them in PRs, assign CODEOWNERS
+- Layer them: user → org → project → task-specific
+- They're the AI equivalent of `.editorconfig` — codified standards that shape behavior automatically
