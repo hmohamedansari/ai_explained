@@ -1,5 +1,6 @@
 # Track 9: Multimodal AI (Deep Dive)
 > Last reviewed: 2026-03-20 | Personas: Sr Dev / SRE / Leader
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *Vision, audio, and cross-modal systems. A frontier track — builds on Tracks 1 and 2.*
 

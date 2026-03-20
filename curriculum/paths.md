@@ -1,5 +1,6 @@
 # Learning Paths
 > Last reviewed: 2026-03-20 | Volatility: `stable` (structure); individual module references may drift
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 Each path has two variants:
 - **MVP path** — minimum modules to reach the literacy checkpoint. For learners short on time.

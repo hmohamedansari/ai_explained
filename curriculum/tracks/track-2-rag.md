@@ -1,5 +1,6 @@
 # Track 2: Knowledge & Memory (RAG & Context Engineering)
 > Last reviewed: 2026-03-20 | Personas: Jr Dev → Sr Dev
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *The most misunderstood layer. Junior devs get "RAG adds context" — this track gives the full systems picture.*
 

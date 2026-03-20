@@ -1,5 +1,6 @@
 # Track 1: How AI Actually Works (Foundations)
 > Last reviewed: 2026-03-20 | Personas: All
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *For everyone. No code required until Module 1.6.*
 

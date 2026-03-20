@@ -6,7 +6,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "curriculum:validate": "python3 scripts/validate-curriculum.py",
+    "curriculum:registry": "python3 scripts/validate-curriculum.py --registry"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.0",

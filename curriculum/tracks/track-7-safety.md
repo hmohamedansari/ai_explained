@@ -1,5 +1,6 @@
 # Track 7: Safety, Red Teaming & Compliance
 > Last reviewed: 2026-03-20 | Personas: All → Sr Dev / Leader
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *Offensive and defensive. Required for production, often taught last — should be taught early.*
 

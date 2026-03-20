@@ -1,5 +1,6 @@
 # Content Specifications
 > Last reviewed: 2026-03-20 | Volatility: `stable`
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 Authoring standards for all curriculum modules. Every author must read this before writing a module.
 

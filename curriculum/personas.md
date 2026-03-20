@@ -1,5 +1,6 @@
 # Target Personas
 > Last reviewed: 2026-03-20 | Volatility: `stable`
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 Five core personas plus one specialisation extension. Persona definitions drive UI pill colours, content layer defaults, and path sequencing.
 

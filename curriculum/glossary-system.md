@@ -1,5 +1,6 @@
 # Glossary & Concept Card System
 > Last reviewed: 2026-03-20 | Volatility: `stable`
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 ---
 

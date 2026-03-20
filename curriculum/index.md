@@ -1,5 +1,6 @@
 # AI Academy — Curriculum Index
 > Last reviewed: 2026-03-20 | Status: Foundation draft
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 This directory is the single source of truth for curriculum content. The top-level `curriculum_plan.md` is a merged snapshot kept for reference; all ongoing edits happen here.
 
@@ -76,6 +77,48 @@ Used in module tables across track files to guide prioritisation and review cade
 | `volatile` | Every 3 months | Track lead, with LLM ecosystem check |
 
 Tracks most at risk of staleness: **Track 3** (protocols), **Track 9** (multimodal), **Track 8** (AI landscape).
+
+---
+
+## Validation
+
+Run the curriculum validator before committing changes to any file in this directory:
+
+```bash
+python3 scripts/validate-curriculum.py           # validate only
+python3 scripts/validate-curriculum.py --registry  # validate + regenerate registry.md
+```
+
+The validator checks:
+- Unique module IDs across all track files
+- Module ID prefix matches track number
+- Valid `volatility` and `status` tags
+- Required `> Last reviewed:` and `> Owner:` fields on every file
+- All module ID cross-references in `paths.md`, `unknown-unknowns.md`, and `index.md` resolve
+
+Add it to CI or as a pre-push hook:
+```bash
+# .git/hooks/pre-push  (chmod +x)
+python3 scripts/validate-curriculum.py || exit 1
+```
+
+---
+
+## Change Impact Checklist
+
+When editing curriculum files, check whether your change affects dependent files.
+
+| If you change... | Also check... |
+|---|---|
+| A module ID | `paths.md`, `unknown-unknowns.md`, `index.md` cross-reference map, any track file that links to it |
+| A module title | `registry.md` (regenerate with `--registry`), `paths.md` if referenced by name |
+| A module's personas | `paths.md` (path may route the wrong audience), `personas.md` |
+| A module's volatility | Review cadence — does it now need more or less frequent review? |
+| A track file's module table | Re-run the validator. A status change from `planned` to `published` triggers publication gates. |
+| `personas.md` | `paths.md` (path prerequisites), all track files (persona tags), `content-spec.md` schema |
+| `paths.md` | All track files the path references — check prerequisites are still met |
+| `content-spec.md` schema | All track files (metadata fields), the validator script (field names) |
+| `index.md` cross-reference map | The validator (it checks IDs in this file) |
 
 ---
 

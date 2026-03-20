@@ -1,5 +1,6 @@
 # Track 6: Control Room (Evaluation & LLMOps)
 > Last reviewed: 2026-03-20 | Personas: All Devs → Sr Dev / SRE
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *The most under-taught, most production-critical track. Evaluation drives architecture — not just ops.*
 

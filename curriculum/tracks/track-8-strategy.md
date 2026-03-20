@@ -1,5 +1,6 @@
 # Track 8: AI Strategy & Organisational Integration
 > Last reviewed: 2026-03-20 | Personas: Leader / Sr Dev
+> Owner: [unassigned] | Reviewer: [unassigned]
 
 *For leaders — but senior devs should read this too.*
 
