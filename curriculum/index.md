@@ -85,22 +85,12 @@ Tracks most at risk of staleness: **Track 3** (protocols), **Track 9** (multimod
 Run the curriculum validator before committing changes to any file in this directory:
 
 ```bash
-python3 scripts/validate-curriculum.py           # validate only
-python3 scripts/validate-curriculum.py --registry  # validate + regenerate registry.md
+npm run curriculum:validate   # validate only
+npm run curriculum:registry   # validate + regenerate registry.md
+npm run curriculum:test       # run the validator test suite
 ```
 
-The validator checks:
-- Unique module IDs across all track files
-- Module ID prefix matches track number
-- Valid `volatility` and `status` tags
-- Required `> Last reviewed:` and `> Owner:` fields on every file
-- All module ID cross-references in `paths.md`, `common-gotchas.md`, and `index.md` resolve
-
-Add it to CI or as a pre-push hook:
-```bash
-# .git/hooks/pre-push  (chmod +x)
-python3 scripts/validate-curriculum.py || exit 1
-```
+Full documentation — checks performed, all CLI flags, pre-push hook setup, and failure triage — is in [`scripts/README.md`](../scripts/README.md).
 
 ---
 

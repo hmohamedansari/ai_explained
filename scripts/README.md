@@ -57,6 +57,34 @@ chmod +x .git/hooks/pre-push
 
 ---
 
+## Failure triage
+
+When the validator exits with errors, here is how to fix each type:
+
+| Error message | Cause | Fix |
+|---|---|---|
+| `Duplicate module ID X.Y in track-A (already in track-B)` | Same ID defined in two track files | Renumber one of them; re-run `--registry` to update `registry.md` |
+| `track-N-foo.md: module X.Y has wrong prefix (expected N.x)` | Module ID doesn't match its track file | Correct the ID in the module table |
+| `module X.Y — invalid volatility 'foo'` | Typo or unsupported tag | Replace with `stable`, `emerging`, or `volatile` |
+| `module X.Y — invalid status 'foo'` | Typo or unsupported tag | Replace with `planned`, `draft`, `reviewed`, `published`, or `stale` |
+| `track-N-foo.md: missing required '> Last reviewed:' header` | File header is incomplete | Add `> Last reviewed: YYYY-MM-DD` as the second line of the file |
+| `track-N-foo.md: missing required '> Owner:' field` | File header is incomplete | Add `> Owner: [name] \| Reviewer: [name]` as the third line |
+| `paths.md: references unknown module ID X.Y` | A path step points to a module that doesn't exist | Either add the module to the correct track file, or fix the ID in `paths.md` |
+| `common-gotchas.md: 'Where Taught' references unknown module ID X.Y` | Gotcha table points to a missing module | Correct the ID in `common-gotchas.md` or add the module to the track |
+| `index.md Cross-Reference Map: references unknown module ID X.Y` | Cross-reference map is stale | Update the ID in the Cross-Reference Map section of `index.md` |
+
+**Typical fix workflow:**
+
+```
+1. Run:  python3 scripts/validate-curriculum.py
+2. Fix all reported errors top-to-bottom (errors before warnings)
+3. If you added or renamed modules, run:  python3 scripts/validate-curriculum.py --registry
+4. Re-run the validator to confirm 0 errors
+5. Commit the fixed files (and updated registry.md if regenerated)
+```
+
+---
+
 ## tests/
 
 The test suite for `validate-curriculum.py`. Uses small fixture files instead of the real curriculum so tests are fast, isolated, and safe to run anywhere.
