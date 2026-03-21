@@ -7,18 +7,21 @@ Checks:
   2. Module ID prefix matches track file number (1.x in track-1, etc.)
   3. Valid volatility tags (stable / emerging / volatile)
   4. Valid status tags (planned / draft / reviewed / published / stale)
-  5. Required file metadata (Last reviewed, Owner)
-  6. Cross-references in paths.md resolve to known module IDs
-  7. Cross-references in unknown-unknowns.md resolve to known module IDs
-  8. Cross-references in index.md resolve to known module IDs
+  5. Persona field contains at least one recognised base token
+  6. Required file metadata (Last reviewed, Owner) — errors, not warnings
+  7. Cross-references in paths.md resolve to known module IDs
+  8. Cross-references in unknown-unknowns.md (Where Taught column) resolve
+  9. Cross-references in Cross-Reference Map section of index.md resolve
 
 Usage:
   python3 scripts/validate-curriculum.py              # validate only
   python3 scripts/validate-curriculum.py --registry   # validate + write curriculum/registry.md
+  python3 scripts/validate-curriculum.py --strict     # treat warnings as errors
 """
 
 import re
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -28,40 +31,40 @@ TRACKS_DIR = CURRICULUM_DIR / "tracks"
 VALID_VOLATILITY = {"stable", "emerging", "volatile"}
 VALID_STATUS = {"planned", "draft", "reviewed", "published", "stale"}
 
-PERSONA_TOKENS = {
-    "all", "all devs", "all → dev", "curious", "leader", "jr dev", "jr dev →",
-    "sr dev", "sr dev →", "sre", "sre / sr dev", "jr dev / sre",
-    "sr dev / sre", "sr dev / leader", "all devs / leader", "leader / dev",
-    "leader / all", "leader / sr dev", "dev / sre", "dev",
-}
+# At least one of these must appear (case-insensitive) in a module's persona field.
+BASE_PERSONA_TOKENS = {"all", "curious", "leader", "jr dev", "sr dev", "sre", "dev"}
 
-# ── Parsing ──────────────────────────────────────────────────────────────────
+
+# ── Parsing ───────────────────────────────────────────────────────────────────
 
 def parse_track_modules(track_file: Path) -> list[dict]:
-    """Extract module rows from the Modules table in a track file."""
+    """Extract module rows from the Modules table in a track file.
+
+    Robust to extra whitespace and backtick-wrapped tag values.
+    Only parses the first table whose header row contains 'ID'.
+    """
     content = track_file.read_text(encoding="utf-8")
-    modules = []
+    modules: list[dict] = []
     in_module_table = False
 
     for line in content.splitlines():
         stripped = line.strip()
 
-        # Detect the module table header
         if re.match(r"\|\s*ID\s*\|", stripped, re.IGNORECASE):
             in_module_table = True
             continue
 
-        # Skip separator rows
-        if in_module_table and re.match(r"\|[-| ]+\|", stripped):
-            continue
+        if in_module_table and re.match(r"\|[-| :]+\|", stripped):
+            continue  # separator row
 
         if in_module_table and stripped.startswith("|") and stripped.endswith("|"):
             parts = [p.strip() for p in stripped.split("|")[1:-1]]
             if len(parts) >= 5:
-                mod_id, title, personas, volatility, status = (
-                    parts[0], parts[1], parts[2],
-                    parts[3].strip("`"), parts[4].strip("`"),
-                )
+                mod_id   = parts[0]
+                title    = parts[1]
+                personas = parts[2]
+                volatility = parts[3].strip("`")
+                status     = parts[4].strip("`")
                 if re.match(r"^\d+\.\d+$", mod_id):
                     modules.append({
                         "id": mod_id,
@@ -72,9 +75,19 @@ def parse_track_modules(track_file: Path) -> list[dict]:
                         "file": track_file.name,
                     })
         elif in_module_table and not stripped.startswith("|"):
-            in_module_table = False  # Table ended
+            break  # first table ended; stop — don't parse later tables
 
     return modules
+
+
+def extract_cross_ref_section(content: str) -> str:
+    """Return only the text of the Cross-Reference Map section in index.md."""
+    match = re.search(
+        r"##\s+Cross-Reference Map\b(.*?)(?=\n##\s|\Z)",
+        content,
+        re.DOTALL,
+    )
+    return match.group(1) if match else ""
 
 
 def find_bold_module_refs(text: str) -> list[str]:
@@ -83,31 +96,46 @@ def find_bold_module_refs(text: str) -> list[str]:
 
 
 def find_any_module_refs(text: str) -> list[str]:
-    """Find bare X.Y module ID references (used in table cells)."""
+    """Find bare X.Y module ID references."""
     return re.findall(r"\b(\d+\.\d+)\b", text)
+
+
+# ── Persona validation ────────────────────────────────────────────────────────
+
+def has_valid_persona(persona_str: str) -> bool:
+    """Return True if the persona field contains at least one recognised token."""
+    lower = persona_str.lower()
+    return any(token in lower for token in BASE_PERSONA_TOKENS)
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
 
-def validate() -> tuple[list[str], list[str], dict]:
+def validate(
+    curriculum_dir: Path = CURRICULUM_DIR,
+    tracks_dir: Path = TRACKS_DIR,
+) -> tuple[list[str], list[str], dict]:
+    """Run all checks. Returns (errors, warnings, all_modules).
+
+    Accepts custom paths so the test suite can point at fixture directories.
+    """
     errors: list[str] = []
     warnings: list[str] = []
     all_modules: dict[str, dict] = {}
 
-    track_files = sorted(TRACKS_DIR.glob("track-*.md"))
+    track_files = sorted(tracks_dir.glob("track-*.md"))
     if not track_files:
-        errors.append(f"No track files found in {TRACKS_DIR}")
+        errors.append(f"No track files found in {tracks_dir}")
         return errors, warnings, all_modules
 
-    # ── 1. Parse and validate each track file ─────────────────────────────
+    # ── 1–5. Parse and validate each track file ───────────────────────────
     for track_file in track_files:
         content = track_file.read_text(encoding="utf-8")
 
-        # Required metadata
+        # Metadata — required (errors, not warnings)
         if "> Last reviewed:" not in content:
-            warnings.append(f"{track_file.name}: missing '> Last reviewed:' header")
+            errors.append(f"{track_file.name}: missing required '> Last reviewed:' header")
         if "> Owner:" not in content:
-            warnings.append(f"{track_file.name}: missing '> Owner:' field")
+            errors.append(f"{track_file.name}: missing required '> Owner:' field")
 
         track_num_match = re.search(r"track-(\d+)", track_file.name)
         expected_prefix = track_num_match.group(1) + "." if track_num_match else None
@@ -119,7 +147,7 @@ def validate() -> tuple[list[str], list[str], dict]:
         for mod in modules:
             mod_id = mod["id"]
 
-            # Duplicate check
+            # 1. Duplicate IDs
             if mod_id in all_modules:
                 errors.append(
                     f"Duplicate module ID {mod_id} in {track_file.name} "
@@ -128,37 +156,45 @@ def validate() -> tuple[list[str], list[str], dict]:
             else:
                 all_modules[mod_id] = mod
 
-            # ID prefix matches track
+            # 2. ID prefix matches track number
             if expected_prefix and not mod_id.startswith(expected_prefix):
                 errors.append(
                     f"{track_file.name}: module {mod_id} has wrong prefix "
                     f"(expected {expected_prefix}x)"
                 )
 
-            # Volatility
+            # 3. Volatility
             if mod["volatility"] not in VALID_VOLATILITY:
                 errors.append(
-                    f"{track_file.name}: module {mod_id} has invalid volatility "
-                    f"'{mod['volatility']}' — must be one of: {', '.join(sorted(VALID_VOLATILITY))}"
+                    f"{track_file.name}: module {mod_id} — invalid volatility "
+                    f"'{mod['volatility']}' (must be: {', '.join(sorted(VALID_VOLATILITY))})"
                 )
 
-            # Status
+            # 4. Status
             if mod["status"] not in VALID_STATUS:
                 errors.append(
-                    f"{track_file.name}: module {mod_id} has invalid status "
-                    f"'{mod['status']}' — must be one of: {', '.join(sorted(VALID_STATUS))}"
+                    f"{track_file.name}: module {mod_id} — invalid status "
+                    f"'{mod['status']}' (must be: {', '.join(sorted(VALID_STATUS))})"
                 )
 
-    # ── 2. Check metadata on other curriculum files ────────────────────────
+            # 5. Persona
+            if not has_valid_persona(mod["personas"]):
+                warnings.append(
+                    f"{track_file.name}: module {mod_id} — persona field "
+                    f"'{mod['personas']}' contains no recognised token "
+                    f"({', '.join(sorted(BASE_PERSONA_TOKENS))})"
+                )
+
+    # ── 6. Metadata on non-track curriculum files ─────────────────────────
     other_files = [
-        CURRICULUM_DIR / "paths.md",
-        CURRICULUM_DIR / "vision.md",
-        CURRICULUM_DIR / "personas.md",
-        CURRICULUM_DIR / "content-spec.md",
-        CURRICULUM_DIR / "unknown-unknowns.md",
-        CURRICULUM_DIR / "glossary-system.md",
-        CURRICULUM_DIR / "labs.md",
-        CURRICULUM_DIR / "index.md",
+        curriculum_dir / "paths.md",
+        curriculum_dir / "vision.md",
+        curriculum_dir / "personas.md",
+        curriculum_dir / "content-spec.md",
+        curriculum_dir / "unknown-unknowns.md",
+        curriculum_dir / "glossary-system.md",
+        curriculum_dir / "labs.md",
+        curriculum_dir / "index.md",
     ]
     for f in other_files:
         if not f.exists():
@@ -166,41 +202,52 @@ def validate() -> tuple[list[str], list[str], dict]:
             continue
         content = f.read_text(encoding="utf-8")
         if "> Last reviewed:" not in content:
-            warnings.append(f"{f.name}: missing '> Last reviewed:' header")
+            errors.append(f"{f.name}: missing required '> Last reviewed:' header")
         if "> Owner:" not in content:
-            warnings.append(f"{f.name}: missing '> Owner:' field")
+            errors.append(f"{f.name}: missing required '> Owner:' field")
 
-    # ── 3. Cross-references in paths.md ───────────────────────────────────
-    paths_file = CURRICULUM_DIR / "paths.md"
+    # ── 7. Cross-references in paths.md ───────────────────────────────────
+    paths_file = curriculum_dir / "paths.md"
     if paths_file.exists():
         for ref in find_bold_module_refs(paths_file.read_text(encoding="utf-8")):
             if ref not in all_modules:
                 errors.append(f"paths.md: references unknown module ID {ref}")
 
-    # ── 4. Cross-references in unknown-unknowns.md ────────────────────────
-    uu_file = CURRICULUM_DIR / "unknown-unknowns.md"
+    # ── 8. Cross-references in unknown-unknowns.md (Where Taught column) ──
+    uu_file = curriculum_dir / "unknown-unknowns.md"
     if uu_file.exists():
         for line in uu_file.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
-            if not stripped.startswith("|") or re.match(r"\|[-| ]+\|", stripped):
+            if not stripped.startswith("|") or re.match(r"\|[-| :]+\|", stripped):
                 continue
             parts = [p.strip() for p in stripped.split("|")[1:-1]]
             if len(parts) < 3:
                 continue
-            # "Where Taught" is the last column
-            where_col = parts[-1]
+            where_col = parts[-1]  # "Where Taught" is the last column
             for ref in find_any_module_refs(where_col):
                 if ref not in all_modules:
                     errors.append(
-                        f"unknown-unknowns.md: 'Where Taught' column references unknown module ID {ref}"
+                        f"unknown-unknowns.md: 'Where Taught' references unknown module ID {ref}"
                     )
 
-    # ── 5. Cross-references in index.md ───────────────────────────────────
-    index_file = CURRICULUM_DIR / "index.md"
+    # ── 9. Cross-references in index.md — Cross-Reference Map section only ─
+    index_file = curriculum_dir / "index.md"
     if index_file.exists():
-        for ref in find_any_module_refs(index_file.read_text(encoding="utf-8")):
-            if ref not in all_modules:
-                errors.append(f"index.md: references unknown module ID {ref}")
+        section = extract_cross_ref_section(index_file.read_text(encoding="utf-8"))
+        for line in section.splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("|") or re.match(r"\|[-| :]+\|", stripped):
+                continue
+            parts = [p.strip() for p in stripped.split("|")[1:-1]]
+            if not parts:
+                continue
+            # First column contains "X.Y Title..." — extract the ID
+            first_col = parts[0]
+            for ref in find_any_module_refs(first_col):
+                if ref not in all_modules:
+                    errors.append(
+                        f"index.md Cross-Reference Map: references unknown module ID {ref}"
+                    )
 
     return errors, warnings, all_modules
 
@@ -208,10 +255,11 @@ def validate() -> tuple[list[str], list[str], dict]:
 # ── Registry generation ───────────────────────────────────────────────────────
 
 def generate_registry(all_modules: dict) -> str:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     lines = [
         "# Curriculum Module Registry",
         "> Auto-generated by `scripts/validate-curriculum.py --registry`. Do not edit manually.",
-        f"> Last generated: see git log.",
+        f"> Generated: {ts}",
         "",
         f"Total modules: {len(all_modules)}",
         "",
@@ -229,25 +277,35 @@ def generate_registry(all_modules: dict) -> str:
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
-def main():
-    update_registry = "--registry" in sys.argv
+def main() -> None:
+    args = sys.argv[1:]
+    update_registry = "--registry" in args
+    strict = "--strict" in args
 
     print("AI Academy — Curriculum Validator")
     print("=" * 50)
+    if strict:
+        print("Mode: strict (warnings treated as errors)\n")
 
     errors, warnings, all_modules = validate()
 
+    if strict:
+        errors.extend(warnings)
+        warnings = []
+
     if warnings:
-        print(f"\nWarnings ({len(warnings)}):")
+        print(f"Warnings ({len(warnings)}):")
         for w in warnings:
             print(f"  ⚠  {w}")
+        print()
 
     if errors:
-        print(f"\nErrors ({len(errors)}):")
+        print(f"Errors ({len(errors)}):")
         for e in errors:
             print(f"  ✗  {e}")
+        print()
 
-    print(f"\nModules found: {len(all_modules)}")
+    print(f"Modules found: {len(all_modules)}")
 
     if update_registry and all_modules:
         registry_path = CURRICULUM_DIR / "registry.md"
