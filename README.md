@@ -1,6 +1,6 @@
-# AI Explained
+# AI Academy
 
-A teaching site for how AI agents actually work — built for tech leaders, developers, and SRE/DevOps engineers. No hype, no magic. Concrete mental models, real protocols, working code, and quizzes to check understanding.
+The definitive hands-on education platform for AI — from "what is an LLM?" to designing production multi-agent systems. Serves five audiences without watering down either end.
 
 Live: **https://hmohamedansari.github.io/ai_explained**
 
@@ -8,9 +8,11 @@ Live: **https://hmohamedansari.github.io/ai_explained**
 
 ## What This Is
 
-A statically-generated learning site with:
-- **Role-based learning paths** — onboarding quiz routes users to a curriculum tailored to their background (tech leader / new dev / experienced dev / SRE-DevOps)
-- **MDX lessons** — rich markdown with embedded components, syntax-highlighted code blocks
+A statically-generated learning platform with:
+- **5 audience-tailored learning paths** — Curious Beginner, Tech Leader, Junior Dev, Senior Dev, SRE/DevOps (+ Multimodal Specialist extension)
+- **9 curriculum tracks** — 83 planned modules covering foundations through production multi-agent systems, evaluation, safety, and strategy
+- **Progressive disclosure** — every module has three layers: plain-English summary, guided walkthrough with code, and deep-dive architecture analysis
+- **MDX lessons** — rich content with embedded components and syntax-highlighted code
 - **Interactive quizzes** — per-question checking, explanations, scoring, retry
 - **GitHub Pages deployment** — every push to `main` builds and deploys automatically
 
@@ -20,10 +22,11 @@ A statically-generated learning site with:
 
 | Layer | Choice | Why |
 |---|---|---|
-| Framework | [Astro 4](https://astro.build) | Static output by default, React islands for interactivity, MDX for content |
-| Interactivity | React (islands) | Only hydrates components that need JS — quiz, role selector |
+| Framework | [Astro 4](https://astro.build) | Static output, React islands for interactivity, MDX for content |
+| Interactivity | React + Framer Motion | Quiz, role selector, Deep Dive toggles |
 | Styling | Tailwind CSS + Typography plugin | Utility-first, prose styling for lesson content |
 | Content | Astro Content Collections | Type-safe frontmatter, validated schemas, `getCollection` queries |
+| Diagrams | Mermaid.js | Architecture flows with no image dependencies |
 | Deployment | GitHub Actions → GitHub Pages | Zero infrastructure, triggers on push to `main` |
 
 ---
@@ -31,45 +34,91 @@ A statically-generated learning site with:
 ## Project Structure
 
 ```
-src/
-├── content/                   # All teachable content lives here
-│   ├── config.ts              # Zod schemas for all collections
-│   ├── concepts/              # Lesson files (.mdx) — one file = one page
-│   │   ├── architecture-overview.mdx
-│   │   ├── tools.mdx
-│   │   └── mcp.mdx
-│   ├── modules/               # Module metadata (.json) — groups lessons
-│   │   └── how-agents-work.json
-│   └── quizzes/               # Quiz questions (.json) — linked to a concept
-│       ├── tools.json
-│       └── mcp.json
+ai_explained/
 │
-├── components/
-│   ├── layout/                # Header, Footer, Sidebar, LessonProgress (Astro)
-│   ├── onboarding/            # RoleSelector.tsx (React island)
-│   └── quiz/                  # Quiz.tsx (React island)
+├── curriculum/                    # Curriculum planning (not site content)
+│   ├── index.md                   # TOC, publication gates, review cadence
+│   ├── vision.md                  # Platform vision, design principles
+│   ├── personas.md                # Audience definitions
+│   ├── tracks/                    # One file per curriculum track (9 total)
+│   │   ├── track-1-foundations.md
+│   │   ├── track-2-rag.md
+│   │   └── ...
+│   ├── paths.md                   # Learning paths A–F (MVP + extended)
+│   ├── content-spec.md            # Authoring standards, progressive disclosure spec
+│   ├── unknown-unknowns.md        # Production gotchas surfaced early
+│   ├── glossary-system.md         # Glossary and concept card system
+│   ├── labs.md                    # Interactive lab specs
+│   └── registry.md                # Auto-generated module index (83 modules)
 │
-├── layouts/
-│   ├── BaseLayout.astro       # HTML shell, meta tags
-│   └── LessonLayout.astro     # Lesson page: sidebar + content + right rail
+├── scripts/
+│   ├── validate-curriculum.py     # Curriculum validator (see below)
+│   └── tests/                     # Validator test suite + fixtures
 │
-├── pages/
-│   ├── index.astro            # Landing page
-│   ├── onboarding.astro       # Role selector → routes to a learning path
-│   ├── paths/
-│   │   ├── tech-leader.astro
-│   │   ├── new-dev.astro
-│   │   ├── experienced-dev.astro
-│   │   └── sre-devops.astro
-│   └── learn/
-│       └── [module]/
-│           ├── index.astro        # Module overview + lesson list
-│           ├── [lesson].astro     # Individual lesson page
-│           └── [lesson]/
-│               └── quiz.astro     # Quiz for that lesson
-│
-└── styles/
-    └── global.css             # Tailwind directives + custom component classes
+└── src/
+    ├── content/                   # Published site content
+    │   ├── config.ts              # Zod schemas for all collections
+    │   ├── concepts/              # Lesson files (.mdx)
+    │   ├── modules/               # Module metadata (.json)
+    │   └── quizzes/               # Quiz questions (.json)
+    │
+    ├── components/
+    │   ├── layout/                # Header, Footer, Sidebar, LessonProgress
+    │   ├── onboarding/            # RoleSelector.tsx (React island)
+    │   └── quiz/                  # Quiz.tsx (React island)
+    │
+    ├── layouts/
+    │   ├── BaseLayout.astro       # HTML shell, meta tags
+    │   └── LessonLayout.astro     # Sidebar + content + right rail
+    │
+    └── pages/
+        ├── index.astro            # Landing page
+        ├── onboarding.astro       # Audience selector → learning path
+        ├── paths/                 # One page per learning path
+        └── learn/
+            └── [module]/
+                ├── index.astro        # Module overview + lesson list
+                ├── [lesson].astro     # Individual lesson page
+                └── [lesson]/
+                    └── quiz.astro     # Quiz for that lesson
+```
+
+---
+
+## Curriculum Tracks
+
+| Track | Topic | Modules |
+|---|---|---|
+| 1 | How AI Actually Works (Foundations) | 10 |
+| 2 | Knowledge & Memory (RAG & Context Engineering) | 11 |
+| 3 | Interaction & Protocols (Tools, MCP & the Agentic Web) | 9 |
+| 4 | Agentic Brains (Orchestration & Architecture) | 11 |
+| 5 | Engine Room (Infrastructure, Serving & Fine-Tuning) | 10 |
+| 6 | Control Room (Evaluation & LLMOps) | 10 |
+| 7 | Safety, Red Teaming & Compliance | 10 |
+| 8 | AI Strategy & Organisational Integration | 7 |
+| 9 | Multimodal AI (Deep Dive) | 5 |
+
+Full details in [`curriculum/`](curriculum/). Module registry in [`curriculum/registry.md`](curriculum/registry.md).
+
+---
+
+## Curriculum Validator
+
+A Python script enforces consistency across all curriculum planning files.
+
+```bash
+npm run curriculum:validate          # validate — exits 1 on errors
+npm run curriculum:registry          # validate + regenerate registry.md
+npm run curriculum:test              # run the validator test suite
+```
+
+Checks: unique module IDs, track-prefix alignment, valid volatility/status tags, required metadata fields, cross-reference integrity across `paths.md`, `unknown-unknowns.md`, and `index.md`.
+
+Add as a pre-push hook:
+```bash
+# .git/hooks/pre-push  (chmod +x)
+python3 scripts/validate-curriculum.py || exit 1
 ```
 
 ---
@@ -88,13 +137,13 @@ Astro generates all routes at build time from the content collections.
 | `/learn/how-agents-work/tools` | `src/pages/learn/[module]/[lesson].astro` |
 | `/learn/how-agents-work/tools/quiz` | `src/pages/learn/[module]/[lesson]/quiz.astro` |
 
-Dynamic routes (`[module]`, `[lesson]`) call `getStaticPaths()` at build time, which queries the content collections and generates one HTML file per entry.
+Dynamic routes call `getStaticPaths()` at build time, querying content collections to generate one HTML file per entry.
 
 ---
 
 ## How to Add Content
 
-### Add a new lesson
+### Add a lesson
 
 1. Create `src/content/concepts/your-lesson-slug.mdx`
 2. Add frontmatter:
@@ -103,8 +152,8 @@ Dynamic routes (`[module]`, `[lesson]`) call `getStaticPaths()` at build time, w
 ---
 title: "Your Lesson Title"
 description: "One-line description shown in listings and meta tags."
-module: "how-agents-work"      # must match a module ID in src/content/modules/
-order: 4                        # position in the module's lesson list
+module: "how-agents-work"
+order: 4
 audiences: ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
 estimatedMinutes: 10
 tags: ["tag1", "tag2"]
@@ -112,11 +161,9 @@ draft: false
 ---
 ```
 
-3. Write lesson content in MDX below the frontmatter. Standard markdown works. Code blocks get syntax highlighting automatically.
+3. Write lesson content in MDX. Routes, sidebar, and navigation update automatically on the next build.
 
-That's it. Routes, sidebar, prev/next navigation, and the lesson listing all update automatically on the next build.
-
-### Add a quiz for a lesson
+### Add a quiz
 
 Create `src/content/quizzes/your-lesson-slug.json`:
 
@@ -128,20 +175,19 @@ Create `src/content/quizzes/your-lesson-slug.json`:
     {
       "id": "q1",
       "type": "multiple-choice",
-      "question": "Your question here?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "question": "Your question?",
+      "options": ["A", "B", "C", "D"],
       "answer": 1,
-      "explanation": "Why the answer is correct — shown after the user checks.",
+      "explanation": "Shown after the user checks.",
       "audiences": ["tech-leader", "new-dev", "experienced-dev", "sre-devops"]
     }
   ]
 }
 ```
 
-Supported question types: `multiple-choice`, `true-false`, `code-spot`.
-The `answer` field is a zero-based index into `options`.
+Supported types: `multiple-choice`, `true-false`, `code-spot`. The `answer` field is a zero-based index into `options`.
 
-### Add a new module
+### Add a module
 
 Create `src/content/modules/your-module-slug.json`:
 
@@ -156,15 +202,13 @@ Create `src/content/modules/your-module-slug.json`:
 }
 ```
 
-Then point lessons at it by setting `module: "your-module-slug"` in their frontmatter.
-
 ---
 
 ## Local Development
 
 ```bash
 npm install
-npm run dev        # starts dev server at localhost:4321
+npm run dev        # dev server at localhost:4321
 npm run build      # production build → dist/
 npm run preview    # serve the production build locally
 ```
@@ -180,19 +224,14 @@ Handled by `.github/workflows/deploy.yml`. On every push to `main`:
 3. Uploads `dist/` as a Pages artifact
 4. Deploys to GitHub Pages
 
-**One-time setup:** Go to repo → Settings → Pages → Source → set to **GitHub Actions**.
-
-After that, every `git push origin main` deploys automatically.
+**One-time setup:** Repo → Settings → Pages → Source → set to **GitHub Actions**.
 
 ---
 
-## Content Roadmap
+## Site Content Status
 
-| Module | Status |
-|---|---|
-| How AI Agents Work | ✅ Live |
-| Building Your First Agent | Planned |
-| Auth & Security (OAuth for MCP) | Planned |
-| Resources + Subscriptions | Planned |
-| Multi-server Routing | Planned |
-| Homelab Integration (Proxmox, K3s, Ollama) | Planned |
+| Module | Lessons | Status |
+|---|---|---|
+| How AI Agents Work | architecture-overview, what-is-an-llm, skills, tools, mcp | Live (partial audience coverage) |
+
+Full curriculum of 83 modules is planned across 9 tracks. See [`curriculum/`](curriculum/) for the roadmap.
