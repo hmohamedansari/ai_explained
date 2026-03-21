@@ -87,7 +87,7 @@
 **Personas:** Sr Dev / SRE / Leader
 **Key concepts:** Full fine-tune vs. LoRA vs. RAG vs. prompting — the actual decision framework. Common mistake: fine-tuning when RAG would suffice. Data requirements. Catastrophic forgetting.
 **Production gotcha:** Fine-tuning is often the wrong answer. RAG, prompting, and DSPy frequently outperform fine-tuning at a fraction of the cost. The decision framework is the module — not the technique.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -95,11 +95,11 @@
 **Personas:** Sr Dev / SRE
 **Key concepts:** Low-Rank Adaptation mechanics, Quantised LoRA (4-bit base + LoRA adapters), Hugging Face PEFT library, training on consumer hardware, merging and serving adapters, adapter versioning.
 **Production gotcha:** Running multiple LoRA adapters on a single base model is an emerging production pattern that most serving infrastructure does not support out of the box. Plan for adapter versioning from day one.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Fine-tuning is often the wrong answer — the decision framework matters more than the technique (5.9)
 - Catastrophic forgetting — narrow fine-tuning degrades general capability in unmeasured ways (5.9)

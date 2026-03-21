@@ -58,7 +58,7 @@
 **Personas:** Sr Dev
 **Key concepts:** Rewriting messy queries before retrieval — HyDE (Hypothetical Document Embeddings), multi-query.
 **Production gotcha:** This is consistently skipped in tutorials and often the highest-leverage single improvement to a RAG pipeline. If a RAG system is underperforming, check query augmentation before touching chunking or retrieval.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -79,7 +79,7 @@
 ### 2.8 — Context Engineering
 **Personas:** Sr Dev
 **Key concepts:** Context engineering vs. prompt engineering — system-level architecture around the context window, not instruction phrasing.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`. This distinction changes how you design systems.
+**Unknown Unknown:** Listed in `common-gotchas.md`. This distinction changes how you design systems.
 
 ---
 
@@ -92,7 +92,7 @@
 - **Clash** — contradictory information in context causes unpredictable outputs
 
 **Production gotcha:** Name the failure mode before you try to fix it. Developers who don't have this taxonomy typically discover all four experimentally — after shipping.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -111,7 +111,7 @@
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Context failure taxonomy — practitioners discover all four experimentally; naming them halves debugging time (2.9)
 - Query augmentation — consistently skipped, often the highest-leverage RAG improvement (2.5)

@@ -91,9 +91,9 @@ Every module is authored in three explicit layers. The content schema encodes wh
 
 ---
 
-## Unknown Unknown Callouts
+## Production Gotcha Callouts
 
-If a module teaches a concept from `unknown-unknowns.md`, it must include an explicit callout at Layer 1:
+If a module teaches a concept from `common-gotchas.md`, it must include an explicit callout at Layer 1:
 
 ```
 > **Unknown Unknown:** Most teams discover this only after a painful production failure.

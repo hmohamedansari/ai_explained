@@ -46,7 +46,7 @@ ai_explained/
 │   │   └── ...
 │   ├── paths.md                   # Learning paths A–F (MVP + extended)
 │   ├── content-spec.md            # Authoring standards, progressive disclosure spec
-│   ├── unknown-unknowns.md        # Production gotchas surfaced early
+│   ├── common-gotchas.md          # Production gotchas surfaced early
 │   ├── glossary-system.md         # Glossary and concept card system
 │   ├── labs.md                    # Interactive lab specs
 │   └── registry.md                # Auto-generated module index (83 modules)
@@ -113,7 +113,7 @@ npm run curriculum:registry          # validate + regenerate registry.md
 npm run curriculum:test              # run the validator test suite
 ```
 
-Checks: unique module IDs, track-prefix alignment, valid volatility/status tags, required metadata fields, cross-reference integrity across `paths.md`, `unknown-unknowns.md`, and `index.md`.
+Checks: unique module IDs, track-prefix alignment, valid volatility/status tags, required metadata fields, cross-reference integrity across `paths.md`, `common-gotchas.md`, and `index.md`.
 
 Add as a pre-push hook:
 ```bash

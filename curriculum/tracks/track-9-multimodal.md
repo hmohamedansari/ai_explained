@@ -60,7 +60,7 @@
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Multimodal inputs expand the prompt injection attack surface to images and audio (1.10, 7.2)
 - Vision models hallucinate text — validate against OCR for compliance-sensitive extraction (9.1)

@@ -10,7 +10,7 @@ Checks:
   5. Persona field contains at least one recognised base token
   6. Required file metadata (Last reviewed, Owner) — errors, not warnings
   7. Cross-references in paths.md resolve to known module IDs
-  8. Cross-references in unknown-unknowns.md (Where Taught column) resolve
+  8. Cross-references in common-gotchas.md (Where Taught column) resolve
   9. Cross-references in Cross-Reference Map section of index.md resolve
 
 Usage:
@@ -191,7 +191,7 @@ def validate(
         curriculum_dir / "vision.md",
         curriculum_dir / "personas.md",
         curriculum_dir / "content-spec.md",
-        curriculum_dir / "unknown-unknowns.md",
+        curriculum_dir / "common-gotchas.md",
         curriculum_dir / "glossary-system.md",
         curriculum_dir / "labs.md",
         curriculum_dir / "index.md",
@@ -213,8 +213,8 @@ def validate(
             if ref not in all_modules:
                 errors.append(f"paths.md: references unknown module ID {ref}")
 
-    # ── 8. Cross-references in unknown-unknowns.md (Where Taught column) ──
-    uu_file = curriculum_dir / "unknown-unknowns.md"
+    # ── 8. Cross-references in common-gotchas.md (Where Taught column) ──
+    uu_file = curriculum_dir / "common-gotchas.md"
     if uu_file.exists():
         for line in uu_file.read_text(encoding="utf-8").splitlines():
             stripped = line.strip()
@@ -227,7 +227,7 @@ def validate(
             for ref in find_any_module_refs(where_col):
                 if ref not in all_modules:
                     errors.append(
-                        f"unknown-unknowns.md: 'Where Taught' references unknown module ID {ref}"
+                        f"common-gotchas.md: 'Where Taught' references unknown module ID {ref}"
                     )
 
     # ── 9. Cross-references in index.md — Cross-Reference Map section only ─

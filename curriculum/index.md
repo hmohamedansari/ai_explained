@@ -24,7 +24,7 @@ curriculum/
 │   ├── track-8-strategy.md
 │   └── track-9-multimodal.md
 ├── paths.md              ← Learning paths A–F (with MVP and extended variants)
-├── unknown-unknowns.md   ← Cross-cutting production gotchas surfaced early
+├── common-gotchas.md   ← Cross-cutting production gotchas surfaced early
 ├── content-spec.md       ← Progressive disclosure schema, author guidelines, tone
 ├── glossary-system.md    ← Glossary and concept card system
 └── labs.md               ← Interactive lab scope and specs
@@ -94,7 +94,7 @@ The validator checks:
 - Module ID prefix matches track number
 - Valid `volatility` and `status` tags
 - Required `> Last reviewed:` and `> Owner:` fields on every file
-- All module ID cross-references in `paths.md`, `unknown-unknowns.md`, and `index.md` resolve
+- All module ID cross-references in `paths.md`, `common-gotchas.md`, and `index.md` resolve
 
 Add it to CI or as a pre-push hook:
 ```bash
@@ -110,7 +110,7 @@ When editing curriculum files, check whether your change affects dependent files
 
 | If you change... | Also check... |
 |---|---|
-| A module ID | `paths.md`, `unknown-unknowns.md`, `index.md` cross-reference map, any track file that links to it |
+| A module ID | `paths.md`, `common-gotchas.md`, `index.md` cross-reference map, any track file that links to it |
 | A module title | `registry.md` (regenerate with `--registry`), `paths.md` if referenced by name |
 | A module's personas | `paths.md` (path may route the wrong audience), `personas.md` |
 | A module's volatility | Review cadence — does it now need more or less frequent review? |
@@ -128,7 +128,7 @@ Key modules referenced across multiple tracks — update these with care.
 
 | Module | Referenced in |
 |---|---|
-| 7.4 Supply Chain Vulnerabilities | Paths B, D, E; Unknown Unknowns |
+| 7.4 Supply Chain Vulnerabilities | Paths B, D, E; Production Gotchas |
 | 7.3 Prompt Injection | Paths C, D, F; Track 7; Track 9 |
 | 1.2 Tokens & Context Windows | Paths B, C, E |
 | 6.1 Why Evaluation Is Hard | Paths C, D |

@@ -42,7 +42,7 @@
 **Personas:** All Devs
 **Key concepts:** The n×m integration problem (every tool × every model = custom integration), MCP as the standardisation solution, tool discovery, Linux Foundation ownership.
 **Production gotcha:** As MCP adoption grows, third-party MCP servers become a new supply chain risk. Don't connect to MCP servers you don't control without auditing them. See 7.4.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -50,7 +50,7 @@
 **Personas:** Sr Dev
 **Key concepts:** How agents discover and communicate with other agents via capability cards at well-known URLs — analogous to DNS/service discovery. Google's A2A protocol spec.
 **Production gotcha:** Most developers treat multi-agent systems as tightly coupled function calls. A2A introduces loose coupling at the agent boundary — a fundamentally different programming model.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 **Volatility note:** Spec is evolving. Pin to a specific version when writing Layer 3.
 
 ---
@@ -66,7 +66,7 @@
 **Personas:** Leader / Sr Dev
 **Key concepts:** Cryptographic mandate chains for agent spending authorisation, audit trails, approval workflows.
 **Production gotcha:** AP2 is an entirely new infrastructure category. Most organisations have no existing governance framework for agents that spend money autonomously — this needs to be designed before agents are given payment capabilities, not after.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 **Authoring note:** Layer 1 must be readable by a non-technical Leader (business risk framing). Layer 2 covers the cryptographic mandate chain for Sr Dev.
 **Volatility note:** Protocol is emerging. Treat as forward-looking.
 
@@ -83,18 +83,18 @@
 **Personas:** Sr Dev
 **Key concepts:** Why fewer tools outperform large tool catalogs — agents get confused by too many options; curation is an architectural decision, not just a UX one.
 **Production gotcha:** This is counterintuitive. Exposing 50 tools to an agent produces worse results than exposing 8 well-chosen tools. The mechanism is attention dilution during tool selection.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
 ### 3.9 — AGENTS.md Convention
 **Personas:** Sr Dev
 **Key concepts:** Repo-level machine-readable config encoding codebase-specific rules for AI agents — emerging standard in engineering organisations. Analogous to `.github/CODEOWNERS` but for AI agents.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Agent Payments Protocol (AP2) — cryptographic authorisation for agentic commerce is an entirely new infrastructure category (3.6)
 - Capability cards / A2A discovery — the agent equivalent of DNS/service discovery (3.4)

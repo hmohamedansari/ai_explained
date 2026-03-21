@@ -53,7 +53,7 @@
 - Current mitigations and their limits
 
 **Production gotcha:** The RAG pipeline is an attack surface. Any content retrieved from an external source (including your own database) can contain adversarial instructions. Sanitise retrieved content before injecting it into a prompt.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -61,7 +61,7 @@
 **Personas:** Sr Dev / Leader
 **Key concepts:** Compromised model weights, poisoned fine-tuning data, malicious third-party MCP servers and plugins.
 **Production gotcha:** LLM supply chain vulnerabilities are entirely absent from traditional software supply chain thinking. A compromised model weight is not a CVE — it doesn't appear in your dependency scanner.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 **Authoring note:** ⚠️ Layer 1 must be written for a non-technical Leader audience — business risk framing, no implementation detail. Layer 2 covers technical mitigations for Sr Dev/SRE. Do not collapse these into a single voice.
 
 ---
@@ -108,7 +108,7 @@
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Supply chain vulnerabilities — OWASP LLM #3, entirely absent from traditional software supply chain thinking (7.4)
 - Indirect prompt injection via retrieved content — the RAG pipeline is an attack surface (7.3)

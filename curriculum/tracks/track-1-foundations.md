@@ -38,7 +38,7 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 **Personas:** All → Dev
 **Key concepts:** Tokenization, BPE, context window as working memory, quadratic attention cost (O(n²) — doubling context = 4× compute).
 **Production gotcha:** The quadratic cost of attention is a primary design constraint — not a footnote. A context that is twice as long costs four times as much to process. This is the single most important cost driver in deployed systems.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -80,7 +80,7 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 **Personas:** Dev / SRE
 **Key concepts:** GGUF format, INT4/INT8/5-bit, VRAM as hard constraint, GPU offloading, why small quantised models structurally fail at multi-step tool use.
 **Production gotcha:** The failure of small quantised models at agentic tasks is not a hardware problem — it is an instruction-following fidelity problem. A 7B INT4 model that scores well on benchmarks may still fail reliably at multi-step tool use.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -99,7 +99,7 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Quadratic attention cost as a primary design constraint (1.2)
 - Why small quantised models structurally fail at multi-step tool use (1.8)

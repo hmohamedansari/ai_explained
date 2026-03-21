@@ -33,7 +33,7 @@
 - **Generalisation gulf:** Models fail inconsistently on edge cases — passing a test suite doesn't mean the system is reliable.
 
 **Production gotcha:** Agents built without an eval harness are unsteerable. You cannot improve what you cannot measure. Read this before building agents.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 **Note:** This module appears early in Paths C and D for a reason. Evaluation is a design input, not a post-hoc check.
 
 ---
@@ -49,7 +49,7 @@
 **Personas:** Sr Dev
 **Key concepts:** When to use LLM-as-judge, why binary PASS/FAIL outperforms Likert scales, hand-labelling with written critiques (not just labels), judge drift over time.
 **Production gotcha:** LLM judges drift over time as the underlying model is updated. Version-pin your judge model and re-validate your eval suite when you upgrade it.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -57,7 +57,7 @@
 **Personas:** Sr Dev
 **Key concepts:** Open coding → axial coding → quantitative prioritisation (adapted from grounded theory). This is how production teams actually debug failing systems.
 **Production gotcha:** Most teams skip error analysis and jump straight to prompting changes. The result is thrashing — improving one failure class while regressing another. Error analysis finds the highest-leverage fix.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -105,11 +105,11 @@
 **Personas:** Sr Dev
 **Key concepts:** Production monitoring that validates your evals themselves remain trustworthy — the meta-loop most teams skip.
 **Production gotcha:** Your eval suite can silently drift out of alignment with what "good" means as your product evolves. Without a process for evaluating the evaluator, you are flying blind.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - LLM-as-Judge calibration details — binary > Likert, judge drift, critique-based labelling (6.3)
 - Error analysis as a discipline — open coding → axial coding, borrowed from qualitative research (6.4)

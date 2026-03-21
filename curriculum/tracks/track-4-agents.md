@@ -62,7 +62,7 @@
 - The **17× error trap**: 3 agents at 90% accuracy each = 0.9³ = 73% system accuracy
 
 **Production gotcha:** The 17× error trap is the reason multi-agent systems fail silently. Individual agent accuracy looks fine; system accuracy is not measured. Always measure end-to-end.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -70,7 +70,7 @@
 **Personas:** Sr Dev
 **Key concepts:** The discriminated union / action schema pattern — typed action schemas eliminate open-ended agent output ambiguity; machine-checkable contracts stop bad state propagating.
 **Production gotcha:** Agents that return free-form text at their boundaries create cascading failures. The fix is typed output schemas enforced at every agent boundary — not prompting the agent to "be consistent."
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -85,7 +85,7 @@
 **Personas:** Sr Dev / SRE
 **Key concepts:** Modal, Daytona, Runloop — purpose-built ephemeral compute for agents with full permissions; not just Docker.
 **Production gotcha:** Running agents in a general-purpose container is not the same as sandbox isolation. Purpose-built agent sandboxes provide process-level isolation, network egress control, and automatic teardown that Docker alone does not.
-**Unknown Unknown:** Listed in `unknown-unknowns.md`.
+**Unknown Unknown:** Listed in `common-gotchas.md`.
 
 ---
 
@@ -110,7 +110,7 @@
 
 ---
 
-## Unknown Unknowns Surfaced
+## Production Gotchas
 
 - Discriminated union / action schema pattern — production-hardened but invisible in popular tutorials (4.6)
 - The 17× error trap — system accuracy compounds across agents (4.5)
