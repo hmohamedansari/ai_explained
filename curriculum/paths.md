@@ -58,6 +58,10 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 10. **8.7** — Agent Economics
 11. **8.5** — The Make-vs-Maintain Trap
 
+**Optional Extensions**
+- **1.11** — Reasoning Models & Test-Time Compute *(when to pay the reasoning premium — and when it's waste)*
+- **8.8** — Migration & Change Management *(model swap governance, rollback protocols, communicating changes to non-technical stakeholders)*
+
 **Literacy checkpoint:** After this path, you can read Google's Developers Guide to AI Agent Protocols and understand the business implications — not just the protocols themselves.
 
 ---
@@ -118,7 +122,7 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 9. **7.3** — Prompt Injection & Jailbreaking
 10. **7.5** — Guardrails as Infrastructure
 
-### Extended (34 modules)
+### Extended (37 modules)
 
 **Phase 1 — Evaluation-First Foundation**
 1. **6.1** — Why Evaluation Is Hard *(re-read with fresh eyes — now it changes your architecture decisions)*
@@ -135,6 +139,8 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 10. **2.8** — Context Engineering
 11. **2.9** — Context Failure Taxonomy
 12. **2.10** — Hybrid Memory Architecture
+13. **2.12** — Long-Context vs RAG Decision Framework *(when retrieval beats context stuffing — and when it doesn't)*
+14. **2.13** — Data Engineering for AI Systems *(data contracts at ingestion boundaries — the fix most teams skip)*
 
 **Phase 3 — Protocols & Tooling**
 13. **3.4** — Agent2Agent (A2A)
@@ -153,6 +159,7 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 24. **4.9** — Cognitive Architectures
 25. **4.10** — Internal Coding Agents
 26. **4.11** — Middleware & Deterministic Injection
+27. **4.12** — Reliability Patterns for Agent Systems *(idempotency, compensation transactions, circuit breakers)*
 
 **Phase 5 — Production Eval & Safety**
 27. **6.6** — Synthetic Data for Eval
@@ -162,9 +169,14 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 31. **7.4** — Supply Chain Vulnerabilities
 32. **7.5** — Guardrails as Infrastructure
 
-**Fine-Tuning (Optional Extension)**
-33. **5.9** — Fine-Tuning: When & Why
-34. **5.10** — LoRA, QLoRA & PEFT
+**Optional Extensions**
+- **5.9** — Fine-Tuning: When & Why
+- **5.10** — LoRA, QLoRA & PEFT
+- **5.11** — Synthetic Data for Training & Distillation *(validate against real examples to avoid mode collapse)*
+- **5.12** — Sovereign & Air-Gapped AI Architecture *(only if operating under data-sovereignty constraints)*
+- **6.11** — Multimodal Evaluation & Observability *(only if building multimodal pipelines)*
+- **6.12** — Human Feedback Operations *(only if running a human reviewer workforce)*
+- **8.8** — Migration & Change Management *(model swap runbook, eval gating, zero-downtime cutover)*
 
 **Literacy checkpoint:** After this path, you can fully read and implement from the Open SWE framework article and the Google Agent Protocols guide — understanding not just the what but the engineering trade-offs behind each decision.
 
@@ -206,6 +218,12 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 18. **7.8** — Kill Switches & Human-in-the-Loop
 19. **7.4** — Supply Chain Vulnerabilities (model weights and plugins)
 
+**Optional Extensions**
+- **4.12** — Reliability Patterns for Agent Systems *(idempotency and circuit breakers for SRE-owned agent pipelines)*
+- **5.11** — Synthetic Data for Training & Distillation *(if running fine-tuning pipelines)*
+- **5.12** — Sovereign & Air-Gapped AI Architecture *(air-gapped deployments, cryptographic model provenance)*
+- **5.13** — Caching & Latency Engineering *(semantic caching, all four caching layers, p50/p95/p99 SLO design)*
+
 **Literacy checkpoint:** After this path, you can read the Qwen3.5 local inference article and immediately identify the VRAM headroom mistakes, the quantisation tradeoffs chosen, and what production serving changes you'd make.
 
 ---
@@ -222,7 +240,7 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 3. **9.4** — Multimodal Safety
 4. **7.3** — Prompt Injection & Jailbreaking (multimodal attack surface)
 
-### Extended (10 modules)
+### Extended (11 modules)
 
 **Phase 1 — Foundations**
 1. **1.10** — Multimodal AI *(overview of the full landscape — vision, audio, video)*
@@ -234,13 +252,14 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 5. **9.3** — Multimodal Agents
 6. **9.5** — Serving Multimodal Models
 
-**Phase 3 — Safety**
+**Phase 3 — Safety & Evaluation**
 7. **9.4** — Multimodal Safety *(image injection, audio adversarial attacks, deepfakes)*
 8. **7.3** — Prompt Injection & Jailbreaking *(multimodal attack surface extension)*
+9. **6.11** — Multimodal Evaluation & Observability *(dedicated eval coverage for each modality — text evals give no signal here)*
 
 **Optional: Infrastructure depth**
-9. **5.2** — VRAM Management & Quantisation *(vision models carry 2–4× the VRAM cost of equivalent text models)*
-10. **5.3** — vLLM: Production Serving *(image tokens are variable-size and break uniform-batch assumptions)*
+10. **5.2** — VRAM Management & Quantisation *(vision models carry 2–4× the VRAM cost of equivalent text models)*
+11. **5.3** — vLLM: Production Serving *(image tokens are variable-size and break uniform-batch assumptions)*
 
 **Literacy checkpoint:** After this path, you can read a production engineering post on deploying multimodal pipelines and evaluate whether the system has adequately addressed its retrieval strategy, VRAM budget, and expanded safety attack surface.
 

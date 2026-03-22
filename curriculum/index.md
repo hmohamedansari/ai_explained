@@ -124,4 +124,9 @@ Key modules referenced across multiple tracks — update these with care.
 | 6.1 Why Evaluation Is Hard | Paths C, D |
 | 3.7 LiteLLM | Paths C, E |
 | 4.8 Sandbox Isolation | Paths D, E |
-| 5.9 Fine-Tuning: When & Why | Paths D, E |
+| 5.9 Fine-Tuning: When & Why | Paths D, E (opt) |
+| 8.8 Migration & Change Management | Paths B (opt), D (opt); Track 8; common-gotchas.md |
+| 4.12 Reliability Patterns for Agent Systems | Paths D, E (opt); Track 4; common-gotchas.md |
+| 2.12 Long-Context vs RAG Decision Framework | Path D; Track 2; common-gotchas.md |
+| 5.12 Sovereign & Air-Gapped AI Architecture | Paths D (opt), E (opt); Track 5; cross-refs 7.4, 8.6 |
+| 6.11 Multimodal Evaluation & Observability | Paths D (opt), F; Track 6; cross-refs Track 9 |

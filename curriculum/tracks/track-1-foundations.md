@@ -22,7 +22,7 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 | 1.8 | Quantisation & Local Models | Dev / SRE | `emerging` | `planned` |
 | 1.9 | DSPy: Programmatic Prompt Optimisation | Sr Dev | `emerging` | `planned` |
 | 1.10 | Multimodal AI | All Devs | `volatile` | `planned` |
-| 1.11 | Reasoning Models & Test-Time Compute | Sr Dev / Leader | `emerging` | `planned` |
+| 1.11 | Reasoning Models & Test-Time Compute | Sr Dev / Leader | `volatile` | `planned` |
 
 ---
 
