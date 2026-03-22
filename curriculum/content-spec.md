@@ -66,6 +66,21 @@ Every module is authored in three explicit layers. The content schema encodes wh
 
 ---
 
+## Rendering Convention: Core vs. Optional Modules
+
+Learning path pages must visually distinguish core (required) modules from optional extensions.
+
+| Element | Core modules | Optional extensions |
+|---|---|---|
+| List style | Numbered, sequential | Bulleted, grouped under "Optional Extensions" |
+| Visual treatment | Normal weight, full colour | Muted/secondary style, "Optional" badge |
+| Completion tracking | Counts toward path completion | Never counts toward completion percentage |
+| CTA | "Start module →" | "Explore if relevant →" |
+
+**Rule:** Optional modules must never appear in a numbered list. The numbered-vs-bullet convention in `paths.md` source files is the authoring contract that drives this rendering distinction. Do not break it.
+
+---
+
 ## Author Guidelines
 
 ### Writing Layer 1
@@ -96,7 +111,7 @@ Every module is authored in three explicit layers. The content schema encodes wh
 If a module teaches a concept from `common-gotchas.md`, it must include an explicit callout at Layer 1:
 
 ```
-> **Unknown Unknown:** Most teams discover this only after a painful production failure.
+> **Common Gotcha:** Most teams discover this only after a painful production failure.
 > [Brief description of the failure mode and why it's non-obvious.]
 ```
 

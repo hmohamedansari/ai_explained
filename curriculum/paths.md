@@ -6,6 +6,12 @@ Each path has two variants:
 - **MVP path** — minimum modules to reach the literacy checkpoint. For learners short on time.
 - **Extended path** — full depth, all recommended modules.
 
+**Reading conventions used in this file:**
+- **Numbered lists** = core modules — sequential, all recommended within the path.
+- **Bullet lists under "Optional Extensions"** = skip freely — read only if the topic applies to your current stack or project. These are never required to reach the literacy checkpoint.
+
+The rendered site must visually distinguish core from optional (e.g., badge, muted style, or explicit "Optional" label). Content authors: do not add optional modules to numbered lists — keep the formatting convention clean.
+
 Evaluation is introduced early in Paths C and D — it drives architecture decisions, not just ops.
 
 ---
@@ -123,6 +129,8 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 10. **7.5** — Guardrails as Infrastructure
 
 ### Extended (37 modules)
+
+> **Architect's note:** 37 modules is the full depth — not the minimum viable path. The MVP above (10 modules) is the completion checkpoint. Within the extended path, **Phases 1, 4, and 5** are the highest-priority phases for production readiness. Phases 2 and 3 can be read in parallel or deferred by topic area.
 
 **Phase 1 — Evaluation-First Foundation**
 1. **6.1** — Why Evaluation Is Hard *(re-read with fresh eyes — now it changes your architecture decisions)*
