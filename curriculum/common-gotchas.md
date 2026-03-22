@@ -40,11 +40,20 @@ The goal: a learner who has completed any path should be able to *name* these fa
 | Jailbreaking is a spectrum | Different attack classes require different defences — there is no single mitigation | 7.3 |
 | Vision models hallucinate text | Validate vision extraction against OCR for compliance-sensitive documents | 9.1 |
 | Image tokens are variable-size | Breaks uniform-batch serving assumptions; requires different vLLM configuration | 9.5 |
+| Reasoning models cost 10–50× more per task | Benchmark cost per correct answer, not cost per token | 1.11 |
+| Long context ≠ better RAG | Performance degrades non-linearly in the middle of long inputs ("lost in the middle") | 2.12 |
+| AI failures blamed on the model are often data quality failures | Data contracts at ingestion boundaries are the fix most teams skip | 2.13 |
+| Non-idempotent agent retries cause duplicate real-world effects | Every side-effecting action must be idempotent or have a compensation transaction | 4.12 |
+| Synthetic training data can encode the teacher's failure modes | Validate against held-out real examples; monitor for mode collapse | 5.11 |
+| Semantic caches with no TTL on live data are a correctness hazard | Cache TTL must match how quickly underlying facts change | 5.13 |
+| Text-based evals don't cover multimodal pipelines | Each modality needs dedicated eval coverage | 6.11 |
+| Human reviewer quality degrades silently over time | Without adjudication policy and calibration, retraining on human feedback makes the model worse | 6.12 |
+| Model swaps are not like library upgrades | Same model family, different version can break downstream assumptions — always run regression evals | 8.8 |
 
 ---
 
 ## How to Use This Table
 
 - **Content authors:** Every module that teaches one of these concepts should include an explicit "Unknown Unknown" callout at Layer 1. Don't bury it in Layer 3.
-- **Path designers:** At least one UU concept should appear in the MVP variant of every path.
+- **Path designers:** At least one gotcha should appear in the MVP variant of every path.
 - **Learners:** If you've read this table and don't yet understand why each item matters, find the module that teaches it — that's the module most likely to change how you design systems.

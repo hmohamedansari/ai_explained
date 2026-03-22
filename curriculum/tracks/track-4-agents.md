@@ -21,6 +21,7 @@
 | 4.9 | Cognitive Architectures | Sr Dev | `emerging` | `planned` |
 | 4.10 | Internal Coding Agents | Sr Dev / Leader | `volatile` | `planned` |
 | 4.11 | Middleware & Deterministic Injection | Sr Dev | `stable` | `planned` |
+| 4.12 | Reliability Patterns for Agent Systems | Sr Dev / SRE | `stable` | `planned` |
 
 ---
 
@@ -110,9 +111,18 @@
 
 ---
 
+### 4.12 — Reliability Patterns for Agent Systems
+**Personas:** Sr Dev / SRE
+**Key concepts:** Retries with idempotency keys, compensation transactions, circuit breakers for tool calls, quorum/consensus for agent outputs, graceful degradation strategies.
+**Production gotcha:** Standard retry logic is dangerous in agentic systems. Retrying a non-idempotent tool call (e.g., "send email", "place order") after a partial failure can cause duplicate real-world effects. Every agent action that has side effects must be idempotent or wrapped in a compensation transaction — by design, not as an afterthought.
+**Note:** Frame this as "reliability engineering applied to agents" — the same patterns as distributed systems, with the additional complexity that agent failures are often silent (the agent returns a confident-looking answer that is wrong). Cross-reference 4.5 (Multi-Agent Failure Modes) and 6.1 (Why Evaluation Is Hard).
+
+---
+
 ## Production Gotchas
 
 - Discriminated union / action schema pattern — production-hardened but invisible in popular tutorials (4.6)
 - The 17× error trap — system accuracy compounds across agents (4.5)
 - Sandbox providers as a distinct infrastructure category (4.8)
 - Treating agent-to-agent communication as a typed API contract (4.6)
+- Retrying a non-idempotent agent action can cause duplicate real-world effects — idempotency must be designed in, not added later (4.12)

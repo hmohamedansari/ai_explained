@@ -20,6 +20,8 @@
 | 6.8 | Observability Stack | All Devs | `emerging` | `planned` |
 | 6.9 | Cost Management | SRE / Leader | `stable` | `planned` |
 | 6.10 | Evaluating the Evaluator | Sr Dev | `stable` | `planned` |
+| 6.11 | Multimodal Evaluation & Observability | Sr Dev / SRE | `volatile` | `planned` |
+| 6.12 | Human Feedback Operations | Sr Dev / Leader | `emerging` | `planned` |
 
 ---
 
@@ -109,9 +111,27 @@
 
 ---
 
+### 6.11 — Multimodal Evaluation & Observability
+**Personas:** Sr Dev / SRE
+**Key concepts:** Evaluation dataset design for image/audio/video pipelines, judge strategy for non-text outputs, drift signals for multimodal systems, per-modality observability instrumentation.
+**Production gotcha:** Text-based evals do not transfer to multimodal pipelines. An eval suite that passes for a text RAG system gives no signal about whether the vision extraction step is hallucinating or the audio chunking is cutting off mid-sentence. Each modality requires dedicated eval coverage — sharing a text judge across modalities is a coverage gap, not an efficiency.
+**Note:** Position this as the multimodal counterpart to 6.1–6.4. Cross-reference Track 9 throughout — specifically 9.1 (Vision), 9.2 (Audio), and 9.4 (Multimodal Safety).
+
+---
+
+### 6.12 — Human Feedback Operations
+**Personas:** Sr Dev / Leader
+**Key concepts:** Reviewer workflow design, annotation quality control, adjudication policy (resolving disagreements between reviewers), inter-annotator agreement metrics, feedback-to-model-improvement loop, avoiding reviewer fatigue and label drift.
+**Production gotcha:** Most teams treat HITL as a binary concept (human in the loop or not). In practice, human feedback quality degrades over time: reviewers develop heuristics, become fatigued, and drift in their interpretation of labelling guidelines. Without adjudication policy and periodic calibration, your human feedback data degrades silently — and retraining on it makes the model worse.
+**Note:** Layer 1 for Leaders: the organisational design and cost model for a reviewer workforce. Layer 2 for Sr Dev: the tooling stack (annotation platforms, inter-annotator agreement calculation, feedback queue design). Cross-reference 6.4 (Error Analysis) and 7.9 (Constitutional AI & RLHF).
+
+---
+
 ## Production Gotchas
 
 - LLM-as-Judge calibration details — binary > Likert, judge drift, critique-based labelling (6.3)
 - Error analysis as a discipline — open coding → axial coding, borrowed from qualitative research (6.4)
 - Evaluating the evaluator — the meta-loop most teams skip (6.10)
 - Evaluation is a design input, not a post-hoc check — agents built without an eval harness are unsteerable (6.1)
+- Sharing a text judge across modalities is a coverage gap, not an efficiency (6.11)
+- Human reviewer quality degrades silently over time without adjudication policy and periodic calibration (6.12)

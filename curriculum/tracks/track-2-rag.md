@@ -21,6 +21,8 @@
 | 2.9 | Context Failure Taxonomy | Sr Dev | `stable` | `planned` |
 | 2.10 | Hybrid Memory Architecture | Sr Dev | `emerging` | `planned` |
 | 2.11 | Multimodal RAG | Sr Dev | `volatile` | `planned` |
+| 2.12 | Long-Context vs RAG Decision Framework | Sr Dev / Leader | `stable` | `planned` |
+| 2.13 | Data Engineering for AI Systems | Sr Dev / SRE | `emerging` | `planned` |
 
 ---
 
@@ -111,9 +113,27 @@
 
 ---
 
+### 2.12 — Long-Context vs RAG Decision Framework
+**Personas:** Sr Dev / Leader
+**Key concepts:** Explicit cost/latency/quality tradeoff matrix across three architecture patterns: pure long-context, pure RAG, and hybrid. When each wins and why.
+**Production gotcha:** Long context windows have reached 1M+ tokens but performance degrades non-linearly — especially in the middle of long inputs (the "lost in the middle" problem). A 500K token context is not simply better than a well-designed RAG pipeline. The decision depends on update frequency, query pattern, cost ceiling, and latency SLO — not just context length.
+**Note:** This module is a decision tool, not a tutorial. Layer 1 should be a single decision tree. Layer 2 should include worked cost calculations for a realistic document corpus at each architecture. Cross-reference 1.2 (quadratic attention cost) and 5.7 (context length vs. performance).
+
+---
+
+### 2.13 — Data Engineering for AI Systems
+**Personas:** Sr Dev / SRE
+**Key concepts:** Corpus lifecycle management, data contracts for AI pipelines, ingestion quality SLAs, dataset versioning, data lineage, unstructured ETL at scale.
+**Production gotcha:** Most AI failures traced back to "the model is bad" are actually data quality failures. Garbage in, garbage out applies at every stage: training data, fine-tuning data, and RAG retrieval corpora. Data contracts — explicit schema and quality agreements at ingestion boundaries — are the fix that most teams skip.
+**Note:** Treat this as the systems-engineering counterpart to Track 5 fine-tuning modules. Cover the full lifecycle: ingest → clean → version → index → monitor drift. Cross-reference 5.9 (Fine-Tuning: When & Why) and 5.11 (Synthetic Data).
+
+---
+
 ## Production Gotchas
 
 - Context failure taxonomy — practitioners discover all four experimentally; naming them halves debugging time (2.9)
 - Query augmentation — consistently skipped, often the highest-leverage RAG improvement (2.5)
 - Context engineering as a distinct discipline from prompt engineering (2.8)
 - Multimodal RAG requires fundamentally different chunking strategies (2.11)
+- Long context windows degrade non-linearly — the "lost in the middle" problem means 500K tokens ≠ better RAG (2.12)
+- Most AI failures blamed on the model are actually data quality failures upstream (2.13)

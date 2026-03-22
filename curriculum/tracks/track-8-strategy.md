@@ -17,6 +17,7 @@
 | 8.5 | The Make-vs-Maintain Trap | Leader / Sr Dev | `stable` | `planned` |
 | 8.6 | Data Privacy & GDPR | Leader / Sr Dev | `emerging` | `planned` |
 | 8.7 | Agent Economics | Leader | `volatile` | `planned` |
+| 8.8 | Migration & Change Management | Leader / Sr Dev | `emerging` | `planned` |
 
 ---
 
@@ -70,3 +71,11 @@
 **Key concepts:** Cost per agent action, billing models for multi-agent systems, the AP2 infrastructure question.
 **Note:** Cross-reference 3.6 (AP2) and 6.9 (Cost Management). This module takes the Leader perspective: what does it cost to run an autonomous agent fleet, and how do you budget for it?
 **Volatility note:** Agent billing models are new and evolving. Treat cost structures as indicative.
+
+---
+
+### 8.8 — Migration & Change Management
+**Personas:** Leader / Sr Dev
+**Key concepts:** AI adoption playbooks, model swap strategy (switching providers or model versions without regression), rollback protocols, governance frameworks for evolving providers, communicating model changes to non-technical stakeholders.
+**Production gotcha:** Model swaps are not like software library upgrades — a new model version from the same provider can produce measurably different outputs for the same inputs, breaking downstream assumptions that were never formally tested. Every model swap needs a regression eval gate before production cutover. "It's the same model family" is not sufficient due diligence.
+**Note:** Layer 1 for Leaders: the change governance framework and stakeholder communication plan. Layer 2 for Sr Dev: the technical runbook for a zero-downtime model swap with eval gating and rollback. Cross-reference 6.7 (CI/CD-Integrated Evals).

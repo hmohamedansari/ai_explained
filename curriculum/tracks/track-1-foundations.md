@@ -22,6 +22,7 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 | 1.8 | Quantisation & Local Models | Dev / SRE | `emerging` | `planned` |
 | 1.9 | DSPy: Programmatic Prompt Optimisation | Sr Dev | `emerging` | `planned` |
 | 1.10 | Multimodal AI | All Devs | `volatile` | `planned` |
+| 1.11 | Reasoning Models & Test-Time Compute | Sr Dev / Leader | `emerging` | `planned` |
 
 ---
 
@@ -99,8 +100,18 @@ The baseline every other track builds on. Leaders read Layers 1 only. Devs go de
 
 ---
 
+### 1.11 — Reasoning Models & Test-Time Compute
+**Personas:** Sr Dev / Leader
+**Key concepts:** RL-trained reasoning models (o-series, DeepSeek-R1), chain-of-thought token budgets, test-time compute scaling, when reasoning models outperform standard chat LLMs — and when they don't.
+**Production gotcha:** Reasoning models generate long internal thinking traces before responding. This dramatically increases token costs and latency. A task that costs 1× with a standard model may cost 10–50× with a reasoning model for the same output quality. Always benchmark cost per correct answer, not cost per token.
+**Note:** Layer 1 for Leaders: when to pay the reasoning premium (complex multi-step decisions) vs. when it's waste (classification, simple retrieval). Layer 2 for Sr Dev: budgeting reasoning tokens, controlling thinking depth, hybrid architectures (reason once, cache the plan).
+**Volatility note:** This space is moving fast. Verify model capabilities before publishing any benchmarks.
+
+---
+
 ## Production Gotchas
 
 - Quadratic attention cost as a primary design constraint (1.2)
 - Why small quantised models structurally fail at multi-step tool use (1.8)
 - Multimodal inputs expand the prompt injection attack surface to images and audio (1.10)
+- Reasoning models can cost 10–50× more per task than standard models — benchmark cost per correct answer, not cost per token (1.11)
