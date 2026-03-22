@@ -20,6 +20,7 @@ Build visibility and trust as the creator and curator — not a faceless wiki.
 - [ ] **"Built by [you]" attribution** — footer, GitHub README, and open graph metadata on every page.
 - [ ] **Social links** — LinkedIn, X/Twitter, GitHub.
 - [ ] **Newsletter signup** — lowest-effort, highest-return brand tool. Static embed, no server. Platform decision needed (see Decisions below).
+  - **Privacy prerequisites (must be done before signup goes live):** privacy policy page, consent language on the form ("I agree to receive emails — unsubscribe any time"), data processor disclosure (which platform stores the emails and where), and a working unsubscribe link in every email. Without these, the signup is a launch blocker in GDPR jurisdictions. These are not optional polish — they are legal requirements for email collection in most markets.
 - [ ] **RSS feed** — Astro generates this for free. Devs who won't give an email will subscribe via RSS.
 - [ ] **Blog / notes section** — your running commentary on AI developments. Differentiates the site from a faceless reference wiki. Even one post per month compounds over time.
 - [ ] **Open Graph / social card images** — branded image when a module link is shared on LinkedIn or X. Astro plugin, one-line config. Important for brand impressions.
@@ -80,12 +81,16 @@ Link to free resources so learners can practice without spending money.
 - None yet. No external tools index.
 
 ### Missing
-- [ ] **Tools index per track** — a curated table of free tools for each track. Examples:
-  - Track 1 (Foundations) → Anthropic free tier, HuggingFace Spaces
-  - Track 2 (RAG) → LangSmith free tier, Weaviate sandbox, Cohere free API
-  - Track 3 (Protocols) → MCP playground, LangGraph Studio
-  - Track 5 (Infrastructure) → Ollama, LM Studio, Google Colab
-  - Track 6 (Evaluation) → Langfuse free tier, RAGAS library
+- [ ] **Tools index per track** — a curated table of free tools for each track. All 9 tracks need coverage; contributors should not assume a track is out of scope if it is not listed here. Starter examples:
+  - Track 1 (Foundations) → Anthropic free tier, HuggingFace Spaces, OpenRouter free models
+  - Track 2 (RAG) → LangSmith free tier, Weaviate sandbox, Cohere free API, Qdrant free tier
+  - Track 3 (Protocols) → MCP Inspector, LangGraph Studio, AG-UI playground
+  - Track 4 (Agents) → LangGraph Studio, CrewAI free tier, AutoGen local, E2B sandbox free tier
+  - Track 5 (Infrastructure) → Ollama, LM Studio, Google Colab, HuggingFace Inference API free tier
+  - Track 6 (Evaluation) → Langfuse free tier, RAGAS library, Promptfoo (open source)
+  - Track 7 (Safety) → Garak (open source red-teaming), Promptfoo adversarial mode, OWASP LLM checklist
+  - Track 8 (Strategy) → No-code tools: HuggingFace Spaces demos, vendor pricing calculators (Anthropic, OpenAI, Google)
+  - Track 9 (Multimodal) → Whisper (open source), LLaVA via Ollama, HuggingFace multimodal Spaces
 - [ ] **Google Colab links** — for every code-heavy module, a runnable Colab notebook as the zero-friction alternative to local setup. Contributors can add these.
 - [ ] **"Free tier" / "No card required" badges** — learners notice this. Removes the biggest friction point.
 - [ ] **Version / last-verified dates on tool links** — free tiers change. Links need a "verified YYYY-MM" date.
@@ -104,14 +109,17 @@ These are worth adding to the plan:
 
 ## Decisions needed before building
 
-| # | Decision | Options | Recommendation |
-|---|---|---|---|
-| 1 | **Content license** | CC BY-SA 4.0 / CC BY 4.0 / CC0 | CC BY-SA 4.0 — attribution + share-alike protects content while keeping it open |
-| 2 | **Code license** | MIT / Apache 2.0 | MIT — simpler |
-| 3 | **Newsletter platform** | Beehiiv / Buttondown / ConvertKit | Beehiiv free tier — best right now for a dev audience |
-| 4 | **Client-side progress** | localStorage (Linux Journey style) / none | localStorage — adds polish, no server needed |
-| 5 | **Inline quizzes** | Client-side JS / none for now | Simple JS quiz component is worth it — the key engagement mechanic |
-| 6 | **Hosting** | GitHub Pages / Netlify / Cloudflare Pages | Cloudflare Pages — fastest globally, free, easy GitHub integration |
+Recommendations are point-in-time opinions, not permanent conclusions. Each row has a "verified" date — re-evaluate before acting if more than 6 months have passed.
+
+| # | Decision | Options | Recommendation | Verified |
+|---|---|---|---|---|
+| 1 | **Content license** | CC BY-SA 4.0 / CC BY 4.0 / CC0 | CC BY-SA 4.0 — attribution + share-alike protects content while keeping it open | 2026-03 |
+| 2 | **Code license** | MIT / Apache 2.0 | MIT — simpler | 2026-03 |
+| 3 | **Newsletter platform** | Beehiiv / Buttondown / ConvertKit | Beehiiv free tier — strong dev audience fit and clean embed UX at time of writing | 2026-03 |
+| 4 | **Client-side progress** | localStorage (Linux Journey style) / none | localStorage — adds polish, no server needed | 2026-03 |
+| 5 | **Inline quizzes** | Client-side JS / none for now | Simple JS quiz component is worth it — the key engagement mechanic | 2026-03 |
+| 6 | **Hosting** | GitHub Pages / Netlify / Cloudflare Pages | Cloudflare Pages — strong global performance and free tier at time of writing | 2026-03 |
+| 7 | **Privacy policy** | Write from scratch / use a generator (e.g. Iubenda, Termly free tier) | Generator for v1 — faster to ship, covers GDPR basics; review with a lawyer before significant traffic | 2026-03 |
 
 ---
 
@@ -123,6 +131,7 @@ Work through this list top to bottom. Items in the same group can be done in par
 1. Agree content and code license
 2. Choose newsletter platform
 3. Choose hosting
+4. Decide privacy policy approach (blocks newsletter signup going live)
 
 **Group 2 — Foundation (brand + OSS infrastructure)**
 4. Author / about page
