@@ -27,6 +27,7 @@ This directory contains tooling that supports curriculum authoring and governanc
 | Cross-references in `paths.md` | `**1.1**`-style bold module IDs that point to non-existent modules |
 | Cross-references in `common-gotchas.md` | Module IDs in the "Where Taught" column that don't exist |
 | Cross-references in `index.md` | Module IDs in the Cross-Reference Map table that don't exist |
+| Optional-section list convention | Numbered list items (`1. **X.Y**`) inside an `**Optional` section — must be bullets; same ID in both core and optional of the same path |
 
 **Usage:**
 
@@ -49,7 +50,7 @@ echo '#!/bin/sh\npython3 scripts/validate-curriculum.py || exit 1' > .git/hooks/
 chmod +x .git/hooks/pre-push
 ```
 
-**The `--registry` flag** regenerates `curriculum/registry.md` — a flat markdown table of all 83 modules with their track file, personas, volatility, and status. Useful after adding or renaming modules to keep the registry in sync.
+**The `--registry` flag** regenerates `curriculum/registry.md` — a flat markdown table of all 93 modules with their track file, personas, volatility, and status. Useful after adding or renaming modules to keep the registry in sync.
 
 **The `--strict` flag** promotes all warnings to errors. Use this in CI pipelines where you want a hard gate on persona fields and other soft checks.
 
@@ -72,6 +73,8 @@ When the validator exits with errors, here is how to fix each type:
 | `paths.md: references unknown module ID X.Y` | A path step points to a module that doesn't exist | Either add the module to the correct track file, or fix the ID in `paths.md` |
 | `common-gotchas.md: 'Where Taught' references unknown module ID X.Y` | Gotcha table points to a missing module | Correct the ID in `common-gotchas.md` or add the module to the track |
 | `index.md Cross-Reference Map: references unknown module ID X.Y` | Cross-reference map is stale | Update the ID in the Cross-Reference Map section of `index.md` |
+| `paths.md (Path X): module X.Y is in an Optional section but uses a numbered list item` | Author used `1.` instead of `-` in an Optional section | Change the numbered item to a bullet: `- **X.Y** — ...` |
+| `paths.md (Path X): module X.Y appears in both a core numbered list and an Optional Extensions section` | Same ID listed twice in the same path | Remove it from one location — core or optional, not both |
 
 **Typical fix workflow:**
 
@@ -102,7 +105,7 @@ npm run curriculum:test
 
 ```
 tests/
-├── test_validator.py          # Test runner (20 assertions)
+├── test_validator.py          # Test runner (23 assertions)
 └── fixtures/
     ├── valid/
     │   └── tracks/
@@ -129,4 +132,7 @@ tests/
 | Invalid volatility / status tags | Errors reported |
 | Missing Owner / Last reviewed | Errors (not warnings) reported |
 | Unrecognised persona | Warning (not error) reported |
+| Optional section contains numbered list item | Error reported |
+| Same module ID in both core and optional sections | Error reported |
+| Clean optional sections produce no errors | No errors |
 | `paths.md` referencing unknown module ID | Error reported |

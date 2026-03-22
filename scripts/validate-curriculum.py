@@ -12,6 +12,7 @@ Checks:
   7. Cross-references in paths.md resolve to known module IDs
   8. Cross-references in common-gotchas.md (Where Taught column) resolve
   9. Cross-references in Cross-Reference Map section of index.md resolve
+ 10. paths.md Optional sections use bullet lists, not numbered lists
 
 Usage:
   python3 scripts/validate-curriculum.py              # validate only
@@ -106,6 +107,85 @@ def has_valid_persona(persona_str: str) -> bool:
     """Return True if the persona field contains at least one recognised token."""
     lower = persona_str.lower()
     return any(token in lower for token in BASE_PERSONA_TOKENS)
+
+
+# ── Check 10: core vs. optional convention ────────────────────────────────────
+
+def check_paths_optional_convention(paths_file: Path) -> list[str]:
+    """Return errors for numbered list items found inside Optional sections.
+
+    An optional section begins when a line matches ``**Optional`` (e.g.
+    ``**Optional Extensions**`` or ``**Optional: Infrastructure depth**``) and
+    ends at the next markdown heading (##/###) or bold-only section header
+    (e.g. ``**Phase 3 — ...**``, ``**Literacy checkpoint:**``).
+
+    Two violation types are reported:
+    - A numbered list item (``1. **X.Y**``) inside an optional section.
+    - The same module ID appearing in both a core numbered list and an optional
+      bullet list within the same path block.
+    """
+    errors: list[str] = []
+    content = paths_file.read_text(encoding="utf-8")
+
+    # Split into per-path blocks at each "## Path" heading
+    path_blocks = re.split(r"(?=^## Path\b)", content, flags=re.MULTILINE)
+
+    for block in path_blocks:
+        if not block.strip().startswith("## Path"):
+            continue
+
+        name_match = re.match(r"## (Path \w+[^\n]*)", block)
+        path_name = name_match.group(1).strip() if name_match else "unknown path"
+
+        in_optional = False
+        core_ids: set[str] = set()
+        optional_ids: set[str] = set()
+
+        for line in block.splitlines():
+            stripped = line.strip()
+
+            # Optional section starts at a bare bold line containing "Optional"
+            if re.match(r"^\*\*Optional", stripped):
+                in_optional = True
+                continue
+
+            # Optional section ends at the next markdown heading or non-Optional
+            # bold-only section header (e.g. **Phase**, **Literacy checkpoint:**)
+            if in_optional and (
+                re.match(r"^#{2,}", stripped)
+                or (
+                    re.match(r"^\*\*[^*]", stripped)
+                    and not stripped.startswith("**Optional")
+                )
+            ):
+                in_optional = False
+
+            # Numbered list item: should only appear in core sections
+            numbered = re.match(r"^\d+\.\s+\*\*(\d+\.\d+)\*\*", stripped)
+            if numbered:
+                mod_id = numbered.group(1)
+                if in_optional:
+                    errors.append(
+                        f"paths.md ({path_name}): module {mod_id} is in an "
+                        f"Optional section but uses a numbered list item — "
+                        f"use a bullet (- **{mod_id}**) instead"
+                    )
+                else:
+                    core_ids.add(mod_id)
+
+            # Bullet item inside an optional section
+            bullet = re.match(r"^-\s+\*\*(\d+\.\d+)\*\*", stripped)
+            if bullet and in_optional:
+                optional_ids.add(bullet.group(1))
+
+        # Same ID in both core and optional within the same path
+        for mod_id in sorted(core_ids & optional_ids):
+            errors.append(
+                f"paths.md ({path_name}): module {mod_id} appears in both a "
+                f"core numbered list and an Optional Extensions section"
+            )
+
+    return errors
 
 
 # ── Validation ────────────────────────────────────────────────────────────────
@@ -248,6 +328,10 @@ def validate(
                     errors.append(
                         f"index.md Cross-Reference Map: references unknown module ID {ref}"
                     )
+
+    # ── 10. paths.md: Optional sections must use bullets, not numbered lists ──
+    if paths_file.exists():
+        errors.extend(check_paths_optional_convention(paths_file))
 
     return errors, warnings, all_modules
 

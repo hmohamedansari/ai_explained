@@ -248,7 +248,7 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 3. **9.4** — Multimodal Safety
 4. **7.3** — Prompt Injection & Jailbreaking (multimodal attack surface)
 
-### Extended (11 modules)
+### Extended (9 modules)
 
 **Phase 1 — Foundations**
 1. **1.10** — Multimodal AI *(overview of the full landscape — vision, audio, video)*
@@ -266,8 +266,8 @@ Evaluation is introduced early in Paths C and D — it drives architecture decis
 9. **6.11** — Multimodal Evaluation & Observability *(dedicated eval coverage for each modality — text evals give no signal here)*
 
 **Optional: Infrastructure depth**
-10. **5.2** — VRAM Management & Quantisation *(vision models carry 2–4× the VRAM cost of equivalent text models)*
-11. **5.3** — vLLM: Production Serving *(image tokens are variable-size and break uniform-batch assumptions)*
+- **5.2** — VRAM Management & Quantisation *(vision models carry 2–4× the VRAM cost of equivalent text models)*
+- **5.3** — vLLM: Production Serving *(image tokens are variable-size and break uniform-batch assumptions)*
 
 **Literacy checkpoint:** After this path, you can read a production engineering post on deploying multimodal pipelines and evaluate whether the system has adequately addressed its retrieval strategy, VRAM budget, and expanded safety attack surface.
 

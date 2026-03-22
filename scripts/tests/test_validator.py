@@ -27,6 +27,7 @@ _spec.loader.exec_module(_mod)
 validate = _mod.validate
 has_valid_persona = _mod.has_valid_persona
 extract_cross_ref_section = _mod.extract_cross_ref_section
+check_paths_optional_convention = _mod.check_paths_optional_convention
 
 FIXTURES = Path(__file__).parent / "fixtures"
 PASS = "\033[32mPASS\033[0m"
@@ -138,6 +139,71 @@ def test_bad_persona_is_warning():
     assert_that("warning emitted for bad persona", any("persona" in w for w in warnings))
 
 
+def test_paths_optional_convention():
+    print("\nCheck 10: numbered list items inside Optional sections")
+    with tempfile.TemporaryDirectory() as tmp:
+        paths_file = Path(tmp) / "paths.md"
+
+        # Violation: numbered item inside an Optional section
+        paths_file.write_text(textwrap.dedent("""\
+            > Last reviewed: 2026-01-01
+            > Owner: x
+
+            ## Path X: Test
+
+            ### Extended (2 modules)
+            1. **1.1** — Core module
+
+            **Optional Extensions**
+            2. **1.2** — Should be a bullet, not numbered
+        """))
+        errors = check_paths_optional_convention(paths_file)
+        assert_that(
+            "numbered item in Optional section is an error",
+            any("numbered list item" in e and "1.2" in e for e in errors),
+        )
+
+        # Cross-contamination: same ID in core and optional
+        paths_file.write_text(textwrap.dedent("""\
+            > Last reviewed: 2026-01-01
+            > Owner: x
+
+            ## Path X: Test
+
+            ### Extended (2 modules)
+            1. **1.1** — Core module
+            2. **1.2** — Also core
+
+            **Optional Extensions**
+            - **1.2** — Duplicate in optional section
+        """))
+        errors = check_paths_optional_convention(paths_file)
+        assert_that(
+            "same ID in core and optional is an error",
+            any("both a core" in e and "1.2" in e for e in errors),
+        )
+
+        # Clean path: no violations
+        paths_file.write_text(textwrap.dedent("""\
+            > Last reviewed: 2026-01-01
+            > Owner: x
+
+            ## Path X: Test
+
+            ### Extended (2 modules)
+            1. **1.1** — Core module
+            2. **1.2** — Also core
+
+            **Optional Extensions**
+            - **1.3** — Correctly bulleted optional
+        """))
+        errors = check_paths_optional_convention(paths_file)
+        assert_that(
+            "clean paths.md produces no convention errors",
+            len(errors) == 0,
+        )
+
+
 def test_paths_md_unknown_ref():
     print("\nInvalid: paths.md references a non-existent module ID")
     with tempfile.TemporaryDirectory() as tmp:
@@ -195,6 +261,7 @@ def main() -> None:
     test_bad_tags()
     test_missing_metadata()
     test_bad_persona_is_warning()
+    test_paths_optional_convention()
     test_paths_md_unknown_ref()
 
     passed = sum(1 for _, ok in _results if ok)
