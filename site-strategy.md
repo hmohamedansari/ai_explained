@@ -20,7 +20,7 @@ Build visibility and trust as the creator and curator — not a faceless wiki.
 - [ ] **"Built by [you]" attribution** — footer, GitHub README, and open graph metadata on every page.
 - [ ] **Social links** — LinkedIn, X/Twitter, GitHub.
 - [ ] **Newsletter signup** — lowest-effort, highest-return brand tool. Static embed, no server. Platform decision needed (see Decisions below).
-  - **Privacy prerequisites (must be done before signup goes live):** privacy policy page, consent language on the form ("I agree to receive emails — unsubscribe any time"), data processor disclosure (which platform stores the emails and where), and a working unsubscribe link in every email. Without these, the signup is a launch blocker in GDPR jurisdictions. These are not optional polish — they are legal requirements for email collection in most markets.
+  - **Privacy prerequisites (must be done before signup goes live):** privacy policy page, consent language on the form ("I agree to receive emails — unsubscribe any time"), data processor disclosure (which platform stores the emails and where), and a working unsubscribe link in every email. Without these, the signup is a launch blocker in GDPR jurisdictions and likely non-compliant in others (CAN-SPAM, CASL). Treat these as prerequisites, not polish — and verify requirements for your specific jurisdiction before launch.
 - [ ] **RSS feed** — Astro generates this for free. Devs who won't give an email will subscribe via RSS.
 - [ ] **Blog / notes section** — your running commentary on AI developments. Differentiates the site from a faceless reference wiki. Even one post per month compounds over time.
 - [ ] **Open Graph / social card images** — branded image when a module link is shared on LinkedIn or X. Astro plugin, one-line config. Important for brand impressions.
@@ -134,29 +134,29 @@ Work through this list top to bottom. Items in the same group can be done in par
 4. Decide privacy policy approach (blocks newsletter signup going live)
 
 **Group 2 — Foundation (brand + OSS infrastructure)**
-4. Author / about page
-5. CONTRIBUTING.md + module template
-6. GitHub issue templates (3 types)
-7. LICENSE files (content + code)
+5. Author / about page
+6. CONTRIBUTING.md + module template
+7. GitHub issue templates (3 types)
+8. LICENSE files (content + code)
 
 **Group 3 — Content (can overlap with Group 2)**
-8. Tools index (one table per track)
-9. Google Colab notebooks for code-heavy modules
+9. Tools index (one table per track)
+10. Google Colab notebooks for code-heavy modules
 
 **Group 4 — Site mechanics (Linux Journey feel)**
-10. Lesson navigation sidebar
-11. localStorage progress + "mark as read"
-12. Inline quiz component (client-side JS)
-13. "Next lesson →" footer nav
-14. "Suggest an edit" link on every page
+11. Lesson navigation sidebar
+12. localStorage progress + "mark as read"
+13. Inline quiz component (client-side JS)
+14. "Next lesson →" footer nav
+15. "Suggest an edit" link on every page
 
 **Group 5 — Growth hooks**
-15. Newsletter signup embed
-16. RSS feed
-17. Open Graph social card images
-18. SEO metadata + sitemap.xml
-19. Changelog page
-20. Contributor wall
+16. Newsletter signup embed (requires privacy prerequisites from item 4)
+17. RSS feed
+18. Open Graph social card images
+19. SEO metadata + sitemap.xml
+20. Changelog page
+21. Contributor wall
 
 ---
 
