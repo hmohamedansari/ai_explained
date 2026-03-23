@@ -59,10 +59,18 @@ const quizzes = defineCollection({
       type: z.literal('multiple-choice'),
       question: z.string(),
       options: z.array(z.string()),   // required for multiple-choice
-      answer: z.number(),             // index into options[]
+      answer: z.number().int(),       // index into options[]
       explanation: z.string(),
       personas: z.array(PERSONA)
         .default(['curious', 'leader', 'junior', 'senior', 'sre']),
+    }).superRefine((q, ctx) => {
+      if (q.answer < 0 || q.answer >= q.options.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['answer'],
+          message: `answer ${q.answer} is out of range — options has ${q.options.length} item(s) (valid: 0–${q.options.length - 1})`,
+        });
+      }
     })),
   }),
 });
