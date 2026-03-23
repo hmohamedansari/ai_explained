@@ -1,0 +1,76 @@
+{
+  "title": "Hallucinations and Model Reliability — Check your understanding",
+  "moduleId": "1.4",
+  "questions": [
+    {
+      "id": "1.4-q1",
+      "type": "multiple-choice",
+      "question": "An LLM confidently cites a research paper with a plausible title, authors, and journal — but the paper does not exist. What is this called, and why does it happen?",
+      "options": [
+        "A model error; the model misread a real paper in its training data",
+        "A hallucination; the model generated a plausible-sounding citation because that is the most likely continuation of the text",
+        "A retrieval failure; the model tried to look up the paper and returned a cached wrong result",
+        "A safety refusal; the model invented a citation to avoid saying it doesn't know"
+      ],
+      "answer": 1,
+      "explanation": "Hallucination occurs because LLMs generate the most plausible next tokens — not verified facts. A citation-shaped piece of text is common in academic contexts, so the model produces one. There is no lookup, no cache, and no intent to deceive. The model is doing exactly what it was trained to do.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.4-q2",
+      "type": "multiple-choice",
+      "question": "Your system asks an LLM to answer factual questions about a proprietary internal knowledge base. The model has no access to this data. What is the most reliable architectural fix?",
+      "options": [
+        "Use the frontier model — larger models hallucinate less",
+        "Set temperature to 0 to make outputs deterministic and accurate",
+        "Retrieve relevant documents from the knowledge base and pass them as context in every request",
+        "Add 'Do not make up information' to the system prompt"
+      ],
+      "answer": 2,
+      "explanation": "Retrieval-Augmented Generation (RAG) is the primary architectural fix. The model cannot recall facts it was never trained on — retrieval gives it the actual source documents. Larger models and low temperature reduce variation but do not create knowledge. Instructions alone are unreliable; the model will still fill gaps when it lacks information.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.4-q3",
+      "type": "multiple-choice",
+      "question": "You validate LLM output against a JSON schema and all fields parse correctly. Can you trust the factual content of the output?",
+      "options": [
+        "Yes — if the output passes schema validation, it is correct",
+        "Yes — structured output reduces the model's tendency to hallucinate",
+        "No — schema validation checks structure and types, not whether the facts inside are accurate",
+        "No — JSON parsing errors are a sign of hallucination"
+      ],
+      "answer": 2,
+      "explanation": "Schema validation tells you the output is well-formed — the right fields exist with the right types. It says nothing about whether the values are factually correct. A perfectly valid JSON object can contain entirely fabricated data. Structural validation and factual verification are separate concerns.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.4-q4",
+      "type": "multiple-choice",
+      "question": "A user tells your LLM-powered assistant: 'Actually, the capital of Australia is Sydney.' The model responds: 'You're right, my mistake — Sydney is the capital.' What failure mode is this?",
+      "options": [
+        "Hallucination — the model generated incorrect geographic information",
+        "Context overflow — the model forgot the correct answer from earlier in the conversation",
+        "Sycophancy — the model agreed with a false user claim to provide a satisfying response",
+        "Model degradation — this indicates the model version needs to be updated"
+      ],
+      "answer": 2,
+      "explanation": "Sycophancy is when a model abandons a correct answer because a user asserts otherwise, even without new evidence. It is a product of RLHF training: feedback providers tend to reward agreement. The capital of Australia is Canberra. The model's capitulation to a false correction is a reliability failure distinct from hallucination.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.4-q5",
+      "type": "multiple-choice",
+      "question": "Which of the following is the most dangerous property of hallucinations in production systems?",
+      "options": [
+        "They occur too frequently to be economically viable to mitigate",
+        "They produce no error, no warning, and no signal — wrong output looks identical to correct output",
+        "They only occur with large frontier models, making smaller models safer",
+        "They are more common at low temperatures, making high-temperature outputs more reliable"
+      ],
+      "answer": 1,
+      "explanation": "The most dangerous property is silence. A system that throws an exception when it fails is easy to detect and fix. A system that silently returns confident wrong answers erodes trust and can cause real harm before anyone notices. This is why validation, grounding, and human review are architectural requirements, not optional additions.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

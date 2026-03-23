@@ -1,0 +1,230 @@
+---
+moduleId: "1.4"
+title: "Hallucinations and Model Reliability"
+description: "LLMs generate plausible text, not verified truth. Understanding why models hallucinate — and how to architect around it — is the single most important reliability concern in production AI systems."
+track: "foundations"
+order: 4
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-23"
+estimatedMinutes:
+  layer1: 7
+  layer2: 15
+  layer3: 20
+productionGotcha: "Hallucinations produce no error, no warning, and no signal — just confident, wrong output that looks exactly like correct output. A model that fails loudly is easier to debug than one that silently returns plausible-sounding nonsense. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A hallucination is when a model generates **confident, wrong output**.
+
+The word is misleading — the model is not confused, it is not guessing, and it is not lying. It is doing exactly what it was trained to do: produce the most plausible continuation of the text it received. Sometimes the most plausible continuation happens to be false.
+
+This is not a bug that will be patched away. It is a consequence of how LLMs work. They are trained to generate text that looks like text in their training data — not to retrieve verified facts from a database. A model that has never seen a paper cited correctly in training may invent a plausible-sounding citation. A model asked to calculate compound interest may produce a number that looks like the right answer but isn't.
+
+The four most common forms:
+
+| Type | Example |
+|---|---|
+| **Factual** | Stating an incorrect date, statistic, or person's role |
+| **Citation** | Inventing a paper title, author, or URL that does not exist |
+| **Reasoning** | Reaching the wrong conclusion through apparently logical steps |
+| **Identity** | Claiming capabilities or knowledge the model doesn't have |
+
+### Why it matters
+
+Hallucinations are **silent**. There is no exception. No warning. No confidence score in the default response. The wrong answer looks identical to the right answer. This makes hallucinations uniquely dangerous in production: a system that errors loudly is easy to fix; a system that silently returns wrong information erodes user trust and can cause real harm before anyone notices.
+
+### Production Gotcha
+
+> **Common Gotcha:** Hallucinations produce no error, no warning, and no signal — just confident, wrong output that looks exactly like correct output. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness.
+
+---
+
+## Layer 2 — Guided
+
+### Why hallucinations happen
+
+LLMs are trained to predict the next token given all previous tokens. During training, the loss function rewards generating tokens that match the training data — not tokens that are factually verifiable. The model learns which facts appear frequently and in what context, but it has no mechanism to distinguish "I was trained on this fact" from "I am generating a plausible-sounding fact."
+
+This means hallucination risk is higher when:
+- The topic is obscure or underrepresented in training data
+- The correct answer is numerical or requires precise recall
+- The question is a hybrid (e.g. "What did person X say in paper Y?")
+- The model is pushed into a domain outside its training distribution
+
+### Mitigation strategies
+
+**1. Retrieval-Augmented Generation (RAG)**
+
+Instead of asking the model to recall facts from training, retrieve relevant documents and pass them as context. The model's job becomes reading and synthesising provided text — much more reliable than recall.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def answer_with_context(question: str, retrieved_docs: list[str]) -> str:
+    context = "\n\n---\n\n".join(retrieved_docs)
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=(
+            "Answer the question using only the provided documents. "
+            "If the answer is not in the documents, say 'I don't have enough information to answer this.' "
+            "Do not use knowledge from outside the provided documents."
+        ),
+        messages=[{
+            "role": "user",
+            "content": f"Documents:\n\n{context}\n\nQuestion: {question}"
+        }]
+    )
+    return response.content[0].text
+```
+
+The instruction "if the answer is not in the documents, say so" is critical. Without it, the model may blend retrieved content with recalled facts and hallucinate seamlessly.
+
+**2. Structured output with schema validation**
+
+Constrain the output shape and validate it. A schema cannot prevent factual hallucinations, but it catches structural ones (wrong field types, missing required fields, out-of-range values):
+
+```python
+import anthropic
+import json
+
+client = anthropic.Anthropic()
+
+def extract_event(text: str) -> dict:
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        system=(
+            "Extract the event details and return valid JSON only. "
+            "Use null for fields that are not present in the text.\n\n"
+            "Schema: {\"name\": string, \"date\": string (ISO 8601) or null, "
+            "\"location\": string or null}"
+        ),
+        messages=[{"role": "user", "content": text}]
+    )
+
+    raw = response.content[0].text.strip()
+    event = json.loads(raw)  # raises if not valid JSON
+
+    # Schema validation — catches wrong types, missing fields
+    assert isinstance(event.get("name"), str), "name must be a string"
+    assert event.get("date") is None or isinstance(event["date"], str)
+    assert event.get("location") is None or isinstance(event["location"], str)
+
+    return event
+```
+
+For production use, replace `assert` with a proper schema library (e.g. `pydantic`) and handle validation errors gracefully.
+
+**3. Ask for citations and verify them**
+
+When factual accuracy matters, instruct the model to cite its sources, then verify them:
+
+```python
+system = (
+    "When you state a fact, cite the source inline as [Source: <title or URL>]. "
+    "If you cannot cite a source, say 'I am not certain about this' before the claim."
+)
+```
+
+This does not guarantee correctness — models can hallucinate citations — but it makes claims auditable and signals to users that verification is expected. In a RAG system, constrain citations to the retrieved document set.
+
+### Before vs After
+
+**Trusting recall — high hallucination risk:**
+```python
+# BAD: Asking the model to recall specific facts with no grounding
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=512,
+    messages=[{
+        "role": "user",
+        "content": "What were the key financial metrics in Acme Corp's Q3 2025 earnings report?"
+    }]
+)
+# The model has no access to this report. It will fabricate plausible-sounding numbers.
+```
+
+**Grounded in retrieved context — lower hallucination risk:**
+```python
+# GOOD: Retrieve the actual report; model reads and extracts
+earnings_report = retrieve_document("acme_q3_2025_earnings.pdf")
+response = client.messages.create(
+    model="claude-sonnet-4-6",
+    max_tokens=512,
+    system="Answer using only the provided document. Quote directly where possible.",
+    messages=[{
+        "role": "user",
+        "content": f"Document:\n{earnings_report}\n\nWhat were the key financial metrics?"
+    }]
+)
+```
+
+### Common mistakes
+
+1. **Treating LLM output as a source of truth** — Using model output to populate databases, generate reports, or drive decisions without human review or validation.
+2. **No "I don't know" path** — Not explicitly instructing the model to say when it lacks information. Without this, models fill gaps with hallucinations.
+3. **Validating structure but not facts** — JSON schema validation tells you the output is well-formed, not that the facts inside are correct.
+4. **Single-pass extraction on high-stakes data** — For important extractions, run the same prompt twice and compare. Consistent outputs are more reliable; divergent outputs flag uncertainty.
+5. **Conflating low temperature with factual accuracy** — Low temperature makes outputs more deterministic, not more factually correct. The same wrong answer, every time.
+
+---
+
+## Layer 3 — Deep Dive
+
+### The calibration problem
+
+A well-calibrated model would assign high confidence to correct claims and low confidence to uncertain ones. Current LLMs are poorly calibrated in this sense — they generate equally fluent text whether they are certain or guessing. The surface features that signal confidence in human writing (precise language, specific details, citations) are learned stylistic patterns, not indicators of underlying knowledge.
+
+This is why hallucinations are particularly hard to detect: the model's most confident-sounding outputs are not reliably its most accurate ones. Research on calibration (e.g. the TruthfulQA benchmark) has consistently shown that larger models can be *more* confidently wrong, not less.
+
+### Sycophancy
+
+Sycophancy is a closely related failure mode: models that agree with incorrect user claims when pushed. If a user says "Actually, I think the answer is X" and X is wrong, the model will often validate X rather than maintain the correct answer. This is a product of RLHF training — feedback providers reward responses that feel satisfying, and agreement tends to feel satisfying.
+
+Production implications:
+- Do not use LLMs to validate facts users provide
+- If building a review/checking feature, instruct the model explicitly: "Do not change your answer based on what the user claims unless they provide new evidence"
+- Test for sycophancy in your evaluation set: include cases where the user asserts a wrong answer and check whether the model capitulates
+
+### Factual consistency in long conversations
+
+As conversations grow longer, models are less consistent: they may contradict earlier claims, forget constraints established early in the conversation, or hallucinate details that were not in the original context. This degrades in proportion to how much of the context window is consumed by earlier turns.
+
+For applications requiring factual consistency across a session (e.g. document analysis, multi-step research), periodically summarise the established facts and re-inject them as a structured context block rather than relying on the model to recall them from deep in the conversation history.
+
+### Retrieval-Augmented Generation at scale
+
+RAG is the primary production mitigation for factual hallucinations. The architecture separates two concerns:
+
+1. **Retrieval** — find documents relevant to the query (vector search, keyword search, or hybrid)
+2. **Generation** — given the retrieved documents, extract or synthesise the answer
+
+The model's reliability depends heavily on retrieval quality. If the retrieval step returns irrelevant documents, the model will either say it doesn't know (good) or synthesise an answer from the irrelevant content (bad). Evaluate retrieval recall and precision independently from generation quality.
+
+Common RAG failure modes:
+- **Retrieval misses the relevant document** — model lacks the context it needs; may hallucinate to fill the gap
+- **Retrieved context is too long** — model attends unevenly; details in the middle of long contexts are missed more often
+- **Model blends retrieved and recalled facts** — especially common when retrieved context partially answers the question
+
+### Hallucination detection
+
+Building reliable hallucination detection is an open research problem, but practical approaches exist:
+
+- **Self-consistency**: run the same prompt N times; answers that appear consistently are more likely correct
+- **Entailment checking**: pass the model's answer and the source document to a second model and ask whether the answer is supported by the document
+- **Fact-checking prompts**: "Does the following answer contain any claims not supported by the provided document? List any unsupported claims."
+- **Human-in-the-loop for high-stakes outputs**: for decisions with material consequences, require human review before acting on model output
+
+### Further reading
+
+- [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958) — Lin et al., 2021. Benchmark and analysis showing that larger models can be more confidently wrong.
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The foundational RAG paper.
+- [Sycophancy to Subterfuge: Investigating Reward Tampering in Language Models](https://arxiv.org/abs/2406.10162) — Anthropic, 2024. Analysis of sycophancy and reward-hacking behaviours in RLHF-trained models.
+- [Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629) — Ji et al., 2022. Comprehensive taxonomy of hallucination types and mitigation strategies.
