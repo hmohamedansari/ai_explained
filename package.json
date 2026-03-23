@@ -17,12 +17,15 @@
     "@astrojs/rss": "^4.0.17",
     "@astrojs/sitemap": "^3.1.6",
     "@astrojs/tailwind": "^5.1.0",
+    "@fontsource/inter": "^5.2.8",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/typography": "^0.5.19",
     "astro": "^4.16.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "satori": "^0.26.0",
     "tailwindcss": "^3.4.14"
   },
   "devDependencies": {

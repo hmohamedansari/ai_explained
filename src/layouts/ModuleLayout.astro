@@ -24,6 +24,7 @@ const metaTitle = seoTitle ?? title;
 const metaDescription = seoDescription ?? description;
 
 const editUrl = `https://github.com/hmohamedansari/ai-explained/edit/main/src/content/modules/${mod.slug}.mdx`;
+const ogImagePath = `/og/${track}/${currentSlug}.png`;
 const pageUrl = new URL(`/learn/${track}/${currentSlug}`, Astro.site).toString();
 const trackLabel = track.replace(/-/g, ' ');
 const trackUrl = new URL(`/learn/${track}`, Astro.site).toString();
@@ -62,7 +63,7 @@ const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
 const badge = VOLATILITY_BADGE[volatility];
 ---
 
-<BaseLayout title={metaTitle} description={metaDescription}>
+<BaseLayout title={metaTitle} description={metaDescription} ogImage={ogImagePath}>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={JSON.stringify(breadcrumb)} />
     <script type="application/ld+json" set:html={JSON.stringify(learningResource)} />
