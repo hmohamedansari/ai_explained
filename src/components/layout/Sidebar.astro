@@ -2,46 +2,98 @@
 import { getCollection } from 'astro:content';
 
 interface Props {
-  currentModule: string;
-  currentLesson: string;
+  track: string;
+  currentSlug: string; // module slug without track prefix, e.g. 'what-is-an-llm'
 }
 
-const { currentModule, currentLesson } = Astro.props;
+const { track, currentSlug } = Astro.props;
 
-const allLessons = await getCollection('concepts', ({ data }) => !data.draft);
-const moduleLessons = allLessons
-  .filter(l => l.data.module === currentModule)
-  .sort((a, b) => a.data.order - b.data.order);
+const allModules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.status === 'published' && data.track === track
+);
+const trackModules = allModules.sort((a, b) => a.data.order - b.data.order);
 ---
 
-<aside class="hidden lg:flex flex-col w-64 shrink-0 border-r border-white/10 bg-surface-1 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto">
-  <div class="p-5">
-    <p class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">
-      {currentModule.replace(/-/g, ' ')}
+<aside
+  class="hidden lg:flex flex-col w-64 shrink-0 border-r border-white/10 bg-surface-1 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto"
+  aria-label="Track navigation"
+>
+  <div class="p-4">
+    <p class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4 px-1">
+      {track.replace(/-/g, ' ')}
     </p>
 
     <nav class="flex flex-col gap-0.5">
-      {moduleLessons.map(lesson => {
-        const isActive = lesson.slug === currentLesson;
-        const href = `/learn/${currentModule}/${lesson.slug}`;
+      {trackModules.map(mod => {
+        const slug = mod.slug.split('/')[1];
+        const isActive = slug === currentSlug;
         return (
           <a
-            href={href}
+            href={`/learn/${track}/${slug}`}
+            data-module-id={mod.data.moduleId}
+            data-active={isActive ? 'true' : undefined}
             class:list={[
-              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors',
+              'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
               isActive
                 ? 'bg-brand-600/20 text-brand-300 font-medium'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             ]}
           >
-            <span class:list={[
-              'w-1.5 h-1.5 rounded-full shrink-0',
-              isActive ? 'bg-brand-400' : 'bg-white/20'
-            ]} />
-            {lesson.data.title}
+            <!-- Progress dot: colour updated by client script -->
+            <span
+              class="progress-dot w-1.5 h-1.5 rounded-full shrink-0 transition-colors"
+              class:list={[isActive ? 'bg-brand-400' : 'bg-white/20']}
+            />
+            <span class="flex-1 truncate">{mod.data.title}</span>
+            {mod.data.estimatedMinutes && (
+              <span class="text-xs text-slate-600 shrink-0">
+                {mod.data.estimatedMinutes.layer1}m
+              </span>
+            )}
           </a>
         );
       })}
     </nav>
   </div>
 </aside>
+
+<script>
+  // Hydrate progress dots from localStorage without a page reload.
+  // Also listens for the 'module:read' event fired by MarkAsRead so the dot
+  // updates the moment the user clicks the button.
+
+  const PROGRESS_KEY = 'ai-academy:progress';
+
+  function applyProgress() {
+    let progress: Record<string, boolean> = {};
+    try {
+      progress = JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? '{}');
+    } catch {
+      return;
+    }
+
+    document.querySelectorAll<HTMLAnchorElement>('[data-module-id]').forEach(el => {
+      const moduleId = el.dataset.moduleId;
+      const isActive = el.dataset.active === 'true';
+      const dot = el.querySelector('.progress-dot');
+      if (!dot || !moduleId || isActive) return;
+
+      if (progress[moduleId]) {
+        dot.classList.remove('bg-white/20');
+        dot.classList.add('bg-green-400');
+      }
+    });
+  }
+
+  applyProgress();
+
+  window.addEventListener('module:read', (e: Event) => {
+    const { moduleId } = (e as CustomEvent<{ moduleId: string }>).detail;
+    const el = document.querySelector<HTMLAnchorElement>(`[data-module-id="${moduleId}"]`);
+    if (!el || el.dataset.active === 'true') return;
+    const dot = el.querySelector('.progress-dot');
+    if (!dot) return;
+    dot.classList.remove('bg-white/20');
+    dot.classList.add('bg-green-400');
+  });
+</script>

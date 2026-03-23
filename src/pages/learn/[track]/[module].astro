@@ -23,12 +23,17 @@ const sorted = trackModules.sort((a, b) => a.data.order - b.data.order);
 const idx = sorted.findIndex(m => m.id === mod.id);
 const prev = idx > 0 ? sorted[idx - 1] : null;
 const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+
+// Quiz for this module (matched by moduleId)
+const allQuizzes = await getCollection('quizzes');
+const quiz = allQuizzes.find(q => q.data.moduleId === mod.data.moduleId) ?? null;
 ---
 
 <ModuleLayout
   mod={mod}
   prev={prev ? { slug: prev.slug.split('/')[1], title: prev.data.title } : null}
   next={next ? { slug: next.slug.split('/')[1], title: next.data.title } : null}
+  quiz={quiz}
 >
   <Content />
 </ModuleLayout>

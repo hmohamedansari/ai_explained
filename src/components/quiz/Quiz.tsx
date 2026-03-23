@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { saveQuizScore } from '@/utils/progress';
 
 interface Question {
   id: string;
@@ -11,19 +12,15 @@ interface Question {
 
 interface QuizProps {
   title: string;
+  moduleId: string;
   questions: Question[];
-  audience?: string;
 }
 
 type AnswerState = Record<string, { selected: number | null; locked: boolean }>;
 
-export default function Quiz({ title, questions, audience }: QuizProps) {
-  const filtered = audience
-    ? questions // filtering by audience is handled server-side before passing
-    : questions;
-
+export default function Quiz({ title, moduleId, questions }: QuizProps) {
   const [answers, setAnswers] = useState<AnswerState>(() =>
-    Object.fromEntries(filtered.map(q => [q.id, { selected: null, locked: false }]))
+    Object.fromEntries(questions.map(q => [q.id, { selected: null, locked: false }]))
   );
   const [showResults, setShowResults] = useState(false);
 
@@ -41,11 +38,21 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
     }));
   };
 
-  const allAnswered = filtered.every(q => answers[q.id].locked);
-  const score = filtered.filter(q => {
+  const allAnswered = questions.every(q => answers[q.id].locked);
+  const score = questions.filter(q => {
     const state = answers[q.id];
     return state.locked && state.selected === Number(q.answer);
   }).length;
+
+  const handleShowResults = () => {
+    setShowResults(true);
+    saveQuizScore(moduleId, score, questions.length);
+  };
+
+  const handleRetry = () => {
+    setAnswers(Object.fromEntries(questions.map(q => [q.id, { selected: null, locked: false }])));
+    setShowResults(false);
+  };
 
   return (
     <div className="space-y-8">
@@ -53,12 +60,12 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
         <h2 className="text-xl font-semibold text-white">{title}</h2>
         {showResults && (
           <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300">
-            {score} / {filtered.length} correct
+            {score} / {questions.length} correct
           </div>
         )}
       </div>
 
-      {filtered.map((q, qi) => {
+      {questions.map((q, qi) => {
         const state = answers[q.id];
         const isCorrect = state.locked && state.selected === Number(q.answer);
         const isWrong = state.locked && state.selected !== Number(q.answer);
@@ -68,9 +75,7 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
             {/* Question */}
             <div className="flex gap-3">
               <span className="text-xs font-mono text-slate-500 mt-0.5 shrink-0">Q{qi + 1}</span>
-              <pre className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap font-sans">
-                {q.question}
-              </pre>
+              <p className="text-slate-200 text-sm leading-relaxed">{q.question}</p>
             </div>
 
             {/* Options */}
@@ -103,8 +108,7 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
                     onClick={() => handleSelect(q.id, i)}
                     disabled={state.locked}
                   >
-                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-mono
-                                     border-current opacity-60">
+                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-mono border-current opacity-60">
                       {String.fromCharCode(65 + i)}
                     </span>
                     {opt}
@@ -142,10 +146,7 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
       {/* Final results */}
       {allAnswered && !showResults && (
         <div className="text-center pt-4">
-          <button
-            onClick={() => setShowResults(true)}
-            className="btn-primary"
-          >
+          <button onClick={handleShowResults} className="btn-primary">
             See my score
           </button>
         </div>
@@ -154,22 +155,16 @@ export default function Quiz({ title, questions, audience }: QuizProps) {
       {showResults && (
         <div className="p-6 rounded-xl border border-brand-500/30 bg-brand-950/20 text-center space-y-3">
           <div className="text-4xl font-bold text-white">
-            {score}<span className="text-slate-500 text-2xl">/{filtered.length}</span>
+            {score}<span className="text-slate-500 text-2xl">/{questions.length}</span>
           </div>
           <p className="text-slate-400">
-            {score === filtered.length
-              ? 'Perfect score. You\'ve got this.'
-              : score >= filtered.length * 0.7
+            {score === questions.length
+              ? "Perfect score. You've got this."
+              : score >= questions.length * 0.7
               ? 'Solid understanding. Review the explanations for the ones you missed.'
               : 'Keep at it — re-read the lesson and try again.'}
           </p>
-          <button
-            onClick={() => {
-              setAnswers(Object.fromEntries(filtered.map(q => [q.id, { selected: null, locked: false }])));
-              setShowResults(false);
-            }}
-            className="btn-secondary text-sm"
-          >
+          <button onClick={handleRetry} className="btn-secondary text-sm">
             Retry
           </button>
         </div>

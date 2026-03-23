@@ -1,0 +1,76 @@
+{
+  "title": "What is an LLM? — Check your understanding",
+  "moduleId": "1.1",
+  "questions": [
+    {
+      "id": "1.1-q1",
+      "type": "multiple-choice",
+      "question": "Which of the following best describes the correct mental model for a Large Language Model (LLM)?",
+      "options": [
+        "A database that retrieves facts stored during training",
+        "A stateless function that takes text in and returns text out",
+        "A reasoning engine that thinks step-by-step like a human",
+        "A search engine that queries the open web in real time"
+      ],
+      "answer": 1,
+      "explanation": "An LLM is a stateless mathematical function. It has no persistent memory, doesn't query a database, and doesn't reason like humans — it predicts likely next tokens based on patterns compressed during training.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.1-q2",
+      "type": "multiple-choice",
+      "question": "You make two separate API calls to an LLM. In the second call you include no context from the first. What does the model know about the first call?",
+      "options": [
+        "Everything — the model maintains a session between calls",
+        "Only the most recent assistant message",
+        "Nothing — each call starts from zero",
+        "It depends on which model provider you use"
+      ],
+      "answer": 2,
+      "explanation": "LLMs are stateless. Every API call is completely independent. If you don't explicitly pass prior conversation history in your request, the model has no knowledge of it — there is no session, no memory, no magic.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.1-q3",
+      "type": "multiple-choice",
+      "question": "You send 1,000 tokens of input and the model generates 500 tokens of output. How many tokens are you billed for?",
+      "options": [
+        "1,000 — only input tokens are billed",
+        "500 — only output tokens are billed",
+        "1,500 — both input and output tokens are billed",
+        "0 — billing is per API call, not per token"
+      ],
+      "answer": 2,
+      "explanation": "LLM providers bill for both input and output tokens. In this case: 1,000 + 500 = 1,500 tokens. This is why a 128K context window doesn't mean 128K tokens of free input — your budget is shared between everything you send and everything the model generates.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.1-q4",
+      "type": "multiple-choice",
+      "question": "You're building a feature that extracts structured data (names, dates, amounts) from documents. Which temperature setting is most appropriate?",
+      "options": [
+        "High (~1.5) — for creative variation in extractions",
+        "Medium (~0.7) — a safe, balanced default",
+        "Low (~0.0) — for deterministic, accurate output",
+        "Temperature has no effect on structured extraction"
+      ],
+      "answer": 2,
+      "explanation": "For structured extraction, accuracy matters more than creativity. A low temperature (near 0) makes the model pick the most probable tokens, reducing hallucinations and random variation. Save higher temperatures for brainstorming and creative tasks.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.1-q5",
+      "type": "multiple-choice",
+      "question": "A team asks their LLM to calculate compound interest on a loan. What risk should they be most aware of?",
+      "options": [
+        "The model may refuse due to financial regulations",
+        "The model may confidently return an incorrect result",
+        "The context window is too small for maths problems",
+        "The model's training data does not include mathematics"
+      ],
+      "answer": 1,
+      "explanation": "LLMs are not calculators — they generate plausible-looking text, not verified arithmetic. They can confidently produce wrong numbers with no indication of error. For any calculation requiring accuracy, use code execution or a dedicated calculator, then optionally have the LLM explain the result.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}
