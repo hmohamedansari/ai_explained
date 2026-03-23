@@ -3,15 +3,17 @@ import { getCollection } from 'astro:content';
 import type { APIContext } from 'astro';
 
 export async function GET(context: APIContext) {
-  const modules = await getCollection('modules', ({ data }) =>
-    !data.draft && data.status === 'published'
-  );
+  const [modules, tracks] = await Promise.all([
+    getCollection('modules', ({ data }) => !data.draft && data.status === 'published'),
+    getCollection('tracks'),
+  ]);
+
+  // Build a lookup: track slug → numeric order from tracks collection
+  const trackOrder = Object.fromEntries(tracks.map(t => [t.id, t.data.order]));
 
   const sorted = modules.sort((a, b) => {
-    // Sort by track order, then module order
-    if (a.data.track !== b.data.track) {
-      return a.data.track.localeCompare(b.data.track);
-    }
+    const trackDiff = (trackOrder[a.data.track] ?? 0) - (trackOrder[b.data.track] ?? 0);
+    if (trackDiff !== 0) return trackDiff;
     return a.data.order - b.data.order;
   });
 
