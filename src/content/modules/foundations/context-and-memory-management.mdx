@@ -250,7 +250,7 @@ Many providers (including Anthropic) support **prompt caching**: if the beginnin
 4. Current user message (always new)
 ```
 
-Reversing this order (user message first) defeats caching entirely. For applications with expensive system prompts or large shared document sets, cache-friendly ordering can reduce per-request cost by 80–90%.
+Reversing this order (user message first) defeats caching entirely. For applications with expensive system prompts or large shared document sets, cache-friendly ordering can reduce cached-prefix read costs by up to ~90% when hit rates are high — but cache writes carry a ~25% overhead, so realized savings depend on traffic patterns and how often the cached prefix is actually reused.
 
 ### Memory architectures for agents
 
