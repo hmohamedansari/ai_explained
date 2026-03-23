@@ -1,0 +1,76 @@
+{
+  "title": "Context and Memory Management — Check your understanding",
+  "moduleId": "1.6",
+  "questions": [
+    {
+      "id": "1.6-q1",
+      "type": "multiple-choice",
+      "question": "A user says your chat application 'remembered something from last week.' What is actually happening?",
+      "options": [
+        "The model stored the conversation in its weights during that session",
+        "The application retrieved the prior conversation from storage and included it in the current request",
+        "The model has a persistent session that lasts up to 30 days",
+        "The provider caches conversations server-side and automatically re-injects them"
+      ],
+      "answer": 1,
+      "explanation": "LLMs are stateless — nothing persists on the model's side between calls. Any 'memory' is context your application explicitly manages: store the conversation somewhere, retrieve it, and include it in the next request. The model has no knowledge of past calls unless you send that history back.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.6-q2",
+      "type": "multiple-choice",
+      "question": "You have a 200K token context window. Your system prompt is 1,500 tokens, you register 8 tools (~300 tokens each), and you retrieve 5 document chunks (~600 tokens each). How many tokens remain for conversation history and output before you've even received a user message?",
+      "options": [
+        "~197,000 tokens — tool definitions and documents are cached and don't count",
+        "~194,600 tokens — only the system prompt reduces the budget",
+        "~193,100 tokens — system prompt (1,500) + tools (2,400) + documents (3,000) = 6,900 consumed",
+        "~150,000 tokens — safety margin requires keeping 25% of the window free"
+      ],
+      "answer": 2,
+      "explanation": "Every token in the request counts: system prompt (1,500) + tool definitions (8 × 300 = 2,400) + retrieved documents (5 × 600 = 3,000) = 6,900 tokens consumed before the user types anything. That leaves ~193,100 tokens — which sounds like a lot, but in a multi-turn session with long retrieved documents, it fills faster than expected.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.6-q3",
+      "type": "multiple-choice",
+      "question": "You implement a sliding window that drops the oldest messages when history exceeds 20 turns. What is the primary risk of this approach?",
+      "options": [
+        "The model will hallucinate the dropped messages back into the conversation",
+        "Constraints or facts established early in the session may be silently lost",
+        "The API will reject requests where history has been modified",
+        "Dropped messages increase cost because the model has to re-derive context"
+      ],
+      "answer": 1,
+      "explanation": "A sliding window silently discards early context. If the user established an important constraint ('always respond in French', 'the budget is $10K') in an early turn that gets dropped, the model loses it with no warning. For stateful sessions, prefer summarisation — which compresses rather than discards — or re-state critical constraints in the system prompt.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.6-q4",
+      "type": "multiple-choice",
+      "question": "Research on long-context models shows a 'lost in the middle' effect. What does this mean for how you order retrieved documents in a RAG prompt?",
+      "options": [
+        "Always put retrieved documents after the user question so they are processed last",
+        "Order documents alphabetically so the model can scan them systematically",
+        "Place the most relevant document first or last in the retrieved context block, not in the middle",
+        "Split documents across multiple API calls to avoid the long-context attention problem"
+      ],
+      "answer": 2,
+      "explanation": "The 'lost in the middle' effect shows that models attend more reliably to content at the beginning and end of long contexts than content buried in the middle. Placing your most relevant retrieved chunk first or last — rather than sandwiched between less relevant chunks — improves retrieval accuracy without any code changes.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "1.6-q5",
+      "type": "multiple-choice",
+      "question": "When should you trigger history summarisation in a long-running conversation?",
+      "options": [
+        "At exactly 50% context usage — a fixed midpoint is most predictable",
+        "Only when the API returns a context limit error",
+        "Around 70–80% context usage, leaving headroom before the summarisation call itself could fail",
+        "After every 10 turns regardless of token count"
+      ],
+      "answer": 2,
+      "explanation": "Summarisation requires its own API call that consumes tokens. If you wait until 99% usage, the summarisation call may itself overflow the context limit, leaving you with no recovery path. Triggering at 70–80% gives enough headroom for the compression call to succeed and leaves room for several more turns before the next summarisation cycle.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

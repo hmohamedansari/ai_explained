@@ -1,0 +1,300 @@
+---
+moduleId: "1.6"
+title: "Context and Memory Management"
+description: "LLMs are stateless — they have no memory between calls. Every form of 'memory' in an AI application is something your code explicitly puts into the context window. Understanding how to manage that window is the core engineering skill behind every reliable AI system."
+track: "foundations"
+order: 6
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-23"
+estimatedMinutes:
+  layer1: 7
+  layer2: 15
+  layer3: 19
+productionGotcha: "Context windows feel large until they aren't. A 200K token window sounds unlimited — until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An LLM has no memory between calls. This was the central point of module 1.1, and it has a direct consequence: **every form of memory in an AI application is context your code explicitly manages**.
+
+When a chat application "remembers" what you said three turns ago, that's because the application stored those messages and sent them back with the next request. When a coding assistant "knows your codebase," that's because something retrieved relevant files and included them in the prompt. Nothing is implicit. Nothing persists on the model's side.
+
+There are three ways to give an LLM access to information beyond the current message:
+
+| Pattern | How it works | Fits when |
+|---|---|---|
+| **In-context** | Include everything in the current request | Short conversations, small documents |
+| **Retrieval** | Search an external store; inject only what's relevant | Large knowledge bases, long documents |
+| **Summarisation** | Compress history into a shorter form; include the summary | Long conversations, recurring sessions |
+
+Most production systems combine all three. The skill is knowing when to use each — and how to avoid running out of context window before the user is done.
+
+### Production Gotcha
+
+> **Common Gotcha:** Context windows feel large until they aren't. A 200K token window sounds unlimited — until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits.
+
+---
+
+## Layer 2 — Guided
+
+### The context budget
+
+Every token in a request costs money and consumes context window. A typical production request has several competing consumers:
+
+```
+System prompt            ~500–2,000 tokens
+Tool definitions         ~200–500 tokens per tool
+Conversation history     grows unboundedly
+Retrieved documents      ~1,000–10,000 tokens
+User message             ~50–500 tokens
+───────────────────────────────────────
+Reserve for output       1,000–4,000 tokens
+```
+
+Track actual usage, not theoretical maximums:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def chat_with_budget(
+    system: str,
+    history: list[dict],
+    user_message: str,
+    context_limit: int = 180_000,
+    max_output: int = 2_048,
+) -> tuple[str, list[dict]]:
+    history = history + [{"role": "user", "content": user_message}]
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=max_output,
+        system=system,
+        messages=history,
+    )
+
+    reply = response.content[0].text
+    history = history + [{"role": "assistant", "content": reply}]
+
+    used = response.usage.input_tokens + response.usage.output_tokens
+    pct  = used / context_limit * 100
+    print(f"[context: {used:,} / {context_limit:,} tokens ({pct:.0f}%)]")
+
+    return reply, history
+```
+
+Log token usage on every request. You want to know the p95 usage before you hit limits in production, not when a user reports a broken session.
+
+### Sliding window
+
+The simplest history management strategy: keep only the N most recent turns. When the window fills, drop the oldest turn:
+
+```python
+def trim_history(
+    history: list[dict],
+    max_turns: int = 20,
+) -> list[dict]:
+    """Keep only the last max_turns pairs (user + assistant = 1 pair = 2 messages)."""
+    max_messages = max_turns * 2
+    if len(history) > max_messages:
+        dropped = len(history) - max_messages
+        print(f"[trimmed {dropped} messages from history]")
+        return history[-max_messages:]
+    return history
+```
+
+Simple but lossy: early context disappears silently. The model may contradict itself or forget constraints established early in the session. Use this only for stateless tasks where individual turns are independent.
+
+### Summarisation
+
+Preserve long-run context without unlimited token growth by periodically compressing history into a summary:
+
+```python
+def summarise_history(
+    history: list[dict],
+    system: str,
+    keep_last_n: int = 6,
+) -> list[dict]:
+    """
+    Compress all but the last keep_last_n messages into a summary block.
+    Returns a new history list starting with the summary.
+    """
+    if len(history) <= keep_last_n:
+        return history
+
+    to_summarise = history[:-keep_last_n]
+    recent       = history[-keep_last_n:]
+
+    # Ask the model to compress the older turns
+    summary_response = client.messages.create(
+        model="claude-haiku-4-5-20251001",  # cheap model for compression
+        max_tokens=512,
+        system="Summarise the following conversation turns into a concise paragraph. "
+               "Preserve all facts, decisions, and constraints. "
+               "Write in third-person past tense.",
+        messages=[{
+            "role": "user",
+            "content": "\n\n".join(
+                f"{m['role'].upper()}: {m['content']}" for m in to_summarise
+            ),
+        }],
+    )
+
+    summary_text = summary_response.content[0].text
+    summary_message = {
+        "role": "user",
+        "content": f"[Earlier conversation summary: {summary_text}]",
+    }
+
+    return [summary_message] + recent
+```
+
+Use a fast, cheap model for summarisation — it's a compression task, not a reasoning task. Trigger summarisation at around 70% context usage so you have headroom before it becomes critical.
+
+### Retrieval-Augmented Generation (RAG) in context
+
+For knowledge that doesn't fit in a window, retrieve only what's relevant to the current query. The context budget for retrieved content is typically 2,000–8,000 tokens — enough for 3–8 substantive document chunks:
+
+```python
+def build_prompt_with_retrieval(
+    query: str,
+    retriever,          # any callable: query → list[str]
+    top_k: int = 5,
+    max_chunk_tokens: int = 400,
+) -> str:
+    chunks = retriever(query, top_k=top_k)
+
+    # Rough token estimate: 1 token ≈ 0.75 words ≈ 4 chars
+    context_parts = []
+    total_chars = 0
+    char_limit = max_chunk_tokens * top_k * 4  # approx
+
+    for i, chunk in enumerate(chunks, 1):
+        if total_chars + len(chunk) > char_limit:
+            break
+        context_parts.append(f"[{i}] {chunk}")
+        total_chars += len(chunk)
+
+    context = "\n\n".join(context_parts)
+    return (
+        f"Answer using only the documents below.\n"
+        f"If the answer is not in the documents, say so.\n\n"
+        f"{context}\n\nQuestion: {query}"
+    )
+```
+
+The two most important constraints: limit the number of chunks and cap each chunk's size. Without both, a single retrieval can consume the entire context budget.
+
+### Before vs After
+
+**Unbounded history — hits limits silently:**
+```python
+# BAD: history grows forever; eventually the API errors or quality degrades
+history = []
+while True:
+    user_input = input("You: ")
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        messages=history + [{"role": "user", "content": user_input}]
+    )
+    history.append({"role": "user",      "content": user_input})
+    history.append({"role": "assistant", "content": response.content[0].text})
+```
+
+**Budget-aware history — controlled and observable:**
+```python
+# GOOD: trim history, log token usage, degrade gracefully
+history = []
+while True:
+    user_input = input("You: ")
+    history     = trim_history(history, max_turns=20)
+    reply, history = chat_with_budget(SYSTEM, history, user_input)
+    print(f"Assistant: {reply}")
+```
+
+### Common mistakes
+
+1. **No token monitoring** — Discovering context limits from user complaints rather than from metrics. Instrument `usage.input_tokens` from the first day.
+2. **Sliding window without warning** — Silently dropping early context without telling the model or the user. Early turns may contain critical constraints.
+3. **Summarising at 99%** — Leaving summarisation until the window is almost full means the summarisation call itself may fail. Trigger at 70–80%.
+4. **Including all retrieved chunks regardless of relevance** — Top-k retrieval returns k results even when only 1 is relevant. Score and filter chunks; don't include low-relevance content just because the retriever returned it.
+5. **Forgetting tool definitions in the budget** — Tool definitions are not free. Ten detailed tool schemas can add 3,000–5,000 tokens to every request.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Lost in the middle
+
+Attention is not uniformly distributed across the context window. Research on long-context models shows that information placed in the **middle** of a long context is retrieved less reliably than information at the beginning or end. This is called the "lost in the middle" effect.
+
+Practical implications:
+- Put the most important instructions at the **start** of the system prompt, not buried after background information
+- In RAG, place the most relevant chunk **first** or **last** in the retrieved context block, not in the middle
+- In long conversation histories, critical constraints stated early in the session may be forgotten — re-state them in the system prompt or periodically remind the model
+
+### Cache-aware prompt ordering
+
+Many providers (including Anthropic) support **prompt caching**: if the beginning of your prompt matches a recently seen request, that portion is served from cache at lower cost and latency. This has a direct implication for prompt structure:
+
+**Put stable content first:**
+```
+1. System prompt (stable — same for all users)
+2. Retrieved documents (semi-stable — same for many requests)
+3. Conversation history (changes each turn)
+4. Current user message (always new)
+```
+
+Reversing this order (user message first) defeats caching entirely. For applications with expensive system prompts or large shared document sets, cache-friendly ordering can reduce per-request cost by 80–90%.
+
+### Memory architectures for agents
+
+Long-running agents need more than a sliding window. The four memory types typically seen in production agent systems:
+
+| Memory type | Storage | Access | Fits when |
+|---|---|---|---|
+| **Working** | Context window | Immediate | Current task state, active reasoning |
+| **Episodic** | External DB | Retrieved by recency or query | Past task outcomes, user preferences |
+| **Semantic** | Vector store | Retrieved by similarity | Facts, documents, knowledge base |
+| **Procedural** | Prompt / tool definitions | Always-on | How to do things: tools, instructions |
+
+Most agent frameworks implement some combination of these. The key design question is not "which memory type" but "what is the retrieval trigger" — when does the agent decide to look something up vs keep it in the working context.
+
+### Token counting before you send
+
+For applications where context overflow would be catastrophic (long document processing, multi-agent pipelines), count tokens before sending:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def count_tokens(system: str, messages: list[dict]) -> int:
+    """Count tokens for a request without sending it."""
+    response = client.messages.count_tokens(
+        model="claude-sonnet-4-6",
+        system=system,
+        messages=messages,
+    )
+    return response.input_tokens
+
+# Use before a large request to validate it will fit
+token_count = count_tokens(system_prompt, history + [new_message])
+if token_count > CONTEXT_LIMIT - MAX_OUTPUT_TOKENS:
+    # Trim or summarise before sending
+    history = summarise_history(history)
+```
+
+`count_tokens` makes an API call but does not run inference — it is fast and cheap. Use it as a pre-flight check in pipelines where a context overflow would require restarting a long workflow.
+
+### Further reading
+
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. Demonstrates the U-shaped attention pattern in long-context models and its implications for document placement.
+- [Prompt caching — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — How to structure prompts for cache hits; cost and latency implications.
+- [Token counting — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/token-counting) — API reference for pre-flight token counting.
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) — Packer et al., 2023. Proposes a virtual context management system that pages memory in and out, analogous to OS virtual memory — useful background for agent memory architectures.
