@@ -9,11 +9,11 @@
       "options": [
         "Tool use is faster because it skips the text generation step",
         "Tool use costs fewer tokens than generating JSON text",
-        "The API enforces the schema, so you get typed arguments without parsing or markdown stripping",
+        "Tool use returns structured function arguments instead of free text — no markdown stripping, no json.loads; strict mode adds API-level schema enforcement",
         "Tool use allows the model to search the web before returning results"
       ],
       "answer": 2,
-      "explanation": "With prompted JSON, the model may wrap output in markdown, add explanation, or format fields inconsistently — you parse and hope. With tool use, the API validates the model's output against your schema before returning it. You receive a typed dict, not a string.",
+      "explanation": "With prompted JSON, the model may wrap output in markdown, add explanation, or format fields inconsistently — you parse and hope. With tool use, the response arrives as a typed dict, not a string. Add strict: true to the tool definition for API-level guarantees (correct types, required fields always present); without it, the model generally conforms but the API does not guarantee it.",
       "personas": ["junior", "senior", "sre"]
     },
     {

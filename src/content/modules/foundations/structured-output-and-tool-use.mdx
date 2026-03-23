@@ -27,10 +27,9 @@ These are two points on the same spectrum:
 | Pattern | What it does | Best for |
 |---|---|---|
 | **Prompted JSON** | System prompt instructs model to return JSON; you parse and validate | Simple extraction, low stakes |
-| **Structured output** | Provider enforces a JSON schema at the API level | Any extraction where format must be guaranteed |
-| **Tool use** | Model calls typed functions with validated arguments | Triggering actions, multi-step workflows, agents |
+| **Tool use** | Model fills typed function arguments; add `strict: true` for API-level schema guarantees | Extraction, triggering actions, agents |
 
-The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output and let the API enforce it.
+The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output. With `strict: true` on a tool definition, the API enforces that shape — guaranteed types, required fields present, no unexpected properties.
 
 ### Production Gotcha
 
@@ -66,20 +65,21 @@ def extract_contact(text: str) -> dict:
 
 Fragile: the model may wrap the JSON in a markdown code block, add a comment, or omit a field. Use this only when you have a reliable fallback for parse failures.
 
-### Tool use (reliable structured output)
+### Tool use (structured output)
 
-Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments that match your schema — no parsing, no markdown stripping:
+Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments — no markdown stripping, no `json.loads`. Add `strict: true` to the tool definition to get API-level guarantees: correct types, all required fields present, no unexpected properties:
 
 ```python
 import anthropic
 
 client = anthropic.Anthropic()
 
-# Define the tool — this is the schema the model must match
+# strict: True — the API guarantees types and required fields
 tools = [
     {
         "name": "extract_contact",
         "description": "Extract contact information from text.",
+        "strict": True,  # API-level schema enforcement
         "input_schema": {
             "type": "object",
             "properties": {
@@ -88,6 +88,7 @@ tools = [
                 "phone": {"type": "string", "description": "Phone number including country code"},
             },
             "required": ["name"],
+            "additionalProperties": False,  # required by strict mode
         },
     }
 ]
@@ -103,8 +104,10 @@ def extract_contact(text: str) -> dict:
 
     # The model's response will be a tool_use block, not text
     tool_use = next(b for b in response.content if b.type == "tool_use")
-    return tool_use.input  # already a validated dict — no json.loads needed
+    return tool_use.input  # already a dict — no json.loads needed
 ```
+
+Without `strict: True`, the model generally conforms to the schema but the API does not guarantee it — you may receive wrong types or missing required fields, and should validate before use.
 
 `tool_choice: {"type": "tool", "name": "extract_contact"}` forces the model to call that specific tool. Without it, the model may choose to respond in text.
 
