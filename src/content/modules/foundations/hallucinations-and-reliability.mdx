@@ -182,7 +182,7 @@ response = client.messages.create(
 
 A well-calibrated model would assign high confidence to correct claims and low confidence to uncertain ones. Current LLMs are poorly calibrated in this sense — they generate equally fluent text whether they are certain or guessing. The surface features that signal confidence in human writing (precise language, specific details, citations) are learned stylistic patterns, not indicators of underlying knowledge.
 
-This is why hallucinations are particularly hard to detect: the model's most confident-sounding outputs are not reliably its most accurate ones. Research on calibration (e.g. the TruthfulQA benchmark) has consistently shown that larger models can be *more* confidently wrong, not less.
+This is why hallucinations are particularly hard to detect: the model's most confident-sounding outputs are not reliably its most accurate ones. TruthfulQA found that larger models were generally *less* truthful on its benchmark — scaling alone does not fix hallucination.
 
 ### Sycophancy
 
@@ -224,7 +224,7 @@ Building reliable hallucination detection is an open research problem, but pract
 
 ### Further reading
 
-- [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958) — Lin et al., 2021. Benchmark and analysis showing that larger models can be more confidently wrong.
+- [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958) — Lin et al., 2021. Benchmark showing larger models were generally less truthful on its question set — scaling alone does not reduce hallucination.
 - [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The foundational RAG paper.
 - [Sycophancy to Subterfuge: Investigating Reward Tampering in Language Models](https://arxiv.org/abs/2406.10162) — Anthropic, 2024. Analysis of sycophancy and reward-hacking behaviours in RLHF-trained models.
 - [Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629) — Ji et al., 2022. Comprehensive taxonomy of hallucination types and mitigation strategies.
