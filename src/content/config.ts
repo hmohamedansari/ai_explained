@@ -58,7 +58,7 @@ const quizzes = defineCollection({
       // code-spot: deferred — needs a different renderer (not yet designed).
       type: z.literal('multiple-choice'),
       question: z.string(),
-      options: z.array(z.string()),   // required for multiple-choice
+      options: z.array(z.string()).min(2), // multiple-choice needs at least 2 options
       answer: z.number().int(),       // index into options[]
       explanation: z.string(),
       personas: z.array(PERSONA)
