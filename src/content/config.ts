@@ -41,6 +41,10 @@ const modules = defineCollection({
     }).optional(),
     productionGotcha: z.string().optional(), // shown as a callout in Layer 1
     draft: z.boolean().default(false),
+    // Optional SEO overrides — use when the display title/description is too
+    // long for a good search snippet. Falls back to title/description if absent.
+    seoTitle: z.string().optional(),
+    seoDescription: z.string().optional(),
   }),
 });
 

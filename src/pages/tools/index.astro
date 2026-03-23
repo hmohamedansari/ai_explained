@@ -1,0 +1,254 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+
+// Tool entry shape
+interface Tool {
+  name: string;
+  url: string;
+  what: string;
+  free: 'free' | 'free-tier' | 'open-source';
+  verified: string; // YYYY-MM
+}
+
+interface Track {
+  order: number;
+  slug: string;
+  title: string;
+  icon: string;
+  tools: Tool[];
+}
+
+const tracks: Track[] = [
+  {
+    order: 1,
+    slug: 'foundations',
+    title: 'Foundations',
+    icon: '🧠',
+    tools: [
+      { name: 'Anthropic Console', url: 'https://console.anthropic.com', what: 'API access with a free tier — test prompts, inspect token usage, manage keys', free: 'free-tier', verified: '2026-03' },
+      { name: 'HuggingFace Spaces', url: 'https://huggingface.co/spaces', what: 'Run hosted AI demos without any local setup or API key', free: 'free', verified: '2026-03' },
+      { name: 'OpenRouter', url: 'https://openrouter.ai', what: 'Unified API gateway with free-tier access to multiple models', free: 'free-tier', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 2,
+    slug: 'rag',
+    title: 'RAG',
+    icon: '🗃️',
+    tools: [
+      { name: 'LangSmith', url: 'https://smith.langchain.com', what: 'Trace, evaluate, and debug LLM chains — free developer tier', free: 'free-tier', verified: '2026-03' },
+      { name: 'Weaviate Cloud', url: 'https://weaviate.io/developers/wcs', what: 'Managed vector database with a free sandbox tier', free: 'free-tier', verified: '2026-03' },
+      { name: 'Qdrant Cloud', url: 'https://cloud.qdrant.io', what: 'Vector search engine with a free tier cluster', free: 'free-tier', verified: '2026-03' },
+      { name: 'Cohere API', url: 'https://cohere.com', what: 'Embedding and reranking models — free tier available', free: 'free-tier', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 3,
+    slug: 'protocols',
+    title: 'Protocols (MCP / A2A)',
+    icon: '🔌',
+    tools: [
+      { name: 'MCP Inspector', url: 'https://github.com/modelcontextprotocol/inspector', what: 'Official browser-based tool for debugging MCP servers', free: 'open-source', verified: '2026-03' },
+      { name: 'LangGraph Studio', url: 'https://github.com/langchain-ai/langgraph-studio', what: 'Visual IDE for building and debugging agent graphs locally', free: 'open-source', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 4,
+    slug: 'agents',
+    title: 'Agents',
+    icon: '🤖',
+    tools: [
+      { name: 'LangGraph Studio', url: 'https://github.com/langchain-ai/langgraph-studio', what: 'Graph-based agent runtime with a local visual debugger', free: 'open-source', verified: '2026-03' },
+      { name: 'CrewAI', url: 'https://crewai.com', what: 'Multi-agent orchestration framework — open source core, free tier', free: 'free-tier', verified: '2026-03' },
+      { name: 'AutoGen', url: 'https://github.com/microsoft/autogen', what: "Microsoft's framework for multi-agent conversations, runs fully locally", free: 'open-source', verified: '2026-03' },
+      { name: 'E2B Sandbox', url: 'https://e2b.dev', what: 'Secure cloud sandbox for agent code execution — free tier available', free: 'free-tier', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 5,
+    slug: 'infrastructure',
+    title: 'Infrastructure',
+    icon: '🏗️',
+    tools: [
+      { name: 'Ollama', url: 'https://ollama.ai', what: 'Run open-weight models locally with one command — no cloud needed', free: 'open-source', verified: '2026-03' },
+      { name: 'LM Studio', url: 'https://lmstudio.ai', what: 'Desktop GUI for downloading and running local models', free: 'free', verified: '2026-03' },
+      { name: 'Google Colab', url: 'https://colab.research.google.com', what: 'Free GPU notebooks in the browser — sufficient for most inference experiments', free: 'free-tier', verified: '2026-03' },
+      { name: 'HuggingFace Inference API', url: 'https://huggingface.co/inference-api', what: 'Serverless model inference with a free tier', free: 'free-tier', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 6,
+    slug: 'evaluation',
+    title: 'Evaluation',
+    icon: '📊',
+    tools: [
+      { name: 'Langfuse', url: 'https://langfuse.com', what: 'Open-source LLM observability — traces, evals, prompt management. Free cloud tier.', free: 'free-tier', verified: '2026-03' },
+      { name: 'RAGAS', url: 'https://github.com/explodinggradients/ragas', what: 'Automated RAG evaluation metrics (faithfulness, answer relevancy, context recall)', free: 'open-source', verified: '2026-03' },
+      { name: 'Promptfoo', url: 'https://github.com/promptfoo/promptfoo', what: 'Open-source prompt testing and red-teaming CLI', free: 'open-source', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 7,
+    slug: 'safety',
+    title: 'Safety',
+    icon: '🛡️',
+    tools: [
+      { name: 'Garak', url: 'https://github.com/leondz/garak', what: 'Open-source LLM vulnerability scanner — probes for prompt injection, jailbreaks, and data leakage', free: 'open-source', verified: '2026-03' },
+      { name: 'Promptfoo (adversarial)', url: 'https://github.com/promptfoo/promptfoo', what: 'Same tool as Track 6 but used in red-team mode — automated adversarial test generation', free: 'open-source', verified: '2026-03' },
+      { name: 'OWASP LLM Top 10', url: 'https://owasp.org/www-project-top-10-for-large-language-model-applications/', what: 'The canonical LLM security checklist — free reference, updated annually', free: 'free', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 8,
+    slug: 'strategy',
+    title: 'Strategy',
+    icon: '♟️',
+    tools: [
+      { name: 'HuggingFace Spaces (demos)', url: 'https://huggingface.co/spaces', what: 'Explore no-code AI demos to evaluate capabilities before committing to build', free: 'free', verified: '2026-03' },
+      { name: 'Anthropic pricing calculator', url: 'https://www.anthropic.com/pricing', what: 'Official token pricing — use to model cost before building', free: 'free', verified: '2026-03' },
+      { name: 'OpenAI pricing', url: 'https://openai.com/api/pricing/', what: 'Comparative model pricing reference', free: 'free', verified: '2026-03' },
+    ],
+  },
+  {
+    order: 9,
+    slug: 'multimodal',
+    title: 'Multimodal',
+    icon: '🎨',
+    tools: [
+      { name: 'Whisper', url: 'https://github.com/openai/whisper', what: "OpenAI's open-source speech-to-text model — runs locally", free: 'open-source', verified: '2026-03' },
+      { name: 'LLaVA via Ollama', url: 'https://ollama.ai/library/llava', what: 'Run the LLaVA vision-language model locally with `ollama pull llava`', free: 'open-source', verified: '2026-03' },
+      { name: 'HuggingFace Multimodal Spaces', url: 'https://huggingface.co/spaces?filter=multimodal', what: 'Browser-based demos for vision, audio, and image generation — no setup needed', free: 'free', verified: '2026-03' },
+    ],
+  },
+];
+
+const FREE_BADGE: Record<Tool['free'], { label: string; classes: string }> = {
+  'free':        { label: 'Free',        classes: 'border-green-500/30 text-green-400 bg-green-950/20' },
+  'free-tier':   { label: 'Free tier',   classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
+  'open-source': { label: 'Open source', classes: 'border-slate-500/30 text-slate-400 bg-slate-900/30' },
+};
+
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Tools', item: new URL('/tools', Astro.site).toString() },
+  ],
+};
+---
+
+<BaseLayout
+  title="Free AI Tools"
+  description="A curated index of free tools for every AI track — from local model runners and vector databases to red-teaming frameworks and evaluation libraries. No credit card required."
+>
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumb)} slot="head" />
+
+  <Header />
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+
+    <div class="mb-12">
+      <h1 class="text-4xl font-semibold text-white mb-4">Free AI Tools</h1>
+      <p class="text-lg text-slate-400 max-w-2xl mb-6">
+        One curated table per track — tools you can use today without a credit card.
+        Free tiers change; each entry has a verified date.
+      </p>
+
+      <!-- Jump nav -->
+      <div class="flex flex-wrap gap-2">
+        {tracks.map(t => (
+          <a
+            href={`#track-${t.order}`}
+            class="text-sm px-3 py-1.5 rounded-lg border border-white/10 text-slate-400
+                   hover:border-brand-500/40 hover:text-brand-300 transition-colors"
+          >
+            {t.icon} {t.title}
+          </a>
+        ))}
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="flex flex-wrap gap-3 mb-10 text-xs">
+      {Object.entries(FREE_BADGE).map(([, badge]) => (
+        <span class={`px-2 py-0.5 rounded-full border ${badge.classes}`}>{badge.label}</span>
+      ))}
+      <span class="text-slate-600">· Verified date = last confirmed the free tier exists</span>
+    </div>
+
+    <!-- Per-track sections -->
+    {tracks.map(t => (
+      <section id={`track-${t.order}`} class="mb-16 scroll-mt-20">
+        <div class="flex items-center gap-3 mb-5">
+          <span class="text-3xl">{t.icon}</span>
+          <div>
+            <p class="text-xs text-slate-500 font-mono mb-0.5">Track {t.order}</p>
+            <h2 class="text-xl font-semibold text-white">{t.title}</h2>
+          </div>
+          <a
+            href={`/learn/${t.slug}`}
+            class="ml-auto text-xs text-slate-600 hover:text-brand-400 transition-colors"
+          >
+            Go to track →
+          </a>
+        </div>
+
+        <div class="rounded-xl border border-white/10 overflow-hidden">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-white/10 bg-surface-1">
+                <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide w-1/4">Tool</th>
+                <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide">What it's for</th>
+                <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide w-28">Tier</th>
+                <th class="text-left px-4 py-3 text-xs font-medium text-slate-500 uppercase tracking-wide w-24">Verified</th>
+              </tr>
+            </thead>
+            <tbody>
+              {t.tools.map((tool, i) => {
+                const badge = FREE_BADGE[tool.free];
+                return (
+                  <tr class:list={['border-b border-white/5 last:border-0', i % 2 === 0 ? 'bg-surface-1/50' : '']}>
+                    <td class="px-4 py-3">
+                      <a
+                        href={tool.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="font-medium text-white hover:text-brand-300 transition-colors"
+                      >
+                        {tool.name} ↗
+                      </a>
+                    </td>
+                    <td class="px-4 py-3 text-slate-400 leading-relaxed">{tool.what}</td>
+                    <td class="px-4 py-3">
+                      <span class={`text-xs px-2 py-0.5 rounded-full border ${badge.classes}`}>
+                        {badge.label}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs text-slate-600 font-mono">{tool.verified}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    ))}
+
+    <div class="mt-4 p-6 rounded-xl border border-dashed border-white/10 text-center">
+      <p class="text-slate-500 text-sm mb-2">Know a free tool that belongs here?</p>
+      <a
+        href="https://github.com/hmohamedansari/ai-explained/issues/new?template=new-module.md"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-sm text-brand-400 hover:text-brand-300 transition-colors"
+      >
+        Open an issue on GitHub →
+      </a>
+    </div>
+
+  </main>
+
+  <Footer />
+</BaseLayout>

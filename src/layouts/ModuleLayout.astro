@@ -15,10 +15,43 @@ interface Props {
 }
 
 const { mod, prev, next, quiz } = Astro.props;
-const { title, description, track, moduleId, estimatedMinutes, volatility } = mod.data;
+const { title, description, track, moduleId, estimatedMinutes, volatility,
+        lastReviewed, seoTitle, seoDescription } = mod.data;
 const currentSlug = mod.slug.split('/')[1];
 
+// SEO-resolved values — optional overrides fall back to display values
+const metaTitle = seoTitle ?? title;
+const metaDescription = seoDescription ?? description;
+
 const editUrl = `https://github.com/hmohamedansari/ai-explained/edit/main/src/content/modules/${mod.slug}.mdx`;
+const pageUrl = new URL(`/learn/${track}/${currentSlug}`, Astro.site).toString();
+const trackLabel = track.replace(/-/g, ' ');
+const trackUrl = new URL(`/learn/${track}`, Astro.site).toString();
+const learnUrl = new URL('/learn', Astro.site).toString();
+
+// Breadcrumb JSON-LD
+const breadcrumb = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Learn', item: learnUrl },
+    { '@type': 'ListItem', position: 2, name: trackLabel, item: trackUrl },
+    { '@type': 'ListItem', position: 3, name: title, item: pageUrl },
+  ],
+};
+
+// LearningResource JSON-LD
+const learningResource = {
+  '@context': 'https://schema.org',
+  '@type': 'LearningResource',
+  name: title,
+  description: metaDescription,
+  url: pageUrl,
+  dateModified: lastReviewed,
+  inLanguage: 'en',
+  isAccessibleForFree: true,
+  educationalUse: 'self-study',
+};
 
 const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
   volatile: { label: 'Fast-moving — verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
@@ -29,7 +62,12 @@ const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
 const badge = VOLATILITY_BADGE[volatility];
 ---
 
-<BaseLayout title={title} description={description}>
+<BaseLayout title={metaTitle} description={metaDescription}>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={JSON.stringify(breadcrumb)} />
+    <script type="application/ld+json" set:html={JSON.stringify(learningResource)} />
+  </Fragment>
+
   <Header />
 
   <div class="flex flex-1 min-h-0">
@@ -44,7 +82,7 @@ const badge = VOLATILITY_BADGE[volatility];
             <a href="/learn" class="hover:text-brand-400 transition-colors">Tracks</a>
             <span aria-hidden="true">/</span>
             <a href={`/learn/${track}`} class="hover:text-brand-400 transition-colors capitalize">
-              {track.replace(/-/g, ' ')}
+              {trackLabel}
             </a>
             <span aria-hidden="true">/</span>
             <span class="text-slate-400 font-mono text-xs">{moduleId}</span>
