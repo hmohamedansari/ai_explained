@@ -1,0 +1,76 @@
+{
+  "title": "Models and Model Selection — Check your understanding",
+  "moduleId": "1.3",
+  "questions": [
+    {
+      "id": "1.3-q1",
+      "type": "multiple-choice",
+      "question": "Your application classifies incoming support tickets into 5 categories. It processes 2 million tickets per day. Which model selection strategy is most appropriate?",
+      "options": [
+        "Use the frontier model to ensure the highest accuracy on every ticket",
+        "Use a fast, small model — classification is a well-defined task that doesn't require frontier capability",
+        "Use the balanced model as a safe default for all production workloads",
+        "Use the frontier model in development and the fast model in production to save costs"
+      ],
+      "answer": 1,
+      "explanation": "Classification into a fixed set of categories is exactly the kind of well-defined, high-volume task where a fast/small model performs at parity with frontier models for a fraction of the cost. At 2M tickets/day, the cost difference between Haiku-class and Opus-class is measured in thousands of dollars per day.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.3-q2",
+      "type": "multiple-choice",
+      "question": "You deploy a feature using the model alias 'claude-opus-4-6' (without a version pin). Three months later, users report the output style has changed. What most likely happened?",
+      "options": [
+        "Your prompt was modified by another team member",
+        "The provider silently updated the model the alias points to",
+        "The model learned from user feedback over time",
+        "A context window increase changed the model's behaviour"
+      ],
+      "answer": 1,
+      "explanation": "Model aliases always point to the current recommended version. When providers ship improvements, the alias updates automatically. If you haven't pinned a specific model version, your output distribution can change with no action on your part. Always use versioned model IDs in production.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.3-q3",
+      "type": "multiple-choice",
+      "question": "Which task is most likely to show a meaningful quality gap between a frontier model and a fast/small model?",
+      "options": [
+        "Classifying a customer email into one of 10 support categories",
+        "Extracting a vendor name and amount from a short invoice",
+        "Analysing a 150-page contract for unusual clauses across multiple legal jurisdictions",
+        "Summarising a 3-paragraph product review into one sentence"
+      ],
+      "answer": 2,
+      "explanation": "Long-context reasoning over complex, domain-specific material (multi-jurisdiction legal analysis) is exactly where frontier models outperform smaller ones. Classification, short extraction, and single-paragraph summarisation are well-defined tasks where smaller models consistently match frontier quality.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "1.3-q4",
+      "type": "multiple-choice",
+      "question": "A model performs poorly on your classification task. In what order should you try these interventions?",
+      "options": [
+        "Fine-tune first, then prompt engineering, then switch models",
+        "Switch models first, then fine-tune, then improve the prompt",
+        "Improve the prompt first, then try a larger model, then consider fine-tuning",
+        "All three interventions have equal priority — choose based on available budget"
+      ],
+      "answer": 2,
+      "explanation": "Prompt engineering is the cheapest and fastest lever — a better prompt with few-shot examples frequently matches fine-tuned performance. Try a larger model if prompting plateaus. Fine-tuning is a significant data and ops investment; reach for it last, only when you have curated examples and a clear quality gap that prompting can't close.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.3-q5",
+      "type": "multiple-choice",
+      "question": "What is the primary purpose of building an evaluation set before selecting a model for a production feature?",
+      "options": [
+        "To satisfy compliance requirements for AI systems",
+        "To measure quality, cost, and latency objectively so model selection is a decision, not a guess",
+        "To generate training data for fine-tuning the selected model",
+        "To estimate how long the model will take to process requests in production"
+      ],
+      "answer": 1,
+      "explanation": "An eval set gives you objective, reproducible scores across model tiers on your actual task. Without one, model selection is based on intuition. With one, you can quantify the quality drop when moving to a cheaper model and make an informed tradeoff — and re-run the eval when providers ship new model versions.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

@@ -1,0 +1,202 @@
+---
+moduleId: "1.3"
+title: "Models and Model Selection"
+description: "Not every task needs the most capable model. Understanding the capability-cost-latency tradeoff lets you pick the right model for each job — and avoid paying frontier prices for work a smaller model handles just as well."
+track: "foundations"
+order: 3
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-23"
+estimatedMinutes:
+  layer1: 6
+  layer2: 13
+  layer3: 17
+productionGotcha: "Model versions change without notice. A provider releasing 'claude-opus-4-6' does not mean older versions stay identical — they can be silently updated or deprecated. Pin model versions in production (e.g. 'claude-opus-4-6-20251101') and test against a fixed version in CI. Discover changes on your schedule, not when a user reports degraded output."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Models are not interchangeable. Every model sits somewhere on three axes: **capability**, **cost**, and **latency**. Picking the right model is one of the highest-leverage decisions in an AI system — not because cheaper is always better, but because over-capability is real: using a frontier model for a task a smaller one handles just as well is both slower and more expensive.
+
+The rough hierarchy most providers offer:
+
+| Tier | When to use |
+|---|---|
+| **Frontier** (e.g. Opus) | Complex reasoning, multi-step planning, novel tasks with no clear template |
+| **Balanced** (e.g. Sonnet) | Production workloads where quality and cost both matter |
+| **Fast / small** (e.g. Haiku) | High-volume, low-complexity tasks: classification, routing, extraction |
+
+A practical starting point: **prototype with the frontier model**, then work downward until quality degrades past acceptable. You often find the balanced tier handles 80–90% of tasks at a fraction of the cost.
+
+### Production Gotcha
+
+> **Common Gotcha:** Model versions change without notice. Pin model versions in production (e.g. `claude-opus-4-6-20251101`) and test against a fixed version in CI. If you use a floating alias like `claude-opus-4-6`, a silent provider update can change your output distribution overnight — and you'll discover it from user reports, not monitoring.
+
+---
+
+## Layer 2 — Guided
+
+### The three axes
+
+**Capability** is what the model can reliably do: follow complex multi-step instructions, reason about novel problems, produce consistent structured output, handle long documents. Frontier models are better at all of these. But for well-defined tasks with clear templates, a smaller model trained on the same data can perform at parity.
+
+**Cost** scales with model size. As a rough guide, Haiku-class models can be 10–20x cheaper per token than Opus-class. For high-volume features (every page load, every API request), that difference is the difference between a feature that's economically viable and one that isn't.
+
+**Latency** correlates with model size. Smaller models return tokens faster. For interactive features (chat, autocomplete, real-time suggestions) latency matters as much as cost. A frontier model that takes 8 seconds to respond is often worse UX than a balanced model that responds in 2 seconds with slightly lower quality.
+
+### Routing by task type
+
+A common production pattern is to route requests to different model tiers based on complexity:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def classify_intent(user_message: str) -> str:
+    """
+    Fast, cheap intent classifier — uses Haiku.
+    Returns one of: SIMPLE_FAQ, COMPLEX_ANALYSIS, DATA_EXTRACTION
+    """
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=16,
+        system=(
+            "Classify the user message into one of these categories. "
+            "Reply with only the category label.\n\n"
+            "Categories: SIMPLE_FAQ, COMPLEX_ANALYSIS, DATA_EXTRACTION"
+        ),
+        messages=[{"role": "user", "content": user_message}]
+    )
+    return response.content[0].text.strip()
+
+
+def answer(user_message: str) -> str:
+    intent = classify_intent(user_message)
+
+    if intent == "COMPLEX_ANALYSIS":
+        model = "claude-opus-4-6-20251101"   # frontier for hard tasks
+    elif intent == "DATA_EXTRACTION":
+        model = "claude-sonnet-4-6-20251101" # balanced for structured work
+    else:
+        model = "claude-haiku-4-5-20251001"  # fast for simple FAQs
+
+    response = client.messages.create(
+        model=model,
+        max_tokens=1024,
+        messages=[{"role": "user", "content": user_message}]
+    )
+    return response.content[0].text
+```
+
+The classifier call itself costs almost nothing; the savings on routing simple requests away from expensive models compound over millions of calls.
+
+### Evaluating model suitability
+
+Don't guess — measure. Build a small evaluation set (50–200 representative inputs with expected outputs) and score each model tier against it. The right questions are:
+
+1. Does the output meet the quality bar at this tier?
+2. What is the cost per 1,000 requests at this tier?
+3. What is the p50 / p95 latency at this tier?
+
+A model that achieves 95% of the quality at 15% of the cost is almost always the right choice for a production feature, especially at scale.
+
+### Before vs After
+
+**Over-capability — using frontier for simple routing:**
+```python
+# BAD: Paying frontier prices to classify support tickets into 5 buckets
+# ~$15/million tokens input × millions of tickets = significant cost
+response = client.messages.create(
+    model="claude-opus-4-6-20251101",  # massive overkill
+    max_tokens=8,
+    system="Classify this ticket: BUG, BILLING, FEATURE, ACCOUNT, OTHER",
+    messages=[{"role": "user", "content": ticket_text}]
+)
+```
+
+**Right-sized — fast model for classification:**
+```python
+# GOOD: Same task, 10–20x cheaper, faster response
+response = client.messages.create(
+    model="claude-haiku-4-5-20251001",
+    max_tokens=8,
+    system="Classify this ticket: BUG, BILLING, FEATURE, ACCOUNT, OTHER",
+    messages=[{"role": "user", "content": ticket_text}]
+)
+```
+
+### Common mistakes
+
+1. **Using frontier for everything** — Simplest to start with, but costly and slow at scale. Graduate tasks to smaller models once you have an eval.
+2. **Using floating model aliases in production** — `claude-opus-4-6` with no version pinning means you get silently updated. See the gotcha.
+3. **Comparing models without an eval set** — Vibes-based model selection. Build even a simple eval before committing to a model for a production feature.
+4. **Ignoring output token costs** — Smaller models are cheaper on input; the ratio differs on output. Check both.
+5. **One model for all tasks in an application** — Most non-trivial applications have multiple task types with different quality requirements. A single model choice is usually a compromise in the wrong direction for at least one task.
+
+---
+
+## Layer 3 — Deep Dive
+
+### How capability differences manifest
+
+Frontier models outperform smaller models most visibly on:
+
+- **Instruction-following on complex, multi-constraint prompts** — When the system prompt has many rules and the request has unusual edge cases, smaller models drop constraints more often.
+- **Long-context coherence** — Over long documents (100K+ tokens), frontier models maintain more consistent reasoning and miss fewer details.
+- **Novel task generalisation** — For tasks outside the common distribution of training data, frontier models hallucinate less and request clarification more reliably.
+- **Code generation on complex tasks** — Multi-file refactors, algorithmic problems, language interop. Smaller models produce more plausible-but-wrong code.
+
+For well-defined, high-volume tasks with clear templates — classification, extraction, summarisation from a fixed schema — quality gaps narrow substantially.
+
+### Context window differences
+
+Different models within the same provider family may have different context windows. Always check the current documentation — context limits change with model updates. For tasks requiring very long context (full codebase analysis, long document Q&A), verify the target model's limit before committing to an architecture.
+
+### Versioning and stability
+
+Model providers use two naming conventions:
+
+- **Alias** (e.g. `claude-opus-4-6`) — Always points to the current recommended version. Updates when the provider ships improvements. Simple to use; unpredictable in production.
+- **Pinned version** (e.g. `claude-opus-4-6-20251101`) — Fixed to a specific release. Output distribution only changes when you change it. Required for production.
+
+A robust model management strategy:
+
+1. Use pinned versions in production and CI
+2. Subscribe to the provider's changelog / model deprecation notices
+3. When a new version ships, run your eval set against the new version before promoting it
+4. Treat model upgrades as software deployments — tested, staged, rollback-capable
+
+### The cost of capability at scale
+
+To make the economics concrete:
+
+| Model tier | Rough input cost | 1M requests × 500 tokens input |
+|---|---|---|
+| Frontier (Opus) | ~$15 / 1M tokens | ~$7,500 |
+| Balanced (Sonnet) | ~$3 / 1M tokens | ~$1,500 |
+| Fast (Haiku) | ~$0.80 / 1M tokens | ~$400 |
+
+*Prices are approximate and change; always check the provider's current pricing page.*
+
+At 1M requests per day (a moderate consumer product), the difference between Haiku and Opus for a classification task is ~$2.5M annually. The right model selection is an engineering decision with real P&L impact.
+
+### Fine-tuning vs prompt engineering vs model selection
+
+When a model underperforms on your task, there are three levers:
+
+| Lever | When to reach for it | Cost and complexity |
+|---|---|---|
+| **Better prompt** | Almost always — try this first | Cheapest; often sufficient |
+| **Different model tier** | When the task is genuinely hard or genuinely simple | Medium; requires eval |
+| **Fine-tuning** | When you have hundreds of curated examples and need consistent style or domain knowledge the base model lacks | Highest; significant data and ops investment |
+
+Fine-tuning is often reached for too early. A well-constructed prompt with few-shot examples frequently matches fine-tuned performance on classification and extraction tasks, with none of the data collection or retraining overhead.
+
+### Further reading
+
+- [Anthropic model overview](https://docs.anthropic.com/en/docs/about-claude/models/overview) — Current model lineup, context windows, and versioned IDs.
+- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — Kaplan et al., 2020. The foundational paper on how capability scales with model size, data, and compute.
+- [Chinchilla: Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556) — Hoffmann et al., 2022. Revised the Kaplan scaling laws and influenced how modern models are trained — useful for understanding why smaller, more data-efficient models can punch above their weight.
