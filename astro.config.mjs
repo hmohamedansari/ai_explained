@@ -17,4 +17,8 @@ export default defineConfig({
       wrap: true,
     },
   },
+  redirects: {
+    // Old prototype module URL — redirect to the learn index
+    '/learn/how-agents-work': '/learn',
+  },
 });

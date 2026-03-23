@@ -2,11 +2,11 @@
 import type { CollectionEntry } from 'astro:content';
 
 interface Props {
-  lesson: CollectionEntry<'concepts'>;
+  mod: CollectionEntry<'modules'>;
 }
 
-const { lesson } = Astro.props;
-const quizHref = `/learn/${lesson.data.module}/${lesson.slug}/quiz`;
+const { mod } = Astro.props;
+const quizHref = `/learn/${mod.data.track}/${mod.slug.split('/')[1]}/quiz`;
 ---
 
 <aside class="hidden xl:flex flex-col w-56 shrink-0 sticky top-16 h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/10 p-5">
@@ -21,22 +21,18 @@ const quizHref = `/learn/${lesson.data.module}/${lesson.slug}/quiz`;
     </div>
 
     <!-- Estimated time -->
-    {lesson.data.estimatedMinutes && (
+    {mod.data.estimatedMinutes && (
       <div class="text-xs text-slate-500 flex items-center gap-2">
         <span>⏱</span>
-        <span>{lesson.data.estimatedMinutes} min read</span>
+        <span>{mod.data.estimatedMinutes.layer1} min read</span>
       </div>
     )}
 
-    <!-- Tags -->
-    {lesson.data.tags.length > 0 && (
-      <div>
-        <p class="text-xs font-medium text-slate-500 uppercase tracking-widest mb-2">Topics</p>
-        <div class="flex flex-wrap gap-1.5">
-          {lesson.data.tags.map(tag => (
-            <span class="badge bg-white/5 text-slate-400">{tag}</span>
-          ))}
-        </div>
+    <!-- Volatility -->
+    {mod.data.volatility !== 'stable' && (
+      <div class="text-xs text-slate-500 flex items-center gap-2">
+        <span>{mod.data.volatility === 'volatile' ? '⚠️' : '🔬'}</span>
+        <span class="capitalize">{mod.data.volatility}</span>
       </div>
     )}
   </div>

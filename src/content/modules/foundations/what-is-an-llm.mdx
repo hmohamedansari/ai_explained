@@ -1,0 +1,172 @@
+---
+moduleId: "1.1"
+title: "What is an LLM?"
+description: "Large Language Models are stateless text-transformation functions — they take text in and return text out, with no memory between calls. Understanding this one fact shapes every architectural decision you'll make with AI."
+track: "foundations"
+order: 1
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-23"
+estimatedMinutes:
+  layer1: 8
+  layer2: 15
+  layer3: 20
+productionGotcha: "Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input — your prompt, system message, conversation history, and retrieved documents all count against the same limit. Systems that ignore this silently degrade or error when inputs grow."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An LLM is a **stateless function** that takes text in and returns text out.
+
+That's it. No memory between calls. No internal database. No understanding. It is a mathematical function — trained on enormous amounts of text — that predicts what text should come next given the text it received. Every decision you make about LLM architecture flows from this single fact.
+
+Think of it like a **pure function in a microservice**: same input, roughly same output, no side effects, no persistent state. The model was trained once; the weights are frozen. At runtime it applies those weights to whatever input you give it.
+
+It does **not**:
+
+- Store your previous conversations (unless you send them back in)
+- Query a database or look anything up
+- "Think" in the way humans do — it produces text that *looks* like reasoning because reasoning-shaped text was in its training data
+- Learn from your usage
+
+### Why it matters
+
+If someone on your team says "the LLM will remember that from last time" or "it knows our codebase," they are wrong — unless your system explicitly passes that context in every single call. There is no implicit memory. This is the constraint that shapes your entire retrieval and context-management architecture.
+
+### Production Gotcha
+
+> **Common Gotcha:** Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input — your prompt, system message, conversation history, and retrieved documents all count against the same limit.
+>
+> Teams hit this when a feature works fine in testing (small inputs) but silently degrades or throws context-limit errors in production as conversation history accumulates. The fix is to track token usage from day one and implement context-trimming or summarisation before you need it.
+
+---
+
+## Layer 2 — Guided
+
+### The four concepts that drive every decision
+
+**Tokens — the unit of work.** LLMs don't read words. They read tokens — chunks roughly three-quarters of an English word. "Unbelievable" is three tokens. A 10-page document is ~3,000 tokens. You are billed per token, both input and output. Token efficiency is cost efficiency.
+
+**Context window — the working memory constraint.** The context window is the total number of tokens the model can see in a single call. Modern models range from 128K to 1M+ tokens. Anything outside the window might as well not exist.
+
+**Temperature — the creativity dial.** Temperature (0.0–2.0) controls randomness. At 0, the model picks the most probable next token. At higher values it explores less-probable options — more creative, more likely to hallucinate. Use low temperature for code and data extraction; higher for brainstorming.
+
+**Inference — the runtime cost model.** Training is the one-time cost of creating the model. Inference is the ongoing cost every time someone uses it. Each API call bills you for tokens in + tokens out. Unlike per-seat SaaS, costs scale with usage and request size — budget and monitor from day one.
+
+### Step-by-step: your first API call
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+
+# Basic call — notice we pass ALL context explicitly
+response = client.messages.create(
+    model="claude-opus-4-6",
+    max_tokens=1024,
+    messages=[
+        {"role": "user", "content": "Explain what a context window is in one sentence."}
+    ]
+)
+
+print(response.content[0].text)
+
+# Check token usage — always log this
+print(f"Input tokens:  {response.usage.input_tokens}")
+print(f"Output tokens: {response.usage.output_tokens}")
+print(f"Total:         {response.usage.input_tokens + response.usage.output_tokens}")
+```
+
+### Tracking token budget in a multi-turn conversation
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+def chat(history: list[dict], user_message: str, max_context_tokens: int = 100_000):
+    """
+    Naive multi-turn chat — demonstrates the context accumulation problem.
+    In production you'd trim or summarise history before it hits the limit.
+    """
+    history.append({"role": "user", "content": user_message})
+
+    response = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=1024,
+        messages=history,
+    )
+
+    assistant_reply = response.content[0].text
+    history.append({"role": "assistant", "content": assistant_reply})
+
+    used = response.usage.input_tokens + response.usage.output_tokens
+    remaining = max_context_tokens - used
+    print(f"[tokens used: {used:,} | remaining budget: {remaining:,}]")
+
+    return assistant_reply, history
+
+# Each turn accumulates — watch the token count grow
+history = []
+reply, history = chat(history, "What is temperature in an LLM?")
+print(reply)
+
+reply, history = chat(history, "And what's a good value for code generation?")
+print(reply)
+```
+
+### Before vs. After
+
+**Naive approach — context blindness:**
+```python
+# BAD: Dumps entire codebase into every request
+# Silently hits context limits; expensive; slow
+context = read_entire_codebase()  # Could be millions of tokens
+response = llm.call(f"{context}\n\nAnswer: {user_question}")
+```
+
+**Better approach — selective retrieval:**
+```python
+# GOOD: Retrieve only the relevant chunks
+relevant_chunks = vector_search(user_question, top_k=5)
+context = "\n\n".join(relevant_chunks)  # ~2,000 tokens vs. millions
+response = llm.call(f"{context}\n\nAnswer: {user_question}")
+```
+
+### Common mistakes
+
+1. **Assuming memory** — Calling the API twice and expecting the second call to know about the first.
+2. **Ignoring output tokens** — Budgeting only for input tokens and getting surprised by cost.
+3. **Single temperature everywhere** — Using the same temperature for both creative writing and data extraction.
+4. **No usage monitoring** — Discovering costs and context limits the hard way in production.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Architecture analysis
+
+The transformer architecture that underlies LLMs (Vaswani et al., 2017) uses self-attention to build relationships between all tokens in the input simultaneously, rather than processing them sequentially. This is why context window size matters structurally — the attention computation is quadratic in sequence length.
+
+The "stateless function" property is not a limitation of current models — it is a deliberate design constraint that makes LLMs horizontally scalable. A stateful model would require session affinity, distributed state management, and complex coordination between replicas. Statelessness means any instance can handle any request, enabling the elastic infrastructure that makes cloud-hosted inference economically viable.
+
+Temperature controls the sharpness of the probability distribution over next tokens. At temperature 0 it becomes a hard argmax (deterministic). At temperature 1 it samples from the raw distribution. Above 1 it flattens the distribution, making low-probability tokens more likely — useful for creative tasks but harmful for factual retrieval.
+
+### Production failure modes
+
+**Silent context overflow.** As conversations grow, inputs silently exceed the window and the model either errors or starts ignoring earlier context. Teams often discover this via degraded output quality rather than errors. Fix: instrument `usage.input_tokens` per call; implement sliding-window or summarisation when approaching 80% of the context limit.
+
+**Temperature misconfiguration.** A single global temperature setting causes subtle quality problems: hallucinations in structured extraction tasks; overly conservative outputs in creative tasks. Fix: configure temperature per use case; default to 0.0 for anything requiring accuracy.
+
+**Model-as-oracle assumption.** Teams build systems that trust LLM output without validation — particularly dangerous for arithmetic, dates, and citations. Fix: layer structured output parsing (JSON schema validation), domain-specific checks, and retrieval-backed verification on top of LLM generation.
+
+**Cost spikes from unbounded output.** Not setting `max_tokens` appropriately means a single malformed prompt can trigger a very long (and expensive) completion. Fix: always set a `max_tokens` ceiling appropriate to the task; monitor p99 output token counts.
+
+### Further reading
+
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017. The paper that introduced the transformer architecture all modern LLMs are built on.
+- [Language Models are Few-Shot Learners (GPT-3)](https://arxiv.org/abs/2005.14165) — Brown et al., 2020. The paper that demonstrated emergent few-shot capabilities at scale.
+- [Anthropic API — Messages reference](https://docs.anthropic.com/en/api/messages) — Anthropic, 2024. The authoritative reference for `usage` fields, context limits, and model parameters.
+- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — Kaplan et al., 2020. Explains how model capability scales with parameters, data, and compute — useful for understanding why bigger models cost more and what you get for it.

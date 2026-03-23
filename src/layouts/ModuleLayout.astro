@@ -13,8 +13,7 @@ interface Props {
 const { mod, prev, next } = Astro.props;
 const { title, description, track, moduleId, estimatedMinutes, volatility } = mod.data;
 
-// TODO: replace [your-username] with actual GitHub username before launch
-const editUrl = `https://github.com/[your-username]/ai-explained/edit/main/src/content/modules/${mod.slug}.mdx`;
+const editUrl = `https://github.com/hmohamedansari/ai-explained/edit/main/src/content/modules/${mod.slug}.mdx`;
 
 const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
   volatile: { label: 'Fast-moving — verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
