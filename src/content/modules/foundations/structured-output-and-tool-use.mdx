@@ -1,0 +1,326 @@
+---
+moduleId: "1.5"
+title: "Structured Output and Tool Use"
+description: "Getting reliable, machine-readable output from an LLM requires more than asking nicely. Structured output and tool use turn a text generator into a component your application can depend on."
+track: "foundations"
+order: 5
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-23"
+estimatedMinutes:
+  layer1: 7
+  layer2: 16
+  layer3: 19
+productionGotcha: "Tool definitions count against your context window. An application that registers 30 tools per request is burning tokens on every call, even when most tools are irrelevant. Define only the tools the model needs for the current task — or implement dynamic tool selection that injects only the relevant subset based on user intent."
+draft: false
+---
+
+## Layer 1 — Surface
+
+LLMs return free-form text. Your application usually needs structured data.
+
+The naive approach — parse the text yourself — breaks as soon as the model formats its output slightly differently. The robust approach is to constrain what the model is allowed to return, either by asking for a specific schema or by using **tool use** (also called function calling), where the model fills in typed function arguments rather than writing free text.
+
+These are two points on the same spectrum:
+
+| Pattern | What it does | Best for |
+|---|---|---|
+| **Prompted JSON** | System prompt instructs model to return JSON; you parse and validate | Simple extraction, low stakes |
+| **Structured output** | Provider enforces a JSON schema at the API level | Any extraction where format must be guaranteed |
+| **Tool use** | Model calls typed functions with validated arguments | Triggering actions, multi-step workflows, agents |
+
+The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output and let the API enforce it.
+
+### Production Gotcha
+
+> **Common Gotcha:** Tool definitions count against your context window. An application with 30 registered tools is spending tokens on those definitions every single request — even when most tools are irrelevant. Define only the tools needed for the current task, or select a relevant subset dynamically based on user intent before sending the request.
+
+---
+
+## Layer 2 — Guided
+
+### Prompted JSON (simplest, least reliable)
+
+Works for low-stakes extraction when you control the prompt carefully:
+
+```python
+import anthropic
+import json
+
+client = anthropic.Anthropic()
+
+def extract_contact(text: str) -> dict:
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        system=(
+            "Extract contact information and return valid JSON only. "
+            "No markdown, no explanation — raw JSON.\n\n"
+            'Schema: {"name": string, "email": string or null, "phone": string or null}'
+        ),
+        messages=[{"role": "user", "content": text}]
+    )
+    return json.loads(response.content[0].text)
+```
+
+Fragile: the model may wrap the JSON in a markdown code block, add a comment, or omit a field. Use this only when you have a reliable fallback for parse failures.
+
+### Tool use (reliable structured output)
+
+Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments that match your schema — no parsing, no markdown stripping:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+# Define the tool — this is the schema the model must match
+tools = [
+    {
+        "name": "extract_contact",
+        "description": "Extract contact information from text.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "name":  {"type": "string", "description": "Full name"},
+                "email": {"type": "string", "description": "Email address"},
+                "phone": {"type": "string", "description": "Phone number including country code"},
+            },
+            "required": ["name"],
+        },
+    }
+]
+
+def extract_contact(text: str) -> dict:
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=256,
+        tools=tools,
+        tool_choice={"type": "tool", "name": "extract_contact"},  # force this tool
+        messages=[{"role": "user", "content": text}]
+    )
+
+    # The model's response will be a tool_use block, not text
+    tool_use = next(b for b in response.content if b.type == "tool_use")
+    return tool_use.input  # already a validated dict — no json.loads needed
+```
+
+`tool_choice: {"type": "tool", "name": "extract_contact"}` forces the model to call that specific tool. Without it, the model may choose to respond in text.
+
+### Executing real actions with tool use
+
+Tool use becomes powerful when the tools actually do things. The model decides *when* and *how* to call a tool; your code executes it and returns the result:
+
+```python
+import anthropic
+import json
+
+client = anthropic.Anthropic()
+
+# Tool definitions
+tools = [
+    {
+        "name": "get_weather",
+        "description": "Get current weather for a city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city":    {"type": "string"},
+                "country": {"type": "string", "description": "ISO 3166-1 alpha-2 country code"},
+            },
+            "required": ["city"],
+        },
+    },
+    {
+        "name": "get_forecast",
+        "description": "Get a 5-day weather forecast for a city.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "city": {"type": "string"},
+                "days": {"type": "integer", "minimum": 1, "maximum": 5},
+            },
+            "required": ["city"],
+        },
+    },
+]
+
+def run_tool(name: str, inputs: dict) -> str:
+    """Execute the tool and return a result string."""
+    if name == "get_weather":
+        # Replace with a real weather API call
+        return json.dumps({"city": inputs["city"], "temp_c": 18, "condition": "partly cloudy"})
+    if name == "get_forecast":
+        return json.dumps({"city": inputs["city"], "forecast": ["sunny", "cloudy", "rain", "sunny", "sunny"]})
+    return json.dumps({"error": f"unknown tool: {name}"})
+
+def chat_with_tools(user_message: str) -> str:
+    messages = [{"role": "user", "content": user_message}]
+
+    while True:
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            tools=tools,
+            messages=messages,
+        )
+
+        if response.stop_reason == "end_turn":
+            # Model responded in text — we're done
+            return next(b.text for b in response.content if b.type == "text")
+
+        if response.stop_reason == "tool_use":
+            # Collect all tool calls in this turn
+            tool_results = []
+            for block in response.content:
+                if block.type == "tool_use":
+                    result = run_tool(block.name, block.input)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": result,
+                    })
+
+            # Add the assistant's tool-call turn and the results to history
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({"role": "user", "content": tool_results})
+            # Loop — let the model continue with the tool results
+
+chat_with_tools("What's the weather in Tokyo, and should I pack an umbrella for the next 5 days?")
+```
+
+This is the core loop behind most AI agents: model decides what to call → your code executes it → results go back to the model → repeat until `end_turn`.
+
+### Before vs After
+
+**String parsing — brittle:**
+```python
+# BAD: Fragile, breaks on any formatting variation
+raw = llm_response.text
+# What if the model says "The price is $42.50" vs "Price: 42.50" vs "42.5 USD"?
+price = float(raw.split("$")[1].split()[0])  # crashes constantly in production
+```
+
+**Tool use — robust:**
+```python
+# GOOD: Model fills a typed field; your code gets a float, always
+tool_use = next(b for b in response.content if b.type == "tool_use")
+price = tool_use.input["price"]  # typed, validated, no parsing
+```
+
+### Common mistakes
+
+1. **Not specifying `tool_choice`** — When you need a specific tool called, set `tool_choice` explicitly. Without it, the model may answer in plain text.
+2. **Over-broad tool descriptions** — Vague descriptions like "do anything with files" confuse the model. Write descriptions as if documenting a public API: what it does, what it doesn't do, and when to use it.
+3. **Not handling `end_turn` in tool loops** — If you build an agentic loop, always check `stop_reason`. A missing `end_turn` check creates an infinite loop.
+4. **Ignoring required vs optional fields** — Fields not in `required` may be omitted. Code that accesses them without a default will crash.
+5. **Registering all tools for every request** — See the production gotcha.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Schema design
+
+Tool input schemas follow JSON Schema. A few design principles that matter in practice:
+
+**Use enums to constrain free-text fields:**
+```json
+{
+  "status": {
+    "type": "string",
+    "enum": ["open", "in_progress", "resolved", "closed"],
+    "description": "Current ticket status"
+  }
+}
+```
+Without an enum, the model may invent valid-sounding but unexpected values (`"pending"`, `"active"`). Enums collapse the output space to exactly the values your downstream code handles.
+
+**Be specific in descriptions:**
+```json
+{
+  "date": {
+    "type": "string",
+    "description": "Date in ISO 8601 format (YYYY-MM-DD). Use today's date if the user says 'today'."
+  }
+}
+```
+The model reads descriptions at inference time. Precise descriptions reduce ambiguity and reduce the need to re-prompt when the model guesses wrong.
+
+**Mark genuinely optional fields as not required:**
+If a field is truly optional, omit it from `required`. The model will include it when the information is present and omit it when it isn't — more reliable than having it guess a null/empty value.
+
+### Multi-tool calls in a single turn
+
+The model can call multiple tools in a single response when the tasks are independent. This is more efficient than a serial loop:
+
+```python
+# The model may return multiple tool_use blocks in one response
+# when it determines the calls are parallelisable
+for block in response.content:
+    if block.type == "tool_use":
+        # Execute concurrently if your implementation supports it
+        result = run_tool(block.name, block.input)
+        tool_results.append({
+            "type": "tool_result",
+            "tool_use_id": block.id,
+            "content": result,
+        })
+```
+
+Treat each `tool_use` block independently; collect all results before returning them to the model as a single `user` turn.
+
+### Error handling in tool loops
+
+Tool execution can fail. Return errors to the model in the result — don't throw exceptions that break the loop. The model can often recover:
+
+```python
+def run_tool_safe(name: str, inputs: dict) -> str:
+    try:
+        return run_tool(name, inputs)
+    except Exception as e:
+        # Return the error as a tool result — the model can decide what to do
+        return json.dumps({"error": str(e)})
+```
+
+Also implement a maximum turn limit. A misbehaving tool or ambiguous task can produce a loop where the model keeps calling tools without reaching `end_turn`. A limit of 10–20 turns covers the vast majority of legitimate workflows.
+
+### Tool use vs fine-tuning for structured output
+
+For applications that need consistent structured output, tool use with a schema is almost always preferable to fine-tuning:
+
+| | Tool use | Fine-tuning |
+|---|---|---|
+| Schema changes | Update the tool definition | Re-train and re-deploy |
+| New fields | Add to schema | Collect examples, re-train |
+| Validation | API-enforced | Must validate yourself |
+| Cost | Standard inference | Training + higher per-token cost |
+
+Fine-tuning for structured output makes sense only when the output has highly domain-specific patterns (e.g. a proprietary format) that are hard to express in a JSON schema or prompt.
+
+### The tool use ↔ agent relationship
+
+Everything in the agents track builds on this loop:
+
+```
+user message
+    ↓
+model decides: respond or call tool?
+    ↓ (tool)
+your code executes the tool
+    ↓
+result returned to model
+    ↓
+model decides: respond or call another tool?
+    ↓ (respond)
+final answer to user
+```
+
+The sophistication of an agent is largely a function of the tools it has access to and how well those tools are defined. A well-designed tool interface is more valuable than a more capable model given a poorly defined one.
+
+### Further reading
+
+- [Tool use — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) — Anthropic's reference for tool definition, `tool_choice`, multi-tool calls, and the full request/response lifecycle.
+- [JSON Schema specification](https://json-schema.org/specification) — The schema language used for tool input definitions. Understanding `type`, `enum`, `required`, and `$ref` covers 95% of tool authoring.
+- [ReAct: Synergising Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. The paper that formalised the reason-then-act loop that underlies most tool-use agent patterns.

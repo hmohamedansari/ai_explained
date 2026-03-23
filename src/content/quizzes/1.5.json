@@ -1,0 +1,76 @@
+{
+  "title": "Structured Output and Tool Use — Check your understanding",
+  "moduleId": "1.5",
+  "questions": [
+    {
+      "id": "1.5-q1",
+      "type": "multiple-choice",
+      "question": "What is the main advantage of using tool use over prompted JSON for structured extraction?",
+      "options": [
+        "Tool use is faster because it skips the text generation step",
+        "Tool use costs fewer tokens than generating JSON text",
+        "The API enforces the schema, so you get typed arguments without parsing or markdown stripping",
+        "Tool use allows the model to search the web before returning results"
+      ],
+      "answer": 2,
+      "explanation": "With prompted JSON, the model may wrap output in markdown, add explanation, or format fields inconsistently — you parse and hope. With tool use, the API validates the model's output against your schema before returning it. You receive a typed dict, not a string.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.5-q2",
+      "type": "multiple-choice",
+      "question": "You want the model to always call a specific tool called 'classify_ticket'. What should you set in the API request?",
+      "options": [
+        "Set temperature to 0 so the model makes deterministic choices",
+        "Set tool_choice to {\"type\": \"tool\", \"name\": \"classify_ticket\"}",
+        "List only that tool in the tools array so the model has no other option",
+        "Add 'You must use the classify_ticket tool' to the system prompt"
+      ],
+      "answer": 1,
+      "explanation": "tool_choice forces a specific tool call at the API level. Listing only one tool is also effective, but tool_choice is the explicit, reliable mechanism. System prompt instructions alone are not enforced at the API level and can be ignored.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.5-q3",
+      "type": "multiple-choice",
+      "question": "Your tool-use loop runs but never terminates. The model keeps calling tools without producing a final answer. What is the most likely cause and the correct fix?",
+      "options": [
+        "The model is too large — switch to a smaller model that terminates faster",
+        "The tools are returning errors — fix the tools so they always succeed",
+        "The loop is not checking stop_reason, and there is no maximum turn limit",
+        "tool_choice is set incorrectly — remove it so the model can decide when to stop"
+      ],
+      "answer": 2,
+      "explanation": "An infinite tool loop almost always means stop_reason is not being checked, or there is no turn limit. When stop_reason is 'end_turn', the model has finished — return the text response and exit the loop. Always add a maximum turn limit (e.g. 20) as a safety net for ambiguous tasks or misbehaving tools.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.5-q4",
+      "type": "multiple-choice",
+      "question": "You have a tool with a 'priority' field that accepts values low, medium, or high. What schema feature best prevents the model from inventing unexpected values like 'urgent' or 'critical'?",
+      "options": [
+        "Set the field type to 'integer' and document the mapping in the description",
+        "Use an enum constraint listing the allowed values",
+        "Add a system prompt instruction listing the valid priorities",
+        "Mark the field as required so the model cannot skip it"
+      ],
+      "answer": 1,
+      "explanation": "An enum in the JSON schema constrains the output space to exactly the values you specify. The model cannot generate values outside the enum. System prompt instructions can be missed; required only ensures the field is present, not what value it has.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.5-q5",
+      "type": "multiple-choice",
+      "question": "Your application has 40 registered tools but any given user request only needs 2–3 of them. What is the production concern?",
+      "options": [
+        "The model will randomly pick tools it was not asked to use",
+        "Tools registered but not called still count against the rate limit",
+        "All 40 tool definitions are sent with every request, consuming context window tokens and increasing cost",
+        "The API will reject requests with more than 20 tools"
+      ],
+      "answer": 2,
+      "explanation": "Tool definitions are included in the request payload and count against the context window. 40 detailed tool definitions can add thousands of tokens to every call — even when 37 of them are irrelevant. The fix is to select only the tools relevant to the current task before sending the request.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}
