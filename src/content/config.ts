@@ -53,10 +53,13 @@ const quizzes = defineCollection({
     moduleId: z.string(),          // matches modules.moduleId, e.g. "1.1"
     questions: z.array(z.object({
       id: z.string(),
-      type: z.enum(['multiple-choice', 'true-false', 'code-spot']),
+      // Only multiple-choice is supported by the Quiz renderer.
+      // true-false: author as multiple-choice with options: ["True", "False"].
+      // code-spot: deferred — needs a different renderer (not yet designed).
+      type: z.literal('multiple-choice'),
       question: z.string(),
-      options: z.array(z.string()).optional(),
-      answer: z.union([z.string(), z.number()]),
+      options: z.array(z.string()),   // required for multiple-choice
+      answer: z.number(),             // index into options[]
       explanation: z.string(),
       personas: z.array(PERSONA)
         .default(['curious', 'leader', 'junior', 'senior', 'sre']),

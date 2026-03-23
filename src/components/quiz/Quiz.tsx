@@ -3,10 +3,10 @@ import { saveQuizScore } from '@/utils/progress';
 
 interface Question {
   id: string;
-  type: 'multiple-choice' | 'true-false' | 'code-spot';
+  type: 'multiple-choice';
   question: string;
-  options?: string[];
-  answer: string | number;
+  options: string[];  // required — multiple-choice only
+  answer: number;     // index into options[]
   explanation: string;
 }
 
@@ -41,7 +41,7 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
   const allAnswered = questions.every(q => answers[q.id].locked);
   const score = questions.filter(q => {
     const state = answers[q.id];
-    return state.locked && state.selected === Number(q.answer);
+    return state.locked && state.selected === q.answer;
   }).length;
 
   const handleShowResults = () => {
@@ -67,8 +67,8 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
 
       {questions.map((q, qi) => {
         const state = answers[q.id];
-        const isCorrect = state.locked && state.selected === Number(q.answer);
-        const isWrong = state.locked && state.selected !== Number(q.answer);
+        const isCorrect = state.locked && state.selected === q.answer;
+        const isWrong = state.locked && state.selected !== q.answer;
 
         return (
           <div key={q.id} className="p-6 rounded-xl border border-white/10 bg-surface-1 space-y-4">
@@ -82,7 +82,7 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
             <div className="space-y-2 ml-6">
               {q.options?.map((opt, i) => {
                 const isSelected = state.selected === i;
-                const isAnswerKey = i === Number(q.answer);
+                const isAnswerKey = i === q.answer;
 
                 let cls =
                   'flex items-start gap-3 w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ';
