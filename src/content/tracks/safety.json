@@ -1,0 +1,9 @@
+{
+  "title": "Safety & Compliance",
+  "description": "Prompt injection, supply chain risk, guardrails, EU AI Act — what you need to ship responsibly.",
+  "order": 7,
+  "icon": "🛡️",
+  "color": "red",
+  "volatility": "emerging",
+  "personas": ["leader", "junior", "senior", "sre"]
+}

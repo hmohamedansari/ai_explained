@@ -1,0 +1,34 @@
+---
+import ModuleLayout from '@/layouts/ModuleLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const modules = await getCollection('modules', ({ data }) =>
+    !data.draft && data.status === 'published'
+  );
+  return modules.map(mod => {
+    const [track, slug] = mod.slug.split('/');
+    return { params: { track, module: slug }, props: { mod } };
+  });
+}
+
+const { mod } = Astro.props;
+const { Content } = await mod.render();
+
+// Adjacent published modules in the same track for prev/next nav
+const trackModules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.status === 'published' && data.track === mod.data.track
+);
+const sorted = trackModules.sort((a, b) => a.data.order - b.data.order);
+const idx = sorted.findIndex(m => m.id === mod.id);
+const prev = idx > 0 ? sorted[idx - 1] : null;
+const next = idx < sorted.length - 1 ? sorted[idx + 1] : null;
+---
+
+<ModuleLayout
+  mod={mod}
+  prev={prev ? { slug: prev.slug.split('/')[1], title: prev.data.title } : null}
+  next={next ? { slug: next.slug.split('/')[1], title: next.data.title } : null}
+>
+  <Content />
+</ModuleLayout>

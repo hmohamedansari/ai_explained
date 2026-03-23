@@ -5,30 +5,31 @@ import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
 const modules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.status === 'published' && data.personas.includes('junior')
+  !data.draft && data.status === 'published' && data.personas.includes('curious')
 );
 const sorted = modules.sort((a, b) => a.data.order - b.data.order);
 ---
 
 <BaseLayout
-  title="Junior Developer Path"
-  description="Your first deployable AI feature — deliberately paced with no conceptual gaps."
+  title="Curious Beginner Path"
+  description="Understand AI without writing a line of code — what it is, what it can't do, and how to think about it clearly."
 >
   <Header />
 
   <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
     <div class="mb-14">
-      <div class="text-5xl mb-5">🌿</div>
-      <h1 class="text-4xl font-semibold text-white mb-4">Junior Developer Path</h1>
+      <div class="text-5xl mb-5">🌱</div>
+      <h1 class="text-4xl font-semibold text-white mb-4">Curious Beginner Path</h1>
       <p class="text-xl text-slate-400 max-w-2xl mb-6">
-        Starting from first principles. This path is deliberately paced — no conceptual gaps,
-        no hand-waving. You'll write evals before features, understand why things work
-        (not just that they do), and ship something real at the end.
+        Zero coding required. This path gives you the accurate mental model for AI —
+        what it actually is, what it can and can't do, and how to think about it
+        clearly in a world full of hype. By the end you'll be able to read AI news
+        intelligently and hold informed conversations with technical teams.
       </p>
       <div class="flex flex-wrap gap-3">
-        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Step by step</span>
-        <span class="badge bg-white/5 border border-white/10 text-slate-400">Plain-language analogies</span>
-        <span class="badge bg-white/5 border border-white/10 text-slate-400">Runnable code</span>
+        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">No code</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Plain English</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Big picture</span>
       </div>
     </div>
 
@@ -36,10 +37,10 @@ const sorted = modules.sort((a, b) => a.data.order - b.data.order);
       <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500 mb-4">What you'll come away with</h2>
       <ul class="space-y-3">
         {[
-          'A clear mental model of what an LLM is and what makes it different from a database or API',
-          'How to write prompts, structured outputs, and tool definitions that work reliably',
-          'Your first working RAG pipeline and eval harness',
-          'How MCP lets your agent interact with the real world securely',
+          'What a Large Language Model actually is — in plain English, no jargon',
+          'Why AI systems behave the way they do, and why "more prompting" isn\'t always the answer',
+          'How to read AI announcements critically — spotting hype versus substance',
+          'Why "just ask it nicely" isn\'t a reliable safety strategy',
         ].map(item => (
           <li class="flex items-start gap-3 text-slate-300 text-sm">
             <span class="text-brand-400 mt-0.5 shrink-0">✓</span>
@@ -53,7 +54,7 @@ const sorted = modules.sort((a, b) => a.data.order - b.data.order);
       <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Your curriculum</h2>
       {sorted.length === 0 ? (
         <p class="text-slate-500 text-sm">Modules for this path are being authored. Check back soon.</p>
-      ) : sorted.map((mod, i) => (
+      ) : sorted.map((mod) => (
         <a
           href={`/learn/${mod.slug}`}
           class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1

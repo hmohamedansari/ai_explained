@@ -1,0 +1,9 @@
+{
+  "title": "Protocols & Integration",
+  "description": "MCP, A2A, AG-UI — the standards that let AI systems communicate, delegate, and interoperate.",
+  "order": 3,
+  "icon": "🔌",
+  "color": "violet",
+  "volatility": "volatile",
+  "personas": ["junior", "senior", "sre"]
+}

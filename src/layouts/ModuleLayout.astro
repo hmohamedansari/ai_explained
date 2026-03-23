@@ -1,0 +1,110 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import type { CollectionEntry } from 'astro:content';
+
+interface Props {
+  mod: CollectionEntry<'modules'>;
+  prev?: { slug: string; title: string } | null;
+  next?: { slug: string; title: string } | null;
+}
+
+const { mod, prev, next } = Astro.props;
+const { title, description, track, moduleId, estimatedMinutes, volatility } = mod.data;
+
+// TODO: replace [your-username] with actual GitHub username before launch
+const editUrl = `https://github.com/[your-username]/ai-explained/edit/main/src/content/modules/${mod.slug}.mdx`;
+
+const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
+  volatile: { label: 'Fast-moving — verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
+  emerging: { label: 'Emerging area',  classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
+  stable:   { label: '',               classes: '' },
+};
+
+const badge = VOLATILITY_BADGE[volatility];
+---
+
+<BaseLayout title={title} description={description}>
+  <Header />
+
+  <main class="flex-1">
+    <div class="max-w-3xl mx-auto px-6 py-12">
+
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-sm text-slate-500 mb-8" aria-label="Breadcrumb">
+        <a href="/learn" class="hover:text-brand-400 transition-colors">Tracks</a>
+        <span aria-hidden="true">/</span>
+        <a href={`/learn/${track}`} class="hover:text-brand-400 transition-colors capitalize">
+          {track.replace(/-/g, ' ')}
+        </a>
+        <span aria-hidden="true">/</span>
+        <span class="text-slate-400 font-mono text-xs">{moduleId}</span>
+      </nav>
+
+      <!-- Module header -->
+      <header class="mb-10">
+        <div class="flex items-center gap-3 mb-4 flex-wrap">
+          {badge.label && (
+            <span class={`text-xs px-2 py-0.5 rounded-full border ${badge.classes}`}>
+              {badge.label}
+            </span>
+          )}
+          {estimatedMinutes && (
+            <span class="text-xs text-slate-500">{estimatedMinutes.layer1} min read</span>
+          )}
+        </div>
+        <h1 class="text-3xl font-semibold text-white mb-3">{title}</h1>
+        <p class="text-lg text-slate-400 leading-relaxed">{description}</p>
+      </header>
+
+      <!-- Module body -->
+      <article class="prose-lesson">
+        <slot />
+      </article>
+
+      <!-- Prev / Next navigation -->
+      <nav
+        class="mt-16 pt-8 border-t border-white/10 grid grid-cols-2 gap-4"
+        aria-label="Module navigation"
+      >
+        {prev ? (
+          <a
+            href={`/learn/${track}/${prev.slug}`}
+            class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                   hover:border-brand-500/40 hover:bg-surface-1 transition-all text-left"
+          >
+            <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">← Previous</span>
+            <span class="text-sm font-medium text-slate-300">{prev.title}</span>
+          </a>
+        ) : <div />}
+
+        {next ? (
+          <a
+            href={`/learn/${track}/${next.slug}`}
+            class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                   hover:border-brand-500/40 hover:bg-surface-1 transition-all text-right ml-auto w-full"
+          >
+            <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">Next →</span>
+            <span class="text-sm font-medium text-slate-300">{next.title}</span>
+          </a>
+        ) : <div />}
+      </nav>
+
+      <!-- Suggest an edit -->
+      <div class="mt-8 pt-6 border-t border-white/5 text-center">
+        <a
+          href={editUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-brand-400 transition-colors"
+        >
+          ✏ Suggest an edit on GitHub
+        </a>
+      </div>
+
+    </div>
+  </main>
+
+  <Footer />
+</BaseLayout>

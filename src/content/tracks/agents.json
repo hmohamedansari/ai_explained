@@ -1,0 +1,9 @@
+{
+  "title": "Agent Architecture",
+  "description": "Building multi-agent systems that work reliably — orchestration, failure modes, and production patterns.",
+  "order": 4,
+  "icon": "🤖",
+  "color": "purple",
+  "volatility": "emerging",
+  "personas": ["junior", "senior", "sre"]
+}

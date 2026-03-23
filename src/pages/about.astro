@@ -1,0 +1,131 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+---
+
+<BaseLayout
+  title="About"
+  description="AI Academy is a free, open-source AI education platform. Learn who built it and why."
+>
+  <Header />
+
+  <main class="flex-1 max-w-3xl mx-auto px-6 py-16">
+
+    <!-- Author -->
+    <section class="mb-16">
+      <div class="flex items-start gap-6 mb-8">
+        <!-- TODO: replace with your actual photo -->
+        <div class="w-20 h-20 rounded-full bg-brand-950 border border-brand-500/30 flex items-center justify-center text-3xl shrink-0">
+          👤
+        </div>
+        <div>
+          <h1 class="text-3xl font-semibold text-white mb-1">
+            <!-- TODO: replace with your name -->
+            [Your Name]
+          </h1>
+          <p class="text-slate-400 mb-3">
+            <!-- TODO: replace with your title/description -->
+            [Your title — e.g. "Software Engineer & AI educator"]
+          </p>
+          <div class="flex gap-3">
+            <!-- TODO: replace # with your actual URLs -->
+            <a href="#" target="_blank" rel="noopener noreferrer"
+               class="text-sm text-slate-500 hover:text-brand-400 transition-colors">GitHub</a>
+            <a href="#" target="_blank" rel="noopener noreferrer"
+               class="text-sm text-slate-500 hover:text-brand-400 transition-colors">LinkedIn</a>
+            <a href="#" target="_blank" rel="noopener noreferrer"
+               class="text-sm text-slate-500 hover:text-brand-400 transition-colors">X / Twitter</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- TODO: replace with your actual bio -->
+      <div class="prose-lesson">
+        <p class="text-slate-300 leading-relaxed mb-4">
+          [Write 2–3 paragraphs about yourself here. Who you are, what you've built,
+          and what gives you the perspective to teach this material.]
+        </p>
+        <p class="text-slate-300 leading-relaxed">
+          [Why you built AI Academy — what was missing from existing resources,
+          what you want learners to walk away with, and what you believe about
+          how AI education should work.]
+        </p>
+      </div>
+    </section>
+
+    <!-- Why this site -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-semibold text-white mb-6">Why AI Academy</h2>
+      <div class="space-y-4 text-slate-300 leading-relaxed">
+        <p>
+          Most AI education falls into two traps: hand-wavy overviews that leave you unable
+          to make real decisions, or deep technical resources that assume you already understand
+          the landscape. AI Academy sits in between.
+        </p>
+        <p>
+          Every module has three layers: a plain-English surface for anyone, a guided walkthrough
+          with working code, and a deep-dive analysis for those who want the architecture and
+          primary sources. You choose your depth.
+        </p>
+        <p>
+          The curriculum covers 9 tracks and 93 modules — from what an LLM actually is to
+          running sovereign air-gapped deployments. Each module is tagged for volatility so
+          you know what's stable knowledge and what needs re-reading in six months.
+        </p>
+      </div>
+    </section>
+
+    <!-- Open source -->
+    <section class="mb-16">
+      <h2 class="text-2xl font-semibold text-white mb-6">Open Source</h2>
+      <div class="space-y-4 text-slate-300 leading-relaxed">
+        <p>
+          AI Academy is fully open source. The curriculum content is licensed under
+          CC BY-SA 4.0 — you can use, adapt, and redistribute it as long as you
+          attribute the source and share derivatives under the same licence.
+          The site code is MIT.
+        </p>
+        <p>
+          If you spot an error, know a better explanation, or want to contribute a module —
+          pull requests are open. See{' '}
+          <a
+            href="https://github.com/[your-username]/ai-explained/blob/main/CONTRIBUTING.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-brand-400 hover:text-brand-300 transition-colors"
+          >
+            CONTRIBUTING.md
+          </a>{' '}
+          for how to get started.
+        </p>
+      </div>
+
+      <div class="mt-6 flex gap-4 flex-wrap">
+        <a
+          href="https://github.com/[your-username]/ai-explained"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-secondary"
+        >
+          View on GitHub →
+        </a>
+      </div>
+    </section>
+
+    <!-- Newsletter -->
+    <section class="p-8 rounded-xl border border-brand-500/20 bg-brand-950/20">
+      <h2 class="text-xl font-semibold text-white mb-2">Stay updated</h2>
+      <p class="text-slate-400 text-sm mb-4">
+        New modules, curriculum updates, and AI education content — occasionally,
+        never spammy.
+      </p>
+      <!-- TODO: replace with your newsletter embed (Beehiiv / Buttondown / ConvertKit) -->
+      <!-- Privacy policy required before this goes live. See site-strategy.md. -->
+      <p class="text-slate-500 text-sm italic">Newsletter coming soon.</p>
+    </section>
+
+  </main>
+
+  <Footer />
+</BaseLayout>

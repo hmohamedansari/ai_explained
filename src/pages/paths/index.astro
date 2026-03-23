@@ -5,36 +5,44 @@ import Footer from '@/components/layout/Footer.astro';
 
 const paths = [
   {
+    id: 'curious-beginner',
+    emoji: '🌱',
+    title: 'Curious Beginner',
+    description: 'Zero coding required. Understand what AI actually is, how to read AI news intelligently, and why "just ask it nicely" isn\'t a safety strategy.',
+    href: '/paths/curious-beginner',
+    tags: ['No code', 'Big picture', 'Plain English'],
+  },
+  {
     id: 'tech-leader',
     emoji: '🏛️',
     title: 'Tech Leader',
-    description: 'The mental model, the strategic picture, and the decisions that matter — without wading through implementation detail.',
+    description: 'The mental model, the strategic picture, and the decisions that matter — ROI, risk surface, vendor strategy, and the EU AI Act.',
     href: '/paths/tech-leader',
-    tags: ['Big picture', 'No deep code', 'Decision-making'],
+    tags: ['Big picture', 'Minimal code', 'Decision-making'],
   },
   {
     id: 'new-dev',
-    emoji: '🌱',
-    title: 'New Developer',
-    description: 'Step-by-step from scratch. Lots of analogies, interactive exercises, and code you can actually run.',
+    emoji: '🌿',
+    title: 'Junior Developer',
+    description: 'Your first deployable AI feature. Deliberately paced — evals before features, no conceptual gaps, working code throughout.',
     href: '/paths/new-dev',
-    tags: ['Step-by-step', 'Analogies', 'Hands-on'],
+    tags: ['Step-by-step', 'Working code', 'Evals first'],
   },
   {
     id: 'experienced-dev',
     emoji: '⚙️',
-    title: 'Experienced Developer',
-    description: 'Skip the hand-holding. Protocol internals, full code examples, and the edge cases worth knowing.',
+    title: 'Senior Developer',
+    description: 'Production multi-agent systems. Evaluation-first architecture, protocol internals, typed contracts, and the failure modes worth knowing.',
     href: '/paths/experienced-dev',
-    tags: ['Deep dives', 'Full code', 'Edge cases'],
+    tags: ['Evaluation first', 'Full code', 'Production trade-offs'],
   },
   {
     id: 'sre-devops',
     emoji: '🔧',
     title: 'SRE / DevOps',
-    description: 'Infrastructure-first. How to deploy, monitor, and secure AI agents in production environments.',
+    description: 'Running AI workloads reliably and cheaply. VRAM budgets, serving architecture, cost management, supply chain security, and p95/p99 SLOs.',
     href: '/paths/sre-devops',
-    tags: ['Production', 'Infrastructure', 'Security'],
+    tags: ['Infrastructure', 'Production', 'Cost & reliability'],
   },
 ];
 ---
@@ -46,7 +54,10 @@ const paths = [
     <div class="mb-12">
       <h1 class="text-4xl font-semibold text-white mb-3">Learning Paths</h1>
       <p class="text-lg text-slate-400">
-        Same concepts, tailored depth. Pick the path that fits your role.
+        Same curriculum, tailored depth. Pick the path that fits your role — or{' '}
+        <a href="/onboarding" class="text-brand-400 hover:text-brand-300 transition-colors">
+          let us recommend one
+        </a>.
       </p>
     </div>
 

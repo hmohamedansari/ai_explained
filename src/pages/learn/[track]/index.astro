@@ -1,0 +1,126 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+import { getCollection, getEntry } from 'astro:content';
+
+export async function getStaticPaths() {
+  const tracks = await getCollection('tracks');
+  return tracks.map(track => ({ params: { track: track.id } }));
+}
+
+const { track: trackSlug } = Astro.params;
+const track = await getEntry('tracks', trackSlug);
+if (!track) return Astro.redirect('/learn');
+
+const allModules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.track === trackSlug
+);
+const published = allModules
+  .filter(m => m.data.status === 'published')
+  .sort((a, b) => a.data.order - b.data.order);
+
+const PERSONA_LABEL: Record<string, string> = {
+  curious: 'Curious Beginner',
+  leader:  'Tech Leader',
+  junior:  'Junior Dev',
+  senior:  'Senior Dev',
+  sre:     'SRE',
+};
+
+const VOLATILITY: Record<string, { label: string; classes: string }> = {
+  volatile: { label: 'Fast-moving', classes: 'border-orange-500/30 text-orange-400' },
+  emerging: { label: 'Emerging',    classes: 'border-brand-500/30 text-brand-400' },
+  stable:   { label: 'Stable',      classes: 'border-white/10 text-slate-500' },
+};
+
+const vol = VOLATILITY[track.data.volatility];
+const githubUrl = 'https://github.com/[your-username]/ai-explained';
+---
+
+<BaseLayout
+  title={`Track ${track.data.order}: ${track.data.title}`}
+  description={track.data.description}
+>
+  <Header />
+
+  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+    <a
+      href="/learn"
+      class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-400 transition-colors mb-10"
+    >
+      ← All tracks
+    </a>
+
+    <div class="mb-12">
+      <div class="text-5xl mb-4">{track.data.icon}</div>
+      <div class="flex items-center gap-3 mb-3 flex-wrap">
+        <span class="text-sm text-slate-500 font-mono">Track {track.data.order}</span>
+        <span class={`text-xs px-2 py-0.5 rounded-full border ${vol.classes}`}>{vol.label}</span>
+      </div>
+      <h1 class="text-4xl font-semibold text-white mb-3">{track.data.title}</h1>
+      <p class="text-lg text-slate-400 max-w-2xl mb-5">{track.data.description}</p>
+      <div class="flex flex-wrap gap-2">
+        {track.data.personas.map(p => (
+          <span class="badge bg-white/5 text-slate-400">{PERSONA_LABEL[p]}</span>
+        ))}
+      </div>
+    </div>
+
+    {published.length === 0 ? (
+      <div class="rounded-xl border border-dashed border-white/10 p-12 text-center">
+        <p class="text-slate-400 mb-2 font-medium">Modules coming soon.</p>
+        <p class="text-sm text-slate-600">
+          Want to help write this track?{' '}
+          <a
+            href={githubUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-brand-400 hover:text-brand-300 transition-colors"
+          >
+            Contribute on GitHub →
+          </a>
+        </p>
+      </div>
+    ) : (
+      <div class="space-y-3">
+        {published.map(mod => {
+          const slug = mod.slug.split('/')[1];
+          return (
+            <a
+              href={`/learn/${trackSlug}/${slug}`}
+              class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
+                     hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
+            >
+              <div class="w-10 h-10 rounded-full border border-white/10 group-hover:border-brand-500/40
+                          flex items-center justify-center text-xs font-mono text-slate-500
+                          group-hover:text-brand-400 transition-colors shrink-0">
+                {mod.data.moduleId}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
+                  {mod.data.title}
+                </p>
+                <p class="text-sm text-slate-500 truncate">{mod.data.description}</p>
+              </div>
+              {mod.data.estimatedMinutes && (
+                <span class="text-xs text-slate-600 shrink-0">
+                  {mod.data.estimatedMinutes.layer1} min
+                </span>
+              )}
+              <span class="text-slate-600 group-hover:text-brand-400 transition-colors shrink-0">→</span>
+            </a>
+          );
+        })}
+
+        <div class="mt-8">
+          <a href={`/learn/${trackSlug}/${published[0].slug.split('/')[1]}`} class="btn-primary">
+            Start here →
+          </a>
+        </div>
+      </div>
+    )}
+  </main>
+
+  <Footer />
+</BaseLayout>

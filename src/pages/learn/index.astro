@@ -4,69 +4,66 @@ import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
-const allModules = await getCollection('modules', ({ data }) => !data.draft);
-const sortedModules = allModules.sort((a, b) => a.data.order - b.data.order);
+const tracks = await getCollection('tracks');
+const sortedTracks = tracks.sort((a, b) => a.data.order - b.data.order);
 
-const allLessons = await getCollection('concepts', ({ data }) => !data.draft);
+const publishedModules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.status === 'published'
+);
+const countByTrack = Object.fromEntries(
+  sortedTracks.map(t => [t.id, publishedModules.filter(m => m.data.track === t.id).length])
+);
+
+const VOLATILITY: Record<string, { label: string; classes: string }> = {
+  volatile: { label: 'Fast-moving', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
+  emerging: { label: 'Emerging',    classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
+  stable:   { label: 'Stable',      classes: 'border-white/10 text-slate-500' },
+};
 ---
 
-<BaseLayout title="Learn" description="All learning modules.">
+<BaseLayout
+  title="Learn"
+  description="9 tracks covering every layer of AI engineering — from foundations to production agents."
+>
   <Header />
 
   <main class="flex-1 max-w-5xl mx-auto px-6 py-16">
     <div class="mb-12">
-      <h1 class="text-4xl font-semibold text-white mb-3">All Modules</h1>
-      <p class="text-lg text-slate-400">
-        Everything we've built so far. Pick a module or{' '}
+      <h1 class="text-4xl font-semibold text-white mb-3">Learning Tracks</h1>
+      <p class="text-lg text-slate-400 max-w-2xl">
+        9 tracks, 93 modules. Start anywhere — or{' '}
         <a href="/onboarding" class="text-brand-400 hover:text-brand-300 transition-colors">
-          find the right path for you
+          find the path for your role
         </a>.
       </p>
     </div>
 
-    <div class="space-y-6">
-      {sortedModules.map(mod => {
-        const lessons = allLessons
-          .filter(l => l.data.module === mod.id)
-          .sort((a, b) => a.data.order - b.data.order);
-
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {sortedTracks.map(track => {
+        const count = countByTrack[track.id] ?? 0;
+        const vol = VOLATILITY[track.data.volatility];
         return (
-          <div class="rounded-xl border border-white/10 bg-surface-1 overflow-hidden">
-            <!-- Module header -->
-            <div class="p-6 border-b border-white/10 flex items-start gap-4">
-              <span class="text-3xl">{mod.data.icon}</span>
-              <div class="flex-1 min-w-0">
-                <a
-                  href={`/learn/${mod.id}`}
-                  class="text-xl font-semibold text-white hover:text-brand-300 transition-colors"
-                >
-                  {mod.data.title}
-                </a>
-                <p class="text-slate-400 mt-1 text-sm">{mod.data.description}</p>
-              </div>
-              <a href={`/learn/${mod.id}`} class="btn-secondary text-xs shrink-0">
-                Open →
-              </a>
+          <a href={`/learn/${track.id}`} class="card group flex flex-col gap-3">
+            <div class="flex items-start justify-between gap-2">
+              <span class="text-3xl">{track.data.icon}</span>
+              <span class={`text-xs px-2 py-0.5 rounded-full border ${vol.classes}`}>
+                {vol.label}
+              </span>
             </div>
-
-            <!-- Lesson list -->
-            <div class="divide-y divide-white/5">
-              {lessons.map(lesson => (
-                <a
-                  href={`/learn/${mod.id}/${lesson.slug}`}
-                  class="flex items-center gap-4 px-6 py-4 hover:bg-surface-2 transition-colors group"
-                >
-                  <span class="w-1.5 h-1.5 rounded-full bg-white/20 group-hover:bg-brand-400 transition-colors shrink-0" />
-                  <span class="flex-1 text-sm text-slate-300 group-hover:text-white transition-colors">
-                    {lesson.data.title}
-                  </span>
-                  {lesson.data.estimatedMinutes && (
-                    <span class="text-xs text-slate-600">{lesson.data.estimatedMinutes} min</span>
-                  )}
-                </a>
-              ))}
+            <div>
+              <p class="text-xs font-mono text-slate-600 mb-1">Track {track.data.order}</p>
+              <h2 class="font-semibold text-white group-hover:text-brand-300 transition-colors mb-1">
+                {track.data.title}
+              </h2>
+              <p class="text-sm text-slate-400 leading-relaxed">{track.data.description}</p>
             </div>
-          </div>
+            <div class="mt-auto pt-3 border-t border-white/5 flex items-center justify-between text-xs">
+              <span class="text-slate-500">
+                {count > 0 ? `${count} module${count !== 1 ? 's' : ''}` : 'Coming soon'}
+              </span>
+              <span class="text-brand-400 group-hover:translate-x-0.5 transition-transform">→</span>
+            </div>
+          </a>
         );
       })}
     </div>

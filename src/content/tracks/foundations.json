@@ -1,0 +1,9 @@
+{
+  "title": "Foundations",
+  "description": "How LLMs work, what they can and can't do, and the concepts that everything else builds on.",
+  "order": 1,
+  "icon": "🧱",
+  "color": "blue",
+  "volatility": "stable",
+  "personas": ["curious", "leader", "junior", "senior", "sre"]
+}

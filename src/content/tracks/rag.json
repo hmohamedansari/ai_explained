@@ -1,0 +1,9 @@
+{
+  "title": "Retrieval-Augmented Generation",
+  "description": "Connecting LLMs to your own data — from basic pipelines to advanced retrieval architectures.",
+  "order": 2,
+  "icon": "🔍",
+  "color": "indigo",
+  "volatility": "emerging",
+  "personas": ["junior", "senior", "sre"]
+}

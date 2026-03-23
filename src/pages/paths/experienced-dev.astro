@@ -4,31 +4,31 @@ import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
-const allLessons = await getCollection('concepts', ({ data }) =>
-  !data.draft && data.audiences.includes('experienced-dev')
+const modules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.status === 'published' && data.personas.includes('senior')
 );
-const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
+const sorted = modules.sort((a, b) => a.data.order - b.data.order);
 ---
 
 <BaseLayout
-  title="Experienced Developer Path"
-  description="Protocol internals, full code examples, and the edge cases worth knowing."
+  title="Senior Developer Path"
+  description="Production multi-agent systems — evaluation-first architecture, failure modes, and the engineering trade-offs worth knowing."
 >
   <Header />
 
   <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
     <div class="mb-14">
       <div class="text-5xl mb-5">⚙️</div>
-      <h1 class="text-4xl font-semibold text-white mb-4">Experienced Developer Path</h1>
+      <h1 class="text-4xl font-semibold text-white mb-4">Senior Developer Path</h1>
       <p class="text-xl text-slate-400 max-w-2xl mb-6">
-        You know your way around systems. This path skips the hand-holding and goes straight
-        to protocol internals, full implementations, parallel tool calls, error handling,
-        and building production-ready MCP servers.
+        5+ years building systems. Skip the hand-holding — this path goes straight to
+        production multi-agent architecture, evaluation-first design, typed contracts at
+        agent boundaries, and the failure modes that bite teams in prod.
       </p>
       <div class="flex flex-wrap gap-3">
-        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Protocol depth</span>
+        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Evaluation first</span>
         <span class="badge bg-white/5 border border-white/10 text-slate-400">Full code examples</span>
-        <span class="badge bg-white/5 border border-white/10 text-slate-400">Edge cases</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Production trade-offs</span>
       </div>
     </div>
 
@@ -36,11 +36,10 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
       <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500 mb-4">What you'll come away with</h2>
       <ul class="space-y-3">
         {[
-          'The full tool_use / tool_result loop including parallel calls and stop_reason mechanics',
-          'JSON-RPC internals — the actual wire format of MCP messages',
-          'Building a working MCP server in Python and TypeScript',
-          'Transport selection: stdio vs HTTP+SSE and the new Streamable HTTP spec',
-          'Error handling at both the protocol and tool layer',
+          'How to design multi-agent systems that fail gracefully — not silently',
+          'Why evaluation drives architecture decisions, not just ops — and how to wire evals into CI',
+          'The protocol layer: MCP, A2A, typed contracts, and sandbox isolation patterns',
+          'Advanced RAG: context engineering, hybrid memory, and the retrieval trade-offs that matter',
         ].map(item => (
           <li class="flex items-start gap-3 text-slate-300 text-sm">
             <span class="text-brand-400 mt-0.5 shrink-0">✓</span>
@@ -52,22 +51,24 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
 
     <div class="space-y-3">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Your curriculum</h2>
-      {sorted.map((lesson, i) => (
+      {sorted.length === 0 ? (
+        <p class="text-slate-500 text-sm">Modules for this path are being authored. Check back soon.</p>
+      ) : sorted.map((mod) => (
         <a
-          href={`/learn/${lesson.data.module}/${lesson.slug}`}
+          href={`/learn/${mod.slug}`}
           class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
                  hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
         >
           <div class="w-8 h-8 rounded-full border border-white/10 group-hover:border-brand-500/40
                       flex items-center justify-center text-xs font-mono text-slate-500
                       group-hover:text-brand-400 transition-colors shrink-0">
-            {i + 1}
+            {mod.data.moduleId}
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
-              {lesson.data.title}
+              {mod.data.title}
             </p>
-            <p class="text-sm text-slate-500 truncate">{lesson.data.description}</p>
+            <p class="text-sm text-slate-500 truncate">{mod.data.description}</p>
           </div>
           <span class="text-slate-600 group-hover:text-brand-400 transition-colors text-sm shrink-0">→</span>
         </a>
@@ -76,9 +77,7 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
 
     {sorted.length > 0 && (
       <div class="mt-8">
-        <a href={`/learn/${sorted[0].data.module}/${sorted[0].slug}`} class="btn-primary">
-          Start here →
-        </a>
+        <a href={`/learn/${sorted[0].slug}`} class="btn-primary">Start here →</a>
       </div>
     )}
   </main>

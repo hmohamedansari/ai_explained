@@ -1,0 +1,9 @@
+{
+  "title": "Multimodal AI",
+  "description": "Systems that see, hear, and act — vision models, audio AI, and multimodal safety.",
+  "order": 9,
+  "icon": "👁️",
+  "color": "pink",
+  "volatility": "volatile",
+  "personas": ["senior", "sre"]
+}

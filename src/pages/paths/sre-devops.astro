@@ -4,15 +4,15 @@ import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
-const allLessons = await getCollection('concepts', ({ data }) =>
-  !data.draft && data.audiences.includes('sre-devops')
+const modules = await getCollection('modules', ({ data }) =>
+  !data.draft && data.status === 'published' && data.personas.includes('sre')
 );
-const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
+const sorted = modules.sort((a, b) => a.data.order - b.data.order);
 ---
 
 <BaseLayout
   title="SRE / DevOps Path"
-  description="Deploy, monitor, and secure AI agents in production. Infrastructure-first."
+  description="Running AI workloads reliably and cost-efficiently in production."
 >
   <Header />
 
@@ -21,14 +21,14 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
       <div class="text-5xl mb-5">🔧</div>
       <h1 class="text-4xl font-semibold text-white mb-4">SRE / DevOps Path</h1>
       <p class="text-xl text-slate-400 max-w-2xl mb-6">
-        You own the infrastructure. This path focuses on what you care about:
-        deployment topology, transport security, observability hooks,
-        trust boundaries, and running MCP servers reliably in production.
+        You own the infrastructure. This path covers everything that matters when AI moves
+        to production: VRAM budgets, serving architectures, cost management, supply chain
+        security, and the observability stack that keeps you paged at 3am instead of midnight.
       </p>
       <div class="flex flex-wrap gap-3">
-        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Production-first</span>
-        <span class="badge bg-white/5 border border-white/10 text-slate-400">Security model</span>
-        <span class="badge bg-white/5 border border-white/10 text-slate-400">Infra topology</span>
+        <span class="badge bg-brand-950/50 border border-brand-500/30 text-brand-300">Infrastructure first</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Production focus</span>
+        <span class="badge bg-white/5 border border-white/10 text-slate-400">Cost & reliability</span>
       </div>
     </div>
 
@@ -36,11 +36,10 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
       <h2 class="text-sm font-semibold uppercase tracking-widest text-slate-500 mb-4">What you'll come away with</h2>
       <ul class="space-y-3">
         {[
-          'How MCP server processes fit into your existing infra (systemd, containers, K3s)',
-          'stdio vs HTTP+SSE: when to use each and the security implications',
-          'Trust boundaries — what an AI agent can actually do vs what the host allows',
-          'OAuth for remote MCP servers: the full auth flow',
-          'Running open-weight models locally with Ollama + LiteLLM as a drop-in API proxy',
+          'How to run LLMs locally and in production — VRAM budgets, quantisation, vLLM serving',
+          'The full observability stack: traces, costs, evals, and CI gates',
+          'Supply chain security for AI: model weights, plugins, and dependency attacks',
+          'Gateway patterns, caching layers, and latency engineering for p95/p99 SLOs',
         ].map(item => (
           <li class="flex items-start gap-3 text-slate-300 text-sm">
             <span class="text-brand-400 mt-0.5 shrink-0">✓</span>
@@ -52,22 +51,24 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
 
     <div class="space-y-3">
       <h2 class="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">Your curriculum</h2>
-      {sorted.map((lesson, i) => (
+      {sorted.length === 0 ? (
+        <p class="text-slate-500 text-sm">Modules for this path are being authored. Check back soon.</p>
+      ) : sorted.map((mod) => (
         <a
-          href={`/learn/${lesson.data.module}/${lesson.slug}`}
+          href={`/learn/${mod.slug}`}
           class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
                  hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
         >
           <div class="w-8 h-8 rounded-full border border-white/10 group-hover:border-brand-500/40
                       flex items-center justify-center text-xs font-mono text-slate-500
                       group-hover:text-brand-400 transition-colors shrink-0">
-            {i + 1}
+            {mod.data.moduleId}
           </div>
           <div class="flex-1 min-w-0">
             <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
-              {lesson.data.title}
+              {mod.data.title}
             </p>
-            <p class="text-sm text-slate-500 truncate">{lesson.data.description}</p>
+            <p class="text-sm text-slate-500 truncate">{mod.data.description}</p>
           </div>
           <span class="text-slate-600 group-hover:text-brand-400 transition-colors text-sm shrink-0">→</span>
         </a>
@@ -76,9 +77,7 @@ const sorted = allLessons.sort((a, b) => a.data.order - b.data.order);
 
     {sorted.length > 0 && (
       <div class="mt-8">
-        <a href={`/learn/${sorted[0].data.module}/${sorted[0].slug}`} class="btn-primary">
-          Start here →
-        </a>
+        <a href={`/learn/${sorted[0].slug}`} class="btn-primary">Start here →</a>
       </div>
     )}
   </main>

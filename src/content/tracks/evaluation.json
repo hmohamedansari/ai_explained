@@ -1,0 +1,9 @@
+{
+  "title": "Evaluation & Observability",
+  "description": "How to know if your AI system is working — evals, tracing, cost management, and CI/CD gates.",
+  "order": 6,
+  "icon": "📊",
+  "color": "green",
+  "volatility": "emerging",
+  "personas": ["junior", "senior", "sre"]
+}

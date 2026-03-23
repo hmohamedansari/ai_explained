@@ -1,0 +1,9 @@
+{
+  "title": "Infrastructure & Serving",
+  "description": "Running AI workloads reliably and cost-efficiently — from local models to production serving.",
+  "order": 5,
+  "icon": "⚙️",
+  "color": "cyan",
+  "volatility": "emerging",
+  "personas": ["senior", "sre"]
+}

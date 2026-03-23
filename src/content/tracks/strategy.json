@@ -1,0 +1,9 @@
+{
+  "title": "Strategy & Business",
+  "description": "ROI, buy vs build, team structure, AI economics — the decisions that matter at the org level.",
+  "order": 8,
+  "icon": "📈",
+  "color": "amber",
+  "volatility": "emerging",
+  "personas": ["curious", "leader"]
+}

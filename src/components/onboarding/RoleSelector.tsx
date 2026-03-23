@@ -2,31 +2,38 @@ import { useState } from 'react';
 
 const ROLES = [
   {
-    id: 'tech-leader',
+    id: 'curious',
+    emoji: '🌱',
+    title: 'Curious Beginner',
+    description: 'No coding background needed. You want to understand what AI actually is, read the news intelligently, and hold informed conversations with technical teams.',
+    path: '/paths/curious-beginner',
+  },
+  {
+    id: 'leader',
     emoji: '🏛️',
     title: 'Tech Leader',
-    description: 'CTO, VP, or architect — you understand systems deeply but have moved away from day-to-day coding. You want the mental model without wading through boilerplate.',
+    description: 'CTO, VP, or architect. You want the accurate mental model, the real risk surface, and the strategic decisions — without wading through implementation detail.',
     path: '/paths/tech-leader',
   },
   {
-    id: 'new-dev',
-    emoji: '🌱',
-    title: 'New Developer',
-    description: 'You\'re learning to code or newer to the field. Step-by-step explanations, plenty of analogies, and hands-on exercises to build confidence.',
+    id: 'junior',
+    emoji: '🌿',
+    title: 'Junior Developer',
+    description: 'Building your first AI feature. Step-by-step, no gaps, evals before features. You\'ll understand why things work, not just that they do.',
     path: '/paths/new-dev',
   },
   {
-    id: 'experienced-dev',
+    id: 'senior',
     emoji: '⚙️',
-    title: 'Experienced Developer',
-    description: '5+ years building systems. You want the protocol internals, the implementation details, and the code you can run today.',
+    title: 'Senior Developer',
+    description: '5+ years building systems. Protocol internals, full code examples, production failure modes, and the architectural trade-offs worth knowing.',
     path: '/paths/experienced-dev',
   },
   {
-    id: 'sre-devops',
+    id: 'sre',
     emoji: '🔧',
     title: 'SRE / DevOps',
-    description: 'You own the infrastructure. You care about deployment, observability, security, and running AI systems reliably in production.',
+    description: 'You own the infrastructure. VRAM budgets, serving architecture, cost management, supply chain security, and keeping AI workloads reliable in production.',
     path: '/paths/sre-devops',
   },
 ];
@@ -42,13 +49,13 @@ export default function RoleSelector() {
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-3xl mx-auto">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-4xl mx-auto">
       {ROLES.map(role => (
         <button
           key={role.id}
           onClick={() => handleSelect(role.id, role.path)}
           className={[
-            'text-left p-6 rounded-xl border transition-all duration-200 group',
+            'text-left p-6 rounded-xl border transition-all duration-200',
             selected === role.id
               ? 'border-brand-500 bg-brand-950/50 scale-[0.99]'
               : 'border-white/10 bg-surface-1 hover:border-brand-500/50 hover:bg-surface-2',
