@@ -12,7 +12,7 @@ estimatedMinutes:
   layer1: 6
   layer2: 13
   layer3: 17
-productionGotcha: "Model versions change without notice. A provider releasing 'claude-opus-4-6' does not mean older versions stay identical — they can be silently updated or deprecated. Pin model versions in production (e.g. 'claude-opus-4-6-20251101') and test against a fixed version in CI. Discover changes on your schedule, not when a user reports degraded output."
+productionGotcha: "Model aliases (e.g. 'claude-opus-4-6') move when providers ship improvements — your output distribution can shift with no action on your part. Snapshot-dated model IDs (e.g. 'claude-haiku-4-5-20251001') are stable and only change when you change them. Always use pinned, versioned IDs in production and CI; check the provider's models overview for the current IDs. Discover changes on your schedule, not when a user reports degraded output."
 draft: false
 ---
 
@@ -77,9 +77,9 @@ def answer(user_message: str) -> str:
     intent = classify_intent(user_message)
 
     if intent == "COMPLEX_ANALYSIS":
-        model = "claude-opus-4-6-20251101"   # frontier for hard tasks
+        model = "claude-opus-4-6"            # frontier for hard tasks — pin to versioned ID in production
     elif intent == "DATA_EXTRACTION":
-        model = "claude-sonnet-4-6-20251101" # balanced for structured work
+        model = "claude-sonnet-4-6"          # balanced for structured work — pin to versioned ID in production
     else:
         model = "claude-haiku-4-5-20251001"  # fast for simple FAQs
 
@@ -160,7 +160,7 @@ Different models within the same provider family may have different context wind
 Model providers use two naming conventions:
 
 - **Alias** (e.g. `claude-opus-4-6`) — Always points to the current recommended version. Updates when the provider ships improvements. Simple to use; unpredictable in production.
-- **Pinned version** (e.g. `claude-opus-4-6-20251101`) — Fixed to a specific release. Output distribution only changes when you change it. Required for production.
+- **Pinned version** (e.g. `claude-haiku-4-5-20251001`) — Fixed to a specific release. Output distribution only changes when you change it. Required for production. Check the [models overview](https://docs.anthropic.com/en/docs/about-claude/models/overview) for current versioned IDs.
 
 A robust model management strategy:
 
@@ -175,13 +175,13 @@ To make the economics concrete:
 
 | Model tier | Rough input cost | 1M requests × 500 tokens input |
 |---|---|---|
-| Frontier (Opus) | ~$15 / 1M tokens | ~$7,500 |
-| Balanced (Sonnet) | ~$3 / 1M tokens | ~$1,500 |
-| Fast (Haiku) | ~$0.80 / 1M tokens | ~$400 |
+| Frontier (Opus 4.6) | $5 / MTok | ~$2,500 |
+| Balanced (Sonnet 4.6) | $3 / MTok | ~$1,500 |
+| Fast (Haiku 4.5) | $1 / MTok | ~$500 |
 
-*Prices are approximate and change; always check the provider's current pricing page.*
+*Prices as of March 2026; always verify against the [current pricing page](https://www.anthropic.com/pricing).*
 
-At 1M requests per day (a moderate consumer product), the difference between Haiku and Opus for a classification task is ~$2.5M annually. The right model selection is an engineering decision with real P&L impact.
+At 1M requests per day (a moderate consumer product), the difference between Haiku and Opus for a classification task is ~$730K annually. The right model selection is an engineering decision with real P&L impact.
 
 ### Fine-tuning vs prompt engineering vs model selection
 
