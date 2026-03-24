@@ -13,7 +13,7 @@
         "No planning — let the agent decide the order at each step"
       ],
       "answer": 1,
-      "explanation": "When sub-tasks are independent, plan-then-execute with parallel execution is optimal. Generate the full plan in one LLM call (which identifies that the searches are independent), then execute all three concurrently. This reduces total search time to the duration of the slowest search rather than the sum of all three. ReAct forces sequential execution because it reasons before each action. Dynamic replanning adds overhead without benefit when the task structure is already clear.",
+      "explanation": "When sub-tasks are independent, plan-then-execute with parallel execution is optimal. Generate the full plan in one LLM call (which identifies that the searches are independent), then execute all three concurrently. This reduces total search time to the duration of the slowest search rather than the sum of all three. ReAct's default loop structure is reason→act→observe, processing one observation before the next action — it does not produce a parallelisable plan upfront, so independent branches are typically handled sequentially unless the implementation explicitly adds parallel dispatch. Dynamic replanning adds overhead without benefit when the task structure is already clear.",
       "personas": ["junior", "senior", "sre"]
     },
     {

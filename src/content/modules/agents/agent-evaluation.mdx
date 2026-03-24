@@ -231,7 +231,7 @@ def evaluate_rollback_gates(current_metrics: dict, gates: list[dict]) -> list[di
 ### Online: canary and A/B deployment
 
 ```python
-import random
+import hashlib
 
 class AgentVersionRouter:
     def __init__(self, versions: dict[str, float]):
@@ -239,15 +239,24 @@ class AgentVersionRouter:
         versions: {"v1": 0.9, "v2": 0.1}  — weights must sum to 1.0
         """
         self.versions = versions
-        self.population = [
-            v for v, weight in versions.items()
-            for _ in range(int(weight * 100))
-        ]
 
     def select(self, session_id: str) -> str:
-        """Deterministic routing — same session always gets the same version."""
-        idx = hash(session_id) % len(self.population)
-        return self.population[idx]
+        """
+        Deterministic routing — same session always gets the same version,
+        consistent across process restarts and deploys.
+
+        Uses hashlib (not Python's built-in hash(), which is process-randomized
+        by PYTHONHASHSEED since Python 3.3 and will shift sessions across restarts).
+        Cumulative weight comparison avoids the precision loss of int(weight * 100).
+        """
+        digest = int(hashlib.md5(session_id.encode()).hexdigest(), 16)
+        slot = (digest % 10_000) / 10_000.0     # stable value in [0, 1)
+        cumulative = 0.0
+        for version, weight in self.versions.items():
+            cumulative += weight
+            if slot < cumulative:
+                return version
+        return list(self.versions.keys())[-1]   # float-precision edge fallback
 
 def compare_versions(records_v1: list, records_v2: list) -> dict:
     m1 = compute_online_metrics(records_v1)
@@ -330,5 +339,5 @@ Run red-team cases before every major release and when adding new tools.
 ### Further reading
 
 - [AgentBench: Evaluating LLMs as Agents](https://arxiv.org/abs/2308.03688) — Liu et al., 2023. Multi-environment benchmark for agent task success; useful methodology for constructing eval cases.
-- [Evaluating Language-Model Agents on Realistic Autonomous Tasks](https://arxiv.org/abs/2312.11671) — Kinniment et al., 2023. ARC evaluation framework for realistic tasks; trajectory evaluation methodology.
+- [Evaluating Language-Model Agents on Realistic Autonomous Tasks](https://arxiv.org/abs/2312.11671) — Kinniment et al., 2023 (ARC Evals / METR). Evaluation methodology for realistic multi-step tasks; focuses on tasks relevant to autonomous replication and adaptation (ARA) risk assessment; useful reference for constructing high-difficulty eval cases.
 - [Holistic Evaluation of Language Models (HELM)](https://crfm.stanford.edu/helm/) — Stanford CRFM. Multi-metric evaluation framework; the multi-dimensional scoring approach is applicable to agent trajectory evaluation.

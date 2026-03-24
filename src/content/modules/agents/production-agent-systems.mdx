@@ -172,20 +172,34 @@ class TaskLease:
         acquired = self.store.set(key, lease_id, nx=True, ex=int(self.lease_ttl))
         return lease_id if acquired else None
 
+    # Lua scripts make renew and release atomic — no window between the ownership
+    # check and the mutation where another worker can slip in.
+    _RENEW_SCRIPT = """
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+            return redis.call("EXPIRE", KEYS[1], ARGV[2])
+        else
+            return 0
+        end
+    """
+
+    _RELEASE_SCRIPT = """
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+            return redis.call("DEL", KEYS[1])
+        else
+            return 0
+        end
+    """
+
     def renew(self, task_id: str, lease_id: str) -> bool:
-        """Extend the lease if we still own it."""
+        """Atomically extend the lease if we still own it."""
         key = f"lease:{task_id}"
-        current = self.store.get(key)
-        if current != lease_id:
-            return False    # lost the lease (expired and acquired by another worker)
-        self.store.expire(key, int(self.lease_ttl))
-        return True
+        result = self.store.eval(self._RENEW_SCRIPT, 1, key, lease_id, int(self.lease_ttl))
+        return bool(result)
 
     def release(self, task_id: str, lease_id: str):
-        """Release only if we still own the lease."""
+        """Atomically release only if we still own the lease."""
         key = f"lease:{task_id}"
-        if self.store.get(key) == lease_id:
-            self.store.delete(key)
+        self.store.eval(self._RELEASE_SCRIPT, 1, key, lease_id)
 
 async def run_with_lease(task_id: str, goal: str):
     lease = TaskLease(redis_client)
