@@ -1,0 +1,299 @@
+---
+moduleId: "2.4"
+title: "Retrieval Quality: Dense, Sparse, and Hybrid"
+description: "Semantic search is powerful but not always the best retrieval method. Keyword search finds exact matches that embeddings miss. Re-ranking re-scores candidates with a slower but more accurate model. Understanding when to use each — and how to combine them — is what separates reliable RAG from fragile RAG."
+track: "rag"
+order: 4
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 7
+  layer2: 16
+  layer3: 20
+productionGotcha: "Dense retrieval misses exact matches. If a user queries a specific product code, error message, or proper noun that appears verbatim in your documents, semantic search may rank a conceptually related but less precise document higher than the exact match. Hybrid search — combining dense and sparse retrieval — is almost always better in production, particularly for technical documentation, customer support, and any domain with precise terminology."
+draft: false
+---
+
+## Layer 1 — Surface
+
+There are two fundamentally different ways to find relevant text:
+
+**Dense retrieval** (semantic) — convert the query to a vector, find the most similar document vectors. Finds meaning, not words. Works across synonyms, paraphrases, and different languages.
+
+**Sparse retrieval** (keyword) — score documents by how many query terms they contain, weighted by how rare those terms are. Finds exact matches and precise terminology. The algorithm most search engines have used for decades (BM25).
+
+They fail in complementary ways:
+
+| | Dense retrieval | Sparse retrieval |
+|---|---|---|
+| **Finds** | Similar meaning | Exact word matches |
+| **Misses** | Precise terminology, rare terms, proper nouns | Synonyms, paraphrases |
+| **Fails on** | "Error code ERR-4021" | "Something went wrong connecting to the database" |
+
+**Hybrid search** combines both, getting the benefits of each. In production, it almost always outperforms either method alone.
+
+**Re-ranking** is an optional third pass: after retrieving top-k candidates, a more accurate (but slower) model re-scores them and reorders the results before passing to the generation model.
+
+### Production Gotcha
+
+> **Common Gotcha:** Dense retrieval misses exact matches. If a user queries a specific product code, error message, or proper noun that appears verbatim in your documents, semantic search may rank a conceptually related but less precise document higher than the exact match. Hybrid search — combining dense and sparse retrieval — is almost always better in production, particularly for technical documentation, customer support, and any domain with precise terminology.
+
+---
+
+## Layer 2 — Guided
+
+### Dense retrieval (module 2.2 recap)
+
+You built this in module 2.2. Embed the query, find the most similar document vectors:
+
+```python
+# --- pseudocode ---
+def dense_search(query: str, top_k: int = 10) -> list[dict]:
+    query_vector = embedding_model.embed(query)
+    return vector_db.search(vector=query_vector, top_k=top_k)
+    # Returns: [{"text": ..., "score": 0.89, "id": ...}, ...]
+```
+
+Works well for: conceptual questions, paraphrased queries, multilingual queries, when users don't know the exact terminology.
+
+Fails on: specific identifiers, rare terms, acronyms, product codes — anything where exact match matters more than semantic similarity.
+
+### Sparse retrieval: BM25
+
+BM25 (Best Match 25) scores documents by term frequency × inverse document frequency. Documents that contain rare query terms and contain them often rank higher. No embeddings, no neural networks — pure text statistics:
+
+```python
+# --- pseudocode ---
+def sparse_search(query: str, top_k: int = 10) -> list[dict]:
+    return bm25_index.search(query=query, top_k=top_k)
+    # Returns: [{"text": ..., "score": 14.3, "id": ...}, ...]
+```
+
+```python
+# In practice — rank_bm25 library
+from rank_bm25 import BM25Okapi
+
+# Index (build once, store to disk or rebuild from corpus)
+class SparseIndex:
+    def __init__(self, documents: list[dict]):
+        self.documents = documents
+        tokenized = [doc["text"].lower().split() for doc in documents]
+        self.bm25 = BM25Okapi(tokenized)
+
+    def search(self, query: str, top_k: int = 10) -> list[dict]:
+        tokens = query.lower().split()
+        scores = self.bm25.get_scores(tokens)
+        top_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+        return [
+            {"id": self.documents[i]["id"], "text": self.documents[i]["text"], "score": scores[i]}
+            for i in top_indices
+            if scores[i] > 0
+        ]
+```
+
+Works well for: exact error messages, product codes, names, technical terms, any query where the user knows the precise terminology.
+
+Fails on: semantic queries, synonyms, multi-word concepts that appear differently across documents.
+
+### Hybrid search: Reciprocal Rank Fusion
+
+The simplest and most robust way to combine dense and sparse results is **Reciprocal Rank Fusion (RRF)**. It works on ranks, not scores — so you don't need to normalise or calibrate different score ranges:
+
+```python
+def reciprocal_rank_fusion(
+    result_lists: list[list[dict]],
+    k: int = 60,
+) -> list[dict]:
+    """
+    Combine multiple ranked result lists into one.
+    k=60 is the standard constant; higher k reduces the impact of top ranks.
+    """
+    scores: dict[str, float] = {}
+    docs: dict[str, dict] = {}
+
+    for results in result_lists:
+        for rank, doc in enumerate(results):
+            doc_id = doc["id"]
+            scores[doc_id] = scores.get(doc_id, 0) + 1 / (k + rank + 1)
+            docs[doc_id] = doc
+
+    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return [docs[doc_id] for doc_id, _ in ranked]
+
+
+def hybrid_search(query: str, top_k: int = 5) -> list[dict]:
+    dense_results  = dense_search(query, top_k=20)   # cast a wide net
+    sparse_results = sparse_search(query, top_k=20)
+    return reciprocal_rank_fusion([dense_results, sparse_results])[:top_k]
+```
+
+RRF's key property: a document that ranks highly in both lists rises to the top even if it doesn't rank first in either. Documents that appear in only one list can still place well if they rank high enough in that list.
+
+```python
+# What hybrid search catches that dense-only misses:
+results = hybrid_search("ERR-4021 connection timeout")
+# Dense alone: returns documents about "connection errors" and "timeouts" (semantic)
+# Sparse alone: returns documents containing "ERR-4021" (exact match)
+# Hybrid: returns documents containing "ERR-4021" that also discuss connection timeouts
+```
+
+### Re-ranking
+
+After hybrid search returns top-k candidates, a **cross-encoder re-ranker** scores each (query, document) pair jointly — more accurate than the bi-encoder embedding similarity used for retrieval, but too slow to run across the full corpus:
+
+```python
+# --- pseudocode ---
+# Retrieval: fast, approximate — bi-encoder (query and doc embedded separately)
+candidates = hybrid_search(query, top_k=20)
+
+# Re-ranking: slower, more accurate — cross-encoder (query and doc processed together)
+reranked = reranker.score_pairs([(query, doc["text"]) for doc in candidates])
+top_results = reranked[:5]  # keep only the best after re-scoring
+```
+
+```python
+# In practice — sentence-transformers cross-encoder
+from sentence_transformers import CrossEncoder
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+def rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
+    pairs = [(query, doc["text"]) for doc in candidates]
+    scores = reranker.predict(pairs)
+
+    for doc, score in zip(candidates, scores):
+        doc["rerank_score"] = float(score)
+
+    return sorted(candidates, key=lambda d: d["rerank_score"], reverse=True)[:top_k]
+
+
+def retrieve(query: str) -> list[str]:
+    candidates = hybrid_search(query, top_k=20)      # retrieve a wider pool
+    top = rerank(query, candidates, top_k=5)          # re-score and narrow
+    return [doc["text"] for doc in top]
+```
+
+Re-rankers are bi-directional transformers trained specifically for relevance scoring. They're too slow for full-corpus search (O(n) inference per query) but fast enough for re-scoring 20–50 candidates.
+
+**When to add a re-ranker:** when retrieval recall is good (the right document is in the top-20) but precision is low (the top-5 often don't contain the right document). If recall@20 is high but recall@5 is low, re-ranking fixes it.
+
+### Choosing the right strategy
+
+| Scenario | Recommended approach |
+|---|---|
+| Proof of concept / small corpus | Dense retrieval only |
+| Mixed content (prose + product codes + names) | Hybrid (dense + sparse) |
+| Good recall but wrong order | Add re-ranking |
+| Pure exact-match lookups (database records, structured data) | Sparse (or just SQL) |
+| Multilingual content, diverse phrasing | Dense retrieval primary |
+
+### Before vs After
+
+**Dense-only — misses precise terminology:**
+```
+Query:   "How do I fix ERR-4021?"
+Dense:   Returns "connection error troubleshooting guide" (score: 0.73)
+         Does NOT rank "ERR-4021: Authentication token expired" as #1
+         because the embedding captures "error" not "4021"
+```
+
+**Hybrid — catches the exact match:**
+```
+Query:   "How do I fix ERR-4021?"
+Sparse:  "ERR-4021: Authentication token expired" → rank 1 (exact match)
+Dense:   "Connection error troubleshooting guide" → rank 1 (semantic match)
+Hybrid:  "ERR-4021: Authentication token expired" → rank 1 (appears in both)
+         "Connection error troubleshooting guide" → rank 2
+```
+
+### Common mistakes
+
+1. **Dense-only in production** — Works well in demos, misses exact-match queries in production. Add BM25 as a second pass from the start.
+2. **Combining scores directly** — Dense scores (0.0–1.0 cosine similarity) and sparse scores (BM25, unbounded) are not comparable. Use RRF on ranks instead of trying to normalise and sum scores.
+3. **Re-ranking without widening the initial retrieval** — A re-ranker can only promote documents that were retrieved. If the right document wasn't in the top-k before re-ranking, re-ranking can't save you. Retrieve top-20 before re-ranking to top-5.
+4. **No metadata filtering before retrieval** — Running similarity search across your entire corpus when you know the document must be from a specific source, date range, or department wastes compute and increases noise. Filter first, search within the filter.
+5. **Evaluating retrieval by asking the model** — The model may produce a coherent answer from the wrong chunk. Retrieval quality must be measured by whether the correct chunk appears in the top-k, not by whether the final answer sounds right.
+
+---
+
+## Layer 3 — Deep Dive
+
+### How BM25 actually works
+
+BM25 scores a document d for query q as the sum over query terms t:
+
+```
+BM25(d, q) = Σ IDF(t) × (f(t,d) × (k₁+1)) / (f(t,d) + k₁ × (1 - b + b × |d|/avgdl))
+```
+
+Where:
+- `f(t,d)` = frequency of term t in document d
+- `|d|` = document length; `avgdl` = average document length in corpus
+- `IDF(t)` = log((N - n(t) + 0.5) / (n(t) + 0.5)) — rewards rare terms
+- `k₁` ≈ 1.5 — term frequency saturation (diminishing returns after multiple occurrences)
+- `b` ≈ 0.75 — document length normalisation (penalises longer documents)
+
+In practice: high IDF (rare terms in the query) × reasonable frequency in the document = high score. Common words like "the" have near-zero IDF and barely contribute.
+
+### Why embeddings miss exact matches: the OOV problem
+
+Embedding models learn vector representations during training. A term that appears rarely or not at all in training data gets a poor representation — it may collapse to a generic "unknown word" vector that doesn't capture its specific meaning.
+
+This is the out-of-vocabulary (OOV) problem: proprietary product names, internal error codes, recent proper nouns, and domain-specific jargon are all candidates for poor dense retrieval. BM25 doesn't suffer from this — it's a character-level comparison, and a match is a match regardless of training data.
+
+### Retrieval evaluation metrics
+
+**Recall@k** — the fraction of queries where the correct document appears in the top-k results. The most important metric for RAG: if the right chunk isn't retrieved, the model cannot generate the right answer regardless of how good it is.
+
+```python
+def recall_at_k(queries_with_labels: list[dict], search_fn, k: int) -> float:
+    """
+    queries_with_labels: [{"query": "...", "relevant_ids": ["doc1", "doc2"]}, ...]
+    search_fn: callable(query, top_k) → list[dict with "id" key]
+    """
+    hits = 0
+    for item in queries_with_labels:
+        results = search_fn(item["query"], top_k=k)
+        retrieved_ids = {r["id"] for r in results}
+        if retrieved_ids & set(item["relevant_ids"]):
+            hits += 1
+    return hits / len(queries_with_labels)
+```
+
+**MRR (Mean Reciprocal Rank)** — rewards systems that put the correct document higher in the ranked list. The reciprocal rank of rank 1 is 1.0, rank 2 is 0.5, rank 5 is 0.2. Average across queries.
+
+**NDCG (Normalised Discounted Cumulative Gain)** — handles multiple relevant documents with graded relevance (some chunks are more relevant than others). More complex to compute but more expressive for multi-document retrieval.
+
+For most RAG systems, **recall@5** and **recall@10** are the most actionable metrics: they directly answer "does my retrieval find the right chunk in a usable number of results?"
+
+### Cross-encoders vs bi-encoders
+
+The retrieval stack uses two different model architectures for different parts of the pipeline:
+
+**Bi-encoder** (used in dense retrieval): query and document are embedded separately, then compared. Fast because embeddings can be pre-computed. Less accurate because query and document don't attend to each other.
+
+**Cross-encoder** (used in re-ranking): query and document are concatenated and processed together. The model can attend from any query token to any document token, capturing subtle relevance signals. Slow (can't pre-compute document embeddings) — O(candidates × inference) per query.
+
+The practical pipeline: bi-encoder retrieves top-20 fast (pre-computed doc embeddings), cross-encoder re-scores top-20 slow (full inference on each pair), return top-5.
+
+### Vector database options
+
+| Database | Deployment | Notes |
+|---|---|---|
+| **Chroma** | Local or self-hosted | Zero-setup Python library; good for development and small scale |
+| **pgvector** | Postgres extension | Best if you already run Postgres; keeps all data in one system |
+| **Qdrant** | Self-hosted or cloud | Rust-based; good performance/cost ratio; supports sparse vectors natively |
+| **Weaviate** | Self-hosted or cloud | Built-in hybrid search; GraphQL query language |
+| **Pinecone** | Cloud-only | Managed, simple API; no self-hosted option |
+| **Milvus** | Self-hosted or cloud | Designed for very large scale (billions of vectors) |
+
+No single database is universally best. Choose based on: existing infrastructure (Postgres → pgvector), scale requirements, team operational capacity (managed vs self-hosted), and whether native hybrid search matters.
+
+### Further reading
+
+- [BM25: The Probabilistic Relevance Framework](https://www.staff.city.ac.uk/~seb/papers/robertson-bm25-revised.pdf) — Robertson & Zaragoza, 2009. The definitive reference for BM25; worth reading the first section to understand why IDF and length normalisation work.
+- [Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods](https://dl.acm.org/doi/10.1145/1571941.1572114) — Cormack et al., 2009. The original RRF paper; short and readable.
+- [ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT](https://arxiv.org/abs/2004.12832) — Khattab & Zaharia, 2020. An approach that sits between bi-encoder and cross-encoder — useful background for understanding late interaction models used in some production retrieval systems.
+- [BEIR: A Heterogeneous Benchmark for Zero-Shot Evaluation of Information Retrieval Models](https://arxiv.org/abs/2104.08663) — Thakur et al., 2021. The standard benchmark for comparing retrieval methods across domains; run your retrieval system against BEIR datasets to get a comparable baseline.

@@ -1,0 +1,314 @@
+---
+moduleId: "2.3"
+title: "Chunking and Indexing"
+description: "You can't embed a whole document — you split it into pieces first. How you split determines what you can retrieve. The wrong chunking strategy is one of the most common reasons RAG systems fail to find the right answer even when the information clearly exists."
+track: "rag"
+order: 3
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 15
+  layer3: 18
+productionGotcha: "Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries (each entry is already one chunk) or on code (functions are the natural unit, not arbitrary character counts). Measure retrieval recall on a representative query set before picking a strategy — don't inherit the tutorial's 512-token default."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Before you can embed a document, you have to split it into pieces small enough to be meaningful retrieval units. Those pieces are **chunks**.
+
+The size of each chunk is a tradeoff:
+
+| Chunk too large | Chunk too small |
+|---|---|
+| Retrieved chunk contains the answer buried in irrelevant content | Chunk is missing the surrounding context needed to understand the answer |
+| Model has to read more tokens per retrieved chunk | You need more chunks to cover the same content |
+| Similarity search is less precise — chunk covers too many topics | Similarity search is less accurate — too little signal per chunk |
+
+The right chunk size depends on your content type, your queries, and your model's context budget. There is no universal default.
+
+Three strategies cover most use cases:
+
+| Strategy | How it splits | Best for |
+|---|---|---|
+| **Fixed-size** | Every N characters or tokens, with optional overlap | Quick start; predictable; works well for uniform prose |
+| **Recursive / structural** | Try paragraph → sentence → word; split only where necessary | General-purpose; respects natural text boundaries |
+| **Document-aware** | Split on document structure (headings, sections, code blocks) | Structured docs (Markdown, HTML), code, PDFs with clear sections |
+
+### Production Gotcha
+
+> **Common Gotcha:** Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries or code. Measure retrieval recall on a representative query set before picking a strategy — don't inherit the tutorial's 512-token default.
+
+---
+
+## Layer 2 — Guided
+
+### Fixed-size chunking
+
+The simplest strategy: split every N characters with an overlap so context doesn't fall at split boundaries:
+
+```python
+# --- pseudocode ---
+def fixed_chunks(text: str, size: int = 1000, overlap: int = 200) -> list[str]:
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + size
+        chunks.append(text[start:end])
+        start += size - overlap   # step back by overlap so consecutive chunks share content
+    return chunks
+```
+
+```python
+# In practice — pure Python, no dependencies
+def fixed_chunks(text: str, chunk_size: int = 1000, overlap: int = 200) -> list[str]:
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = min(start + chunk_size, len(text))
+        chunks.append(text[start:end])
+        if end == len(text):
+            break
+        start += chunk_size - overlap
+    return chunks
+
+# Example
+text = open("policy.txt").read()
+chunks = fixed_chunks(text, chunk_size=800, overlap=150)
+print(f"{len(chunks)} chunks, avg {sum(len(c) for c in chunks) / len(chunks):.0f} chars each")
+```
+
+**Overlap** is critical: without it, a sentence split across two chunks is unretrievable — neither chunk contains the full thought. A 10–20% overlap (e.g. 100–200 characters out of 1000) is a common starting point.
+
+### Recursive / structural chunking
+
+Instead of splitting blindly by character count, try to split on natural boundaries first:
+
+```python
+def recursive_chunks(
+    text: str,
+    chunk_size: int = 1000,
+    overlap: int = 200,
+    separators: list[str] = ["\n\n", "\n", ". ", " "],
+) -> list[str]:
+    """
+    Split on the first separator that produces chunks under chunk_size.
+    Falls back to the next separator if chunks are still too large.
+    """
+    for sep in separators:
+        if sep in text:
+            parts = text.split(sep)
+            chunks = []
+            current = ""
+            for part in parts:
+                candidate = current + sep + part if current else part
+                if len(candidate) <= chunk_size:
+                    current = candidate
+                else:
+                    if current:
+                        chunks.append(current)
+                    current = part
+            if current:
+                chunks.append(current)
+
+            # If all chunks are within size, we're done
+            if all(len(c) <= chunk_size for c in chunks):
+                return chunks
+
+    # Fall back: if no separator works, split by size
+    return fixed_chunks(text, chunk_size, overlap)
+```
+
+This produces chunks that tend to end at paragraph or sentence boundaries, which makes them more coherent as retrieval units. Most production systems use recursive chunking or a wrapper library that implements it (LangChain's `RecursiveCharacterTextSplitter`, LlamaIndex's `SentenceSplitter`).
+
+### Attaching metadata to chunks
+
+A chunk without source information is almost useless in production: you can't cite it, can't filter it, and can't debug why it was retrieved:
+
+```python
+import hashlib
+
+def chunk_document(
+    text: str,
+    source: str,
+    doc_id: str,
+    chunk_size: int = 800,
+    overlap: int = 150,
+) -> list[dict]:
+    raw_chunks = recursive_chunks(text, chunk_size=chunk_size, overlap=overlap)
+    result = []
+    for i, chunk_text in enumerate(raw_chunks):
+        chunk_id = hashlib.md5(chunk_text.encode()).hexdigest()[:12]
+        result.append({
+            "id": f"{doc_id}-chunk-{i}",
+            "text": chunk_text,
+            "metadata": {
+                "source": source,
+                "doc_id": doc_id,
+                "chunk_index": i,
+                "chunk_total": len(raw_chunks),
+                "char_count": len(chunk_text),
+            },
+        })
+    return result
+
+# Usage
+chunks = chunk_document(
+    text=open("handbook.pdf.txt").read(),
+    source="employee_handbook_v3.pdf",
+    doc_id="handbook-2026",
+)
+# Each chunk now carries its source — filterable and citable at query time
+```
+
+Metadata fields to always include: source file/URL, document ID, chunk index. Optional but useful: section title, page number, creation/update date, access permissions.
+
+### Document-aware chunking
+
+Some document types have inherent structure that fixed-size and recursive approaches ignore:
+
+**Markdown / HTML** — split on headers; keep each section together:
+```python
+import re
+
+def markdown_chunks(text: str, max_chunk_size: int = 1500) -> list[dict]:
+    """Split on ## headings; fall back to recursive if a section is too large."""
+    sections = re.split(r"(?m)^(#{1,3} .+)$", text)
+    chunks = []
+    current_heading = "Introduction"
+    current_text = ""
+
+    for part in sections:
+        if re.match(r"^#{1,3} ", part):
+            current_heading = part.strip()
+        else:
+            if len(current_text + part) > max_chunk_size and current_text:
+                chunks.append({"heading": current_heading, "text": current_text.strip()})
+                current_text = part
+            else:
+                current_text += part
+
+    if current_text.strip():
+        chunks.append({"heading": current_heading, "text": current_text.strip()})
+
+    return chunks
+```
+
+**Code** — split on function / class boundaries rather than character counts. A function split in the middle loses its signature or return type:
+```python
+import ast
+
+def python_function_chunks(source_code: str, filename: str) -> list[dict]:
+    """Extract each top-level function and class as its own chunk."""
+    tree = ast.parse(source_code)
+    chunks = []
+    lines = source_code.splitlines()
+
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            start = node.lineno - 1
+            end = node.end_lineno
+            chunk_text = "\n".join(lines[start:end])
+            chunks.append({
+                "text": chunk_text,
+                "metadata": {
+                    "type": type(node).__name__,
+                    "name": node.name,
+                    "file": filename,
+                    "lines": f"{node.lineno}–{node.end_lineno}",
+                },
+            })
+    return chunks
+```
+
+### The indexing pipeline
+
+Chunking is one step in the full indexing pipeline. The complete flow:
+
+```python
+# --- pseudocode ---
+def index_document(raw_document: dict) -> None:
+    # 1. Preprocess
+    text = extract_text(raw_document)         # PDF → text, HTML → text, etc.
+    text = clean_text(text)                   # remove headers/footers, fix encoding
+
+    # 2. Chunk
+    chunks = chunk_document(
+        text=text,
+        source=raw_document["source"],
+        doc_id=raw_document["id"],
+    )
+
+    # 3. Embed
+    for chunk in chunks:
+        chunk["embedding"] = embedding_model.embed(chunk["text"])
+
+    # 4. Store
+    vector_db.upsert(chunks)
+```
+
+Run this pipeline once on initial ingestion, then re-run for any document that changes. Track document modification times or content hashes to identify what needs re-indexing.
+
+### Common mistakes
+
+1. **One chunk size for all document types** — PDFs, Markdown docs, database records, and code all have different natural unit sizes. Profile each content type separately.
+2. **No overlap** — Split boundaries will cut sentences in half. Any chunk that starts mid-sentence loses its opening context; any query matching that context returns a broken result.
+3. **Chunking without metadata** — Chunks without source attribution can't be cited, filtered, or debugged. Always attach at minimum a source identifier.
+4. **Not handling empty/short chunks** — After splitting, filter out chunks below a minimum length (e.g. 50 characters). Short chunks from page headers, footers, or whitespace add noise without signal.
+5. **Re-indexing full corpus on every change** — Hashing chunk content lets you detect which chunks actually changed and only re-embed those. Embedding APIs cost money; full re-index on every update is wasteful.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Measuring chunk quality
+
+Chunking strategy ultimately has one metric that matters: does retrieval find the right chunk for a given query? Everything else is a proxy. The only way to know is to build a retrieval evaluation set:
+
+1. Take 50–100 representative queries from real or expected user traffic
+2. Manually identify which chunk(s) contain the answer for each query
+3. Run your retrieval pipeline and check whether those chunks appear in the top-k results
+4. Compute **recall@k**: `(queries where correct chunk appears in top-k) / total queries`
+
+Then change one variable at a time (chunk size, overlap, strategy) and re-measure. Module 2.6 covers the full evaluation framework; the point here is that intuition about chunk size is unreliable — measure it.
+
+### Context window allocation
+
+Chunks don't live in isolation — they compete for context window space along with the system prompt, conversation history, and model output. A practical chunk sizing heuristic:
+
+```
+Available context budget for retrieved content
+= model context limit
+  − system prompt tokens
+  − conversation history tokens
+  − max output tokens
+  − safety buffer (10%)
+
+Max chunks to retrieve = available budget / chunk size (in tokens)
+```
+
+If your system prompt is 500 tokens, history is 2000 tokens, and your context limit is 16K with a 2K output reserve, you have ~11K tokens for retrieved content. At 500 tokens per chunk, that's ~22 chunks maximum — but passing all 22 to the model usually hurts quality. Aim for 3–8 high-quality, relevant chunks.
+
+### Late chunking
+
+A newer approach (2024) embeds the full document first to capture long-range context, then splits the resulting token embeddings into chunks. This preserves context that fixed-chunking loses — a chunk at the end of a document can retain semantic information from the beginning.
+
+The trade-off: late chunking requires embedding the entire document (expensive for long documents), and is tied to token-level embedding models that expose intermediate representations. It's not universally available across embedding providers.
+
+### Sentence window retrieval
+
+A variant where you index at sentence granularity (small chunks = precise retrieval) but expand the retrieved chunk to include surrounding sentences before passing to the model (provides necessary context). The retrieval unit and the generation unit are deliberately different sizes:
+
+- **Index** at sentence level: high retrieval precision
+- **Expand** to ±2 sentences around the retrieved sentence: sufficient context for the model
+
+This is also called "small-to-big retrieval" and is a pattern covered in more depth in module 2.7 (Advanced RAG Patterns).
+
+### Further reading
+
+- [Evaluating the Ideal Chunk Size for RAG](https://www.llamaindex.ai/blog/evaluating-the-ideal-chunk-size-for-a-rag-system-using-llamaindex-6207e5d3fec5) — LlamaIndex blog with empirical measurements of how chunk size affects answer quality across different document types; shows the non-linear relationship between chunk size and retrieval quality.
+- [Unstructured](https://github.com/Unstructured-IO/unstructured) — Open-source library for document preprocessing (PDF, Word, HTML, email); handles the text extraction step before chunking across dozens of file types.
+- [Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models](https://arxiv.org/abs/2409.04701) — Günther et al., 2024. The late chunking paper; worth reading if you're working with long documents and seeing quality issues with fixed chunking.

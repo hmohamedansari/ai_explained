@@ -1,0 +1,257 @@
+---
+moduleId: "2.2"
+title: "Embeddings and Vector Search"
+description: "Semantic search — finding text by meaning rather than keywords — is the engine inside most RAG systems. Understanding how embeddings work and how vector databases store and query them is the foundation you need to build reliable retrieval."
+track: "rag"
+order: 2
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 7
+  layer2: 16
+  layer3: 20
+productionGotcha: "Embedding model mismatches break retrieval silently. Documents indexed with model A and queries embedded with model B produce meaningless similarity scores — the vectors live in different spaces. Always use the same model for indexing and querying. When you switch embedding models, re-embed and re-index everything."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An **embedding** is a list of numbers — a vector — that represents the meaning of a piece of text.
+
+The key property: text with similar meaning produces vectors that are close together in space. "Refund policy" and "money-back guarantee" end up near each other. "Refund policy" and "quarterly revenue" end up far apart. This lets you search by meaning rather than by exact word match.
+
+The workflow:
+
+```
+Text: "What is the refund policy?"
+    ↓
+[Embedding model]
+    ↓
+Vector: [0.021, -0.147, 0.382, ..., 0.059]  ← typically 768–3072 numbers
+```
+
+A **vector database** stores these vectors and answers one question efficiently: *given this query vector, which stored vectors are most similar?* That's semantic search — and it's how your RAG system finds the right documents.
+
+Three things you need to build retrieval:
+
+| Component | What it does | Examples |
+|---|---|---|
+| **Embedding model** | Converts text → vector | `text-embedding-3-small` (OpenAI), `text-embedding-004` (Google), `all-MiniLM-L6-v2` (open-source) |
+| **Vector database** | Stores vectors, answers similarity queries | Chroma, pgvector, Pinecone, Weaviate, Qdrant |
+| **Similarity metric** | Defines "closeness" between vectors | Cosine similarity (most common), dot product, Euclidean distance |
+
+### Production Gotcha
+
+> **Common Gotcha:** Embedding model mismatches break retrieval silently. Documents indexed with model A and queries embedded with model B produce meaningless similarity scores — the vectors live in different spaces. Always use the same model for indexing and querying. When you switch embedding models, re-embed and re-index everything.
+
+---
+
+## Layer 2 — Guided
+
+### Generating embeddings
+
+Any embedding API takes text in and returns a vector out. The interface is consistent across providers:
+
+```python
+# --- pseudocode ---
+vector = embedding_model.embed("What is the refund policy for enterprise customers?")
+# returns: [0.021, -0.147, 0.382, ..., 0.059]  — a list of floats
+```
+
+```python
+# In practice — OpenAI SDK
+from openai import OpenAI
+
+client = OpenAI()  # reads OPENAI_API_KEY from env
+
+def embed(text: str) -> list[float]:
+    response = client.embeddings.create(
+        model="text-embedding-3-small",  # 1536 dimensions; text-embedding-3-large for higher quality
+        input=text,
+    )
+    return response.data[0].embedding
+```
+
+```python
+# Alternative — open-source, no API key required
+from sentence_transformers import SentenceTransformer
+
+model = SentenceTransformer("all-MiniLM-L6-v2")  # 384 dimensions; runs locally
+
+def embed(text: str) -> list[float]:
+    return model.encode(text).tolist()
+```
+
+Note: **Anthropic does not offer an embedding model.** For RAG with Claude as the generation model, you'll use a separate provider for embeddings — OpenAI, Google (`text-embedding-004`), Cohere (`embed-english-v3.0`), or an open-source model.
+
+### Choosing an embedding model
+
+The right embedding model depends on your constraints:
+
+| Model | Provider | Dimensions | Cost | Notes |
+|---|---|---|---|---|
+| `text-embedding-3-small` | OpenAI | 1536 | Low | Best cost/quality balance for most use cases |
+| `text-embedding-3-large` | OpenAI | 3072 | Medium | Higher quality; worth it for complex documents |
+| `text-embedding-004` | Google | 768 | Low | Strong multilingual support |
+| `embed-english-v3.0` | Cohere | 1024 | Low | Good for English retrieval tasks |
+| `all-MiniLM-L6-v2` | open-source | 384 | Free | Fast, small; good for local/offline use |
+| `nomic-embed-text` | open-source | 768 | Free | Higher quality open-source option |
+
+Evaluate on **your data**. MTEB (Massive Text Embedding Benchmark) gives general quality rankings, but retrieval performance on your specific domain may differ. Module 2.6 covers how to measure this.
+
+### Indexing documents
+
+Indexing is the process of embedding all your documents and storing them in a vector database. You do this once (then again when documents change):
+
+```python
+# --- pseudocode ---
+# Assume: documents is a list of {"id": str, "text": str, "metadata": dict}
+
+for doc in documents:
+    vector = embedding_model.embed(doc["text"])
+    vector_db.store(id=doc["id"], vector=vector, text=doc["text"], metadata=doc["metadata"])
+```
+
+```python
+# In practice — Chroma (local vector database, no server required)
+import chromadb
+
+# Persistent storage to disk
+client = chromadb.PersistentClient(path="./chroma_db")
+collection = client.get_or_create_collection(
+    name="my_docs",
+    metadata={"hnsw:space": "cosine"},  # use cosine similarity
+)
+
+def index_documents(documents: list[dict]) -> None:
+    collection.add(
+        ids=[doc["id"] for doc in documents],
+        documents=[doc["text"] for doc in documents],
+        embeddings=[embed(doc["text"]) for doc in documents],
+        metadatas=[doc.get("metadata", {}) for doc in documents],
+    )
+```
+
+Chroma handles embedding storage and similarity search locally — no API key, no server, no cloud account. For production scale or managed hosting, Pinecone, Weaviate, and Qdrant offer similar APIs with more operational control.
+
+### Querying — semantic search
+
+With documents indexed, a query is just: embed the question, find the closest document vectors:
+
+```python
+# --- pseudocode ---
+def search(query: str, top_k: int = 5) -> list[dict]:
+    query_vector = embedding_model.embed(query)
+    results = vector_db.search(vector=query_vector, top_k=top_k)
+    return results  # list of {text, metadata, similarity_score}
+```
+
+```python
+# In practice — Chroma
+def search(query: str, top_k: int = 5) -> list[str]:
+    query_embedding = embed(query)
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+        include=["documents", "metadatas", "distances"],
+    )
+    return results["documents"][0]   # list of matching text chunks
+```
+
+### End-to-end: index then retrieve
+
+```python
+# Index once
+documents = [
+    {"id": "policy-1", "text": "Enterprise customers receive a 60-day money-back guarantee.", "metadata": {"source": "refund_policy.pdf"}},
+    {"id": "policy-2", "text": "Monthly subscribers can cancel anytime; no refunds for the current period.", "metadata": {"source": "refund_policy.pdf"}},
+    {"id": "pricing-1", "text": "Volume discounts apply for accounts with over 50 seats.", "metadata": {"source": "pricing.pdf"}},
+]
+index_documents(documents)
+
+# Query at request time
+chunks = search("Can enterprise customers get a refund?", top_k=3)
+# Returns the policy-1 chunk as the top result — by meaning, not keyword match
+```
+
+### Before vs After
+
+**Keyword search — misses synonyms:**
+```
+Query:  "money-back guarantee"
+Doc:    "refund policy for enterprise customers"
+Result: No match — different words, same meaning
+```
+
+**Semantic search — finds by meaning:**
+```
+Query:  "money-back guarantee"
+Doc:    "refund policy for enterprise customers"
+Result: High similarity score — "money-back" ≈ "refund", "guarantee" ≈ "policy"
+```
+
+### Common mistakes
+
+1. **Using the same model for all content types** — An embedding model trained on general text may perform poorly on code, legal documents, or medical records. Check domain-specific alternatives or fine-tuned embedding models for specialist content.
+2. **Ignoring metadata filtering** — Returning all similar documents regardless of source, date, or access permissions. Most vector databases support filtering by metadata fields (e.g. `source == "2026 policy"`) before similarity scoring.
+3. **Not batching embedding calls** — Embedding one document at a time with API calls is slow and expensive. All major embedding APIs support batch input — pass a list of texts, get a list of vectors back.
+4. **Mixing normalised and unnormalised vectors** — Cosine similarity requires normalised vectors; dot product doesn't. When switching between metrics, check your database's configuration and re-index if needed.
+5. **Storing raw text separately from vectors** — If you store vectors in the database but text elsewhere, you must join them on retrieval. Keep text and metadata alongside vectors in the same record.
+
+---
+
+## Layer 3 — Deep Dive
+
+### What makes vectors similar: distance metrics
+
+Two vectors are "close" according to a metric. The choice of metric matters:
+
+**Cosine similarity** — measures the angle between vectors, ignoring magnitude. Range: -1 (opposite) to 1 (identical direction). Most common for text embeddings because it's invariant to text length — a short and long document on the same topic score similarly.
+
+**Dot product** — magnitude × cosine similarity. Favours longer, denser texts unless vectors are normalised. Some embedding models (like OpenAI's) are trained with dot product as the intended metric; check your model's documentation.
+
+**Euclidean distance** — straight-line distance. Less common for text; sensitive to vector magnitude, which can distort similarity for text of different lengths.
+
+For most text embedding models: **use cosine similarity unless the model documentation says otherwise.**
+
+### Why exact search doesn't scale: ANN
+
+Exact nearest-neighbour search over millions of vectors is O(n) per query — you compare the query to every stored vector. At 10M documents this is too slow for interactive use.
+
+**Approximate Nearest Neighbour (ANN)** algorithms trade a small accuracy loss for large speed gains. The most widely used:
+
+**HNSW (Hierarchical Navigable Small World)** — builds a multi-layer graph where nodes are connected to nearby neighbours. Search navigates the graph from a coarse top layer to a precise bottom layer, checking only a small fraction of vectors. Fast query time; higher memory usage; best for in-memory indexes.
+
+**IVF (Inverted File Index)** — clusters vectors into groups (Voronoi cells); searches only the nearest clusters. Lower memory than HNSW; slightly slower for small datasets. Works well at very large scales with quantisation.
+
+Most vector databases (Chroma, Qdrant, Pinecone, Weaviate) handle the ANN algorithm for you. The practical implication: you tune `ef_search` (HNSW) or `nprobe` (IVF) to trade recall against latency. Higher values = more accurate = slower.
+
+### Embedding model evaluation: MTEB
+
+The Massive Text Embedding Benchmark (MTEB) scores embedding models across 58 datasets covering retrieval, classification, clustering, and semantic textual similarity. The retrieval subtask is the most relevant for RAG: it measures how well a model retrieves relevant passages given a query.
+
+MTEB scores are a useful starting point, but **always measure on your own data**. A model that ranks highly on BEIR (a standard retrieval benchmark) may underperform on your domain-specific content. Module 2.6 covers how to build a retrieval evaluation set.
+
+### Dimensionality and storage
+
+Higher-dimensional embeddings capture more nuance but cost more:
+
+| Dimensions | Storage per vector | 1M vectors |
+|---|---|---|
+| 384 | ~1.5 KB | ~1.5 GB |
+| 768 | ~3 KB | ~3 GB |
+| 1536 | ~6 KB | ~6 GB |
+| 3072 | ~12 KB | ~12 GB |
+
+For many use cases, 768 dimensions captures sufficient semantic information. Some models support **Matryoshka embeddings** (OpenAI's `text-embedding-3` family, Nomic's `nomic-embed-text`) — you can truncate the vector to fewer dimensions with a controllable quality/storage tradeoff.
+
+**Quantisation** (int8 or binary) reduces storage further with a small recall loss. Most production vector databases support this natively.
+
+### Further reading
+
+- [MTEB Leaderboard](https://huggingface.co/spaces/mteb/leaderboard) — Current embedding model rankings across retrieval and other tasks; filter by the "Retrieval" task for RAG relevance.
+- [Approximate Nearest Neighbors Oh Yeah (ANNOY)](https://github.com/spotify/annoy) — Spotify's ANN library; the README is one of the clearest explanations of ANN intuition available.
+- [Matryoshka Representation Learning](https://arxiv.org/abs/2205.13147) — Kusupati et al., 2022. The paper behind variable-dimension embeddings; relevant to understanding how modern embedding models support dimension truncation.
+- [pgvector](https://github.com/pgvector/pgvector) — Vector similarity search for PostgreSQL; useful reference if you want to add vector search to an existing Postgres database without a separate vector DB service.
