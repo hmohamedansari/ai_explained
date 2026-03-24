@@ -19,9 +19,9 @@
     {
       "id": "2.5-q2",
       "type": "multiple-choice",
-      "question": "Your RAG system retrieves relevant chunks but sometimes the model says 'I cannot determine the answer from the provided information' when the answer is clearly present. What is most likely missing from your prompt?",
+      "question": "Your RAG system retrieves relevant chunks but sometimes the model says 'I cannot determine the answer from the provided information' when the answer is clearly present. What is most likely wrong with your prompt?",
       "options": [
-        "A no-answer instruction — the model is over-applying a fallback phrase that was never defined, causing it to trigger even when the answer is present",
+        "An over-broad no-answer instruction — the model is over-triggering a fallback defined in the system prompt, saying 'I don't know' even when the answer is clearly present in the retrieved chunks",
         "More retrieved chunks — the model needs more context to find the answer",
         "A stronger model — the current model lacks the reading comprehension needed",
         "A citation instruction — without it, the model cannot identify which chunk contains the answer"

@@ -23,11 +23,11 @@
       "options": [
         "31% of queries return the correct answer",
         "The retrieved chunks are 31% similar to the query on average",
-        "Only 31% of the retrieved chunks were actually used in generating the answer — the system is over-retrieving irrelevant content",
+        "Only 31% of the retrieved chunks are judged relevant to the question — the system is over-retrieving irrelevant content",
         "The model's answers are 31% faithful to the retrieved context"
       ],
       "answer": 2,
-      "explanation": "Context precision measures what fraction of the retrieved chunks were actually used (or useful) in generating the answer. A score of 0.31 means roughly 7 out of every 10 retrieved chunks are irrelevant noise that the model has to ignore. The fix is to reduce top-k, raise your relevance threshold, or improve retrieval quality — the model is being asked to find a signal in mostly noise.",
+      "explanation": "Context precision is an LLM-judged metric: for each retrieved chunk, a judge model decides whether it is relevant to the question. A score of 0.31 means roughly 7 out of every 10 retrieved chunks are irrelevant noise. This is a retrieval relevance signal, not a trace of what the model internally attended to — the model doesn't report which chunks it 'used.' The fix is to reduce top-k, raise your relevance threshold, or improve retrieval quality.",
       "personas": ["junior", "senior", "sre"]
     },
     {

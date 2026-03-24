@@ -256,8 +256,8 @@ Not everything ships on day one. A practical sequence:
 Every RAG request has three cost components:
 
 ```
-Embedding cost  = (query_tokens / 1000) × embedding_price_per_1k_tokens
-                ≈ $0.00002 per query with text-embedding-3-small at 20 tokens/query
+Embedding cost  = (query_tokens / 1_000_000) × embedding_price_per_MTok
+                ≈ $0.0000004 per query with text-embedding-3-small ($0.02/MTok) at 20 tokens/query
 
 Retrieval cost  = vector_db_query_cost (varies by provider and index size)
                 ≈ $0 (self-hosted Chroma/pgvector) to ~$0.001/query (managed services)
@@ -268,7 +268,7 @@ Generation cost = ((system_tokens + context_tokens + query_tokens + output_token
                   ~1,400 input + 200 output tokens per request
 
 At 1M requests/month with a balanced model (~$3/MTok input, $15/MTok output):
-  Embedding:  ~$20/month
+  Embedding:  ~$0.40/month
   Generation: ~$4,200/month (input) + $3,000/month (output)
   Total:      ~$7,200/month
 ```

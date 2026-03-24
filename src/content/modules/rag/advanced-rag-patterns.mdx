@@ -74,7 +74,7 @@ def multi_query_retrieve(query: str, top_k: int = 5) -> list[dict]:
 
 **When to use:** queries that are ambiguous, highly specific (users know what they want but not the exact words the document uses), or that could be answered by content with different surface phrasing.
 
-**Latency cost:** N+1 LLM calls (1 to generate variations + 1 per query to embed and search). Use a fast model for generation; cache common query expansions if traffic patterns repeat.
+**Latency cost:** 1 extra LLM call to generate N query variations, then N embedding calls and N vector searches (all of which can run in parallel). Use a fast model for variation generation; cache common query expansions if traffic patterns repeat.
 
 ### HyDE — Hypothetical Document Embeddings
 

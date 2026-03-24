@@ -201,10 +201,10 @@ RAGAS requires a judge LLM to score each sample — configure it with any provid
 |---|---|
 | **Faithfulness** | Fraction of answer claims supported by the retrieved context |
 | **Answer relevancy** | How directly the answer addresses the original question |
-| **Context precision** | Of the retrieved chunks, what fraction were actually used in the answer |
+| **Context precision** | Of the retrieved chunks, what fraction are relevant to the question (LLM-judged) — measures over-retrieval of noise |
 | **Context recall** | Of the claims in the ground-truth answer, what fraction appear in the retrieved context |
 
-Context precision is particularly useful for identifying over-retrieval: if you're retrieving 10 chunks but the model only uses 2, precision is 0.2 — a signal to reduce top-k or improve retrieval relevance.
+Context precision is particularly useful for identifying over-retrieval: if you're retrieving 10 chunks but only 3 are judged relevant to the question, precision is 0.3 — a signal to reduce top-k, raise your relevance threshold, or improve retrieval quality. Note that this is an LLM-judged relevance score, not a trace of what the model internally attended to.
 
 ### Before vs After
 
