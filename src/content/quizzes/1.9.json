@@ -50,12 +50,12 @@
       "question": "You are building a document summarisation pipeline that runs overnight on thousands of documents. Which cost and latency optimisation applies most directly?",
       "options": [
         "Use streaming to reduce perceived latency for the overnight batch",
-        "Use the Batch API for the overnight job — it typically costs ~50% less for asynchronous workloads",
+        "Use the provider's batch/async API for the overnight job — most major providers offer ~50% cost reduction for asynchronous workloads",
         "Pin to a frontier model to ensure the summarisation quality justifies the overnight run",
         "Set max_tokens to the context limit to ensure no document is truncated"
       ],
       "answer": 1,
-      "explanation": "Asynchronous, non-real-time workloads like overnight batch processing are exactly what the Batch API is designed for — roughly 50% cost reduction in exchange for higher latency, which doesn't matter for an overnight job. Streaming is for interactive UX. Frontier models may be unnecessary (balanced models handle summarisation well). Setting max_tokens to the context limit is the wrong ceiling — set it to the expected output size.",
+      "explanation": "Asynchronous, non-real-time workloads like overnight batch processing are exactly what batch/async APIs are designed for — major providers (Anthropic, OpenAI, and others) typically offer around 50% cost reduction in exchange for higher latency, which doesn't matter for an overnight job. Streaming is for interactive UX. Frontier models may be unnecessary (balanced models handle summarisation well). Setting max_tokens to the context limit is the wrong ceiling — set it to the expected output size.",
       "personas": ["leader", "senior", "sre"]
     },
     {

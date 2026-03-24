@@ -60,7 +60,7 @@ No production AI system graduates from all six on day one. Use the checklist to 
 - [ ] No raw model output written directly to a database or sent in automated emails
 
 **Error handling**
-- [ ] Application handles model refusals gracefully (stop_reason = "end_turn" with no useful content)
+- [ ] Application handles model refusals gracefully (`stop_reason: "refusal"` or empty/canned response text — both patterns occur depending on provider and request type)
 - [ ] JSON parse failures caught and handled — never crash on bad model output
 - [ ] API errors (rate limits, timeouts) handled with retry logic and backoff
 - [ ] Tool loops have a maximum turn limit; infinite loops cannot reach the user
@@ -86,7 +86,7 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 **Async and batching**
 - [ ] Non-real-time workloads (document processing, report generation) run asynchronously — don't block a user request on a 10-second LLM call
-- [ ] Batch API considered for high-volume offline tasks (typically 50% cost reduction at the expense of latency)
+- [ ] Batch/async API considered for high-volume offline tasks (many providers offer ~50% cost reduction at the expense of latency — check your provider's docs)
 - [ ] Streaming used for interactive responses >3 seconds — reduces perceived latency significantly
 
 ---
@@ -165,17 +165,19 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 **Typical prototype:**
 ```python
+# --- pseudocode ---
 def ask(question):
-    response = client.messages.create(
-        model="claude-opus-4-6",      # frontier for everything
-        max_tokens=4096,              # generous global default
-        messages=[{"role": "user", "content": question}]
+    response = llm.chat(
+        model="frontier",    # frontier for everything
+        messages=[{"role": "user", "content": question}],
+        max_tokens=4096,     # generous global default
     )
-    return response.content[0].text  # raw string, no validation
+    return response.text     # raw string, no validation
 ```
 
 **Production-ready:**
 ```python
+# --- pseudocode ---
 def ask(question: str, history: list[dict]) -> str:
     valid, reason = validate_input(question)
     if not valid:
@@ -183,17 +185,17 @@ def ask(question: str, history: list[dict]) -> str:
 
     history = trim_history(history, max_turns=20)
 
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",  # right-sized for this task
-        max_tokens=512,                      # task-appropriate ceiling
+    response = llm.chat(
+        model="fast",        # right-sized for this task
         system=SYSTEM_PROMPT,
         messages=history + [{"role": "user", "content": question}],
+        max_tokens=512,      # task-appropriate ceiling
     )
 
-    log_usage(response.usage)               # observability
+    log_usage(response.usage)           # observability
 
-    text = response.content[0].text
-    if not is_on_topic(text):               # output guardrail
+    text = response.text
+    if not is_on_topic(text):           # output guardrail
         return "I can only help with..."
 
     return text
@@ -252,6 +254,6 @@ A production AI system is not a model — it is a model plus the architecture yo
 
 ### Further reading
 
-- [Building effective agents — Anthropic](https://www.anthropic.com/research/building-effective-agents) — Practical guide to production agent architecture from Anthropic; most principles apply to non-agent AI features too.
+- [Building effective agents — Anthropic](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Practical guide to production agent architecture; most principles apply to non-agent AI features too.
 - [ML Engineering for Production (MLOps) Specialization — Coursera](https://www.coursera.org/specializations/machine-learning-engineering-for-production-mlops) — Andrew Ng's MLOps course; the LLM-specific details are dated but the observability and deployment principles are evergreen.
 - [LLM Powered Autonomous Agents — Lilian Weng](https://lilianweng.github.io/posts/2023-06-23-agent/) — Comprehensive overview of agent architecture components; useful context for understanding where the Foundations checklist items fit in more complex systems.

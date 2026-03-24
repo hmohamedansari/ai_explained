@@ -57,12 +57,29 @@ If someone on your team says "the LLM will remember that from last time" or "it 
 
 ### Step-by-step: your first API call
 
+Here's the pattern in provider-neutral pseudocode, followed by a concrete implementation. Every major provider follows the same basic shape — messages array, system instruction, response text — with slightly different field names.
+
+```python
+# --- pseudocode: works with any provider ---
+response = llm.chat(
+    model="frontier",           # pick your model — see provider table below
+    messages=[
+        {"role": "user", "content": "Explain what a context window is in one sentence."}
+    ],
+    max_tokens=1024,
+)
+
+print(response.text)            # field name varies by SDK — see provider table
+print(f"Tokens used: {response.usage.total}")
+```
+
+**In practice — Anthropic SDK:**
+
 ```python
 import anthropic
 
-client = anthropic.Anthropic()  # uses ANTHROPIC_API_KEY env var
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
 
-# Basic call — notice we pass ALL context explicitly
 response = client.messages.create(
     model="claude-opus-4-6",
     max_tokens=1024,
@@ -73,13 +90,34 @@ response = client.messages.create(
 
 print(response.content[0].text)
 
-# Check token usage — always log this
+# Always log token usage
 print(f"Input tokens:  {response.usage.input_tokens}")
 print(f"Output tokens: {response.usage.output_tokens}")
 print(f"Total:         {response.usage.input_tokens + response.usage.output_tokens}")
 ```
 
 ### Tracking token budget in a multi-turn conversation
+
+```python
+# --- pseudocode ---
+history = []
+
+def chat(user_message: str, max_context_tokens: int = 100_000) -> str:
+    history.append({"role": "user", "content": user_message})
+
+    response = llm.chat(model="frontier", messages=history, max_tokens=1024)
+
+    reply = response.text
+    history.append({"role": "assistant", "content": reply})
+
+    used      = response.usage.total
+    remaining = max_context_tokens - used
+    print(f"[tokens used: {used:,} | remaining budget: {remaining:,}]")
+
+    return reply
+```
+
+**In practice — Anthropic SDK:**
 
 ```python
 import anthropic
@@ -100,15 +138,19 @@ def chat(history: list[dict], user_message: str, max_context_tokens: int = 100_0
     )
 
     assistant_reply = response.content[0].text
+    # OpenAI: response.choices[0].message.content
+    # Gemini: response.text
+
     history.append({"role": "assistant", "content": assistant_reply})
 
     used = response.usage.input_tokens + response.usage.output_tokens
+    # OpenAI: response.usage.prompt_tokens + response.usage.completion_tokens
+
     remaining = max_context_tokens - used
     print(f"[tokens used: {used:,} | remaining budget: {remaining:,}]")
 
     return assistant_reply, history
 
-# Each turn accumulates — watch the token count grow
 history = []
 reply, history = chat(history, "What is temperature in an LLM?")
 print(reply)
@@ -142,6 +184,23 @@ response = llm.call(f"{context}\n\nAnswer: {user_question}")
 3. **Single temperature everywhere** — Using the same temperature for both creative writing and data extraction.
 4. **No usage monitoring** — Discovering costs and context limits the hard way in production.
 
+### Provider SDK quick reference
+
+The pseudocode above uses a simplified interface. Here's how those concepts map to the major SDKs — pick whichever matches your stack:
+
+| | Anthropic | OpenAI | Google Gemini |
+|---|---|---|---|
+| **Package** | `pip install anthropic` | `pip install openai` | `pip install google-generativeai` |
+| **Client** | `anthropic.Anthropic()` | `OpenAI()` | `genai.GenerativeModel(model)` |
+| **API call** | `client.messages.create(...)` | `client.chat.completions.create(...)` | `model.generate_content(...)` |
+| **System prompt** | `system="..."` param | `{"role": "system"}` in messages | `system_instruction="..."` param |
+| **Response text** | `response.content[0].text` | `response.choices[0].message.content` | `response.text` |
+| **Input tokens** | `response.usage.input_tokens` | `response.usage.prompt_tokens` | `response.usage_metadata.prompt_token_count` |
+| **Output tokens** | `response.usage.output_tokens` | `response.usage.completion_tokens` | `response.usage_metadata.candidates_token_count` |
+| **Stop signal** | `response.stop_reason` | `response.choices[0].finish_reason` | `response.candidates[0].finish_reason` |
+
+Most providers use the same `messages` format — `[{"role": "user"/"assistant", "content": "..."}]` — so conversation history works the same way across SDKs. The main differences are in SDK setup and how you read the response back. Later modules will reference this table rather than repeating it.
+
 ---
 
 ## Layer 3 — Deep Dive
@@ -156,7 +215,7 @@ Temperature controls the sharpness of the probability distribution over next tok
 
 ### Production failure modes
 
-**Silent context overflow.** As conversations grow, inputs silently exceed the window and the model either errors or starts ignoring earlier context. Teams often discover this via degraded output quality rather than errors. Fix: instrument `usage.input_tokens` per call; implement sliding-window or summarisation when approaching 80% of the context limit.
+**Silent context overflow.** As conversations grow, inputs silently exceed the window and the model either errors or starts ignoring earlier context. Teams often discover this via degraded output quality rather than errors. Fix: instrument token usage per call; implement sliding-window or summarisation when approaching 80% of the context limit.
 
 **Temperature misconfiguration.** A single global temperature setting causes subtle quality problems: hallucinations in structured extraction tasks; overly conservative outputs in creative tasks. Fix: configure temperature per use case; default to 0.0 for anything requiring accuracy.
 
@@ -168,5 +227,5 @@ Temperature controls the sharpness of the probability distribution over next tok
 
 - [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017. The paper that introduced the transformer architecture all modern LLMs are built on.
 - [Language Models are Few-Shot Learners (GPT-3)](https://arxiv.org/abs/2005.14165) — Brown et al., 2020. The paper that demonstrated emergent few-shot capabilities at scale.
-- [Anthropic API — Messages reference](https://docs.anthropic.com/en/api/messages) — Anthropic, 2024. The authoritative reference for `usage` fields, context limits, and model parameters.
 - [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — Kaplan et al., 2020. Explains how model capability scales with parameters, data, and compute — useful for understanding why bigger models cost more and what you get for it.
+- [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat) / [Anthropic API reference](https://docs.anthropic.com/en/api/messages) / [Google Gemini API reference](https://ai.google.dev/api/generate-content) — Each provider's reference for the `messages` call, usage fields, and model parameters. Check your provider's docs for current field names.

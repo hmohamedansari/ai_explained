@@ -19,7 +19,7 @@
     {
       "id": "1.3-q2",
       "type": "multiple-choice",
-      "question": "You deploy a feature using the model alias 'claude-opus-4-6' (without a version pin). Three months later, users report the output style has changed. What most likely happened?",
+      "question": "You deploy a feature using a floating model alias — for example 'gpt-4o' or 'claude-opus-4-6' — without pinning a specific version. Three months later, users report the output style has changed. What most likely happened?",
       "options": [
         "Your prompt was modified by another team member",
         "The provider silently updated the model the alias points to",

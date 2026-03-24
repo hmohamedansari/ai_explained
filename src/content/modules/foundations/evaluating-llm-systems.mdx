@@ -76,6 +76,49 @@ EVAL_DATASET = [
 ### Running evals
 
 ```python
+# --- pseudocode ---
+from dataclasses import dataclass
+
+@dataclass
+class EvalResult:
+    id: str
+    passed: bool
+    got: str
+    expected: str
+    notes: str = ""
+
+def run_eval(dataset: list[dict], system_prompt: str) -> list[EvalResult]:
+    results = []
+    for example in dataset:
+        response = llm.chat(
+            model="fast",        # cheap model for eval runs — keeps costs low
+            system=system_prompt,
+            messages=[{"role": "user", "content": example["input"]}],
+            max_tokens=16,
+        )
+        got = response.text.strip()
+        passed = got == example["expected_label"]
+        results.append(EvalResult(
+            id=example["id"],
+            passed=passed,
+            got=got,
+            expected=example["expected_label"],
+            notes=example.get("notes", ""),
+        ))
+    return results
+
+def report(results: list[EvalResult]) -> None:
+    passed = sum(1 for r in results if r.passed)
+    total  = len(results)
+    print(f"\nResults: {passed}/{total} passed ({passed/total*100:.0f}%)\n")
+    for r in results:
+        status = "✓" if r.passed else "✗"
+        if not r.passed:
+            print(f"  {status} [{r.id}] got={r.got!r} expected={r.expected!r}  ({r.notes})")
+```
+
+```python
+# In practice — Anthropic SDK
 import anthropic
 from dataclasses import dataclass
 
@@ -99,6 +142,7 @@ def run_eval(dataset: list[dict], system_prompt: str) -> list[EvalResult]:
             messages=[{"role": "user", "content": example["input"]}],
         )
         got = response.content[0].text.strip()
+        # OpenAI: response.choices[0].message.content | Gemini: response.text
         passed = got == example["expected_label"]
         results.append(EvalResult(
             id=example["id"],
@@ -108,15 +152,6 @@ def run_eval(dataset: list[dict], system_prompt: str) -> list[EvalResult]:
             notes=example.get("notes", ""),
         ))
     return results
-
-def report(results: list[EvalResult]) -> None:
-    passed = sum(1 for r in results if r.passed)
-    total  = len(results)
-    print(f"\nResults: {passed}/{total} passed ({passed/total*100:.0f}%)\n")
-    for r in results:
-        status = "✓" if r.passed else "✗"
-        if not r.passed:
-            print(f"  {status} [{r.id}] got={r.got!r} expected={r.expected!r}  ({r.notes})")
 ```
 
 Run this before every prompt change. A regression is caught the same day, not two weeks later when a user reports it.
@@ -126,7 +161,9 @@ Run this before every prompt change. A regression is caught the same day, not tw
 For tasks where there is no single correct answer, define a scoring rubric and apply it consistently:
 
 ```python
-# Rubric-based scoring for summarisation
+# Rubric-based scoring for summarisation — pseudocode
+import json
+
 def score_summary(original: str, summary: str) -> dict:
     """
     Returns scores on 3 dimensions (0–2 each):
@@ -134,9 +171,8 @@ def score_summary(original: str, summary: str) -> dict:
       coverage   — key points present
       conciseness — appropriately brief
     """
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=128,
+    response = llm.chat(
+        model="balanced",
         system=(
             "You are evaluating a summary. Score it on three dimensions, "
             "each 0 (fail), 1 (partial), or 2 (pass). "
@@ -145,9 +181,9 @@ def score_summary(original: str, summary: str) -> dict:
         messages=[{"role": "user", "content":
             f"Original:\n{original}\n\nSummary:\n{summary}"
         }],
+        max_tokens=128,
     )
-    import json
-    return json.loads(response.content[0].text)
+    return json.loads(response.text)
 ```
 
 Using the model as an evaluator (LLM-as-judge) is discussed further in Layer 3.
@@ -216,11 +252,11 @@ For tasks where outputs are hard to score programmatically (summarisation qualit
 - **Calibrate** the judge against human labels on a sample before trusting it at scale
 
 ```python
+# Use a stronger or different model as judge — pseudocode
 def judge_pairwise(prompt: str, output_a: str, output_b: str) -> str:
     """Returns 'A', 'B', or 'TIE'."""
-    response = client.messages.create(
-        model="claude-opus-4-6",  # stronger model as judge
-        max_tokens=8,
+    response = llm.chat(
+        model="frontier",  # stronger model as judge
         system=(
             "You are evaluating two AI responses to the same prompt. "
             "Reply with only 'A', 'B', or 'TIE' based on which is more accurate, "
@@ -229,8 +265,9 @@ def judge_pairwise(prompt: str, output_a: str, output_b: str) -> str:
         messages=[{"role": "user", "content":
             f"Prompt: {prompt}\n\nResponse A:\n{output_a}\n\nResponse B:\n{output_b}"
         }],
+        max_tokens=8,
     )
-    return response.content[0].text.strip()
+    return response.text.strip()
 ```
 
 LLM-as-judge has known biases: positional bias (favouring the first option), verbosity bias (favouring longer answers), and self-preference. Mitigate by randomising order and averaging across multiple judge calls.
@@ -265,4 +302,4 @@ If your model was trained or fine-tuned on data that includes your eval set inpu
 - [A Survey on Evaluation of Large Language Models](https://arxiv.org/abs/2307.03109) — Chang et al., 2023. Comprehensive taxonomy of LLM evaluation approaches, metrics, and benchmarks.
 - [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — Zheng et al., 2023. Analysis of LLM-as-judge reliability, positional and verbosity biases, and mitigation strategies.
 - [Evals — OpenAI](https://github.com/openai/evals) — Open-source eval framework; useful reference for eval structure and scoring patterns regardless of which model you use.
-- [Evaluation — Anthropic documentation](https://docs.anthropic.com/en/docs/test-and-evaluate/eval-intro) — Anthropic's guidance on building and running evals for Claude-based systems.
+- [Evaluation — Anthropic documentation](https://docs.anthropic.com/en/docs/test-and-evaluate/eval-intro) [Anthropic] — Anthropic's guidance on building and running evals; the principles apply across providers.

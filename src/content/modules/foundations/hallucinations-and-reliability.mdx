@@ -62,6 +62,24 @@ This means hallucination risk is higher when:
 Instead of asking the model to recall facts from training, retrieve relevant documents and pass them as context. The model's job becomes reading and synthesising provided text — much more reliable than recall.
 
 ```python
+# --- pseudocode ---
+def answer_with_context(question: str, retrieved_docs: list[str]) -> str:
+    context = "\n\n---\n\n".join(retrieved_docs)
+    response = llm.chat(
+        model="balanced",
+        system=(
+            "Answer the question using only the provided documents. "
+            "If the answer is not in the documents, say 'I don't have enough information to answer this.' "
+            "Do not use knowledge from outside the provided documents."
+        ),
+        messages=[{"role": "user", "content": f"Documents:\n\n{context}\n\nQuestion: {question}"}],
+        max_tokens=1024,
+    )
+    return response.text
+```
+
+```python
+# In practice — Anthropic SDK
 import anthropic
 
 client = anthropic.Anthropic()
@@ -76,12 +94,10 @@ def answer_with_context(question: str, retrieved_docs: list[str]) -> str:
             "If the answer is not in the documents, say 'I don't have enough information to answer this.' "
             "Do not use knowledge from outside the provided documents."
         ),
-        messages=[{
-            "role": "user",
-            "content": f"Documents:\n\n{context}\n\nQuestion: {question}"
-        }]
+        messages=[{"role": "user", "content": f"Documents:\n\n{context}\n\nQuestion: {question}"}],
     )
     return response.content[0].text
+    # OpenAI: response.choices[0].message.content | Gemini: response.text
 ```
 
 The instruction "if the answer is not in the documents, say so" is critical. Without it, the model may blend retrieved content with recalled facts and hallucinate seamlessly.
@@ -91,6 +107,35 @@ The instruction "if the answer is not in the documents, say so" is critical. Wit
 Constrain the output shape and validate it. A schema cannot prevent factual hallucinations, but it catches structural ones (wrong field types, missing required fields, out-of-range values):
 
 ```python
+# --- pseudocode ---
+import json
+
+def extract_event(text: str) -> dict:
+    response = llm.chat(
+        model="balanced",
+        system=(
+            "Extract the event details and return valid JSON only. "
+            "Use null for fields that are not present in the text.\n\n"
+            "Schema: {\"name\": string, \"date\": string (ISO 8601) or null, "
+            "\"location\": string or null}"
+        ),
+        messages=[{"role": "user", "content": text}],
+        max_tokens=256,
+    )
+
+    raw = response.text.strip()
+    event = json.loads(raw)  # raises if not valid JSON
+
+    # Schema validation — catches wrong types, missing fields
+    assert isinstance(event.get("name"), str), "name must be a string"
+    assert event.get("date") is None or isinstance(event["date"], str)
+    assert event.get("location") is None or isinstance(event["location"], str)
+
+    return event
+```
+
+```python
+# In practice — Anthropic SDK
 import anthropic
 import json
 
@@ -110,9 +155,9 @@ def extract_event(text: str) -> dict:
     )
 
     raw = response.content[0].text.strip()
+    # OpenAI: response.choices[0].message.content | Gemini: response.text
     event = json.loads(raw)  # raises if not valid JSON
 
-    # Schema validation — catches wrong types, missing fields
     assert isinstance(event.get("name"), str), "name must be a string"
     assert event.get("date") is None or isinstance(event["date"], str)
     assert event.get("location") is None or isinstance(event["location"], str)
@@ -140,13 +185,13 @@ This does not guarantee correctness — models can hallucinate citations — but
 **Trusting recall — high hallucination risk:**
 ```python
 # BAD: Asking the model to recall specific facts with no grounding
-response = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=512,
+response = llm.chat(
+    model="balanced",
     messages=[{
         "role": "user",
         "content": "What were the key financial metrics in Acme Corp's Q3 2025 earnings report?"
-    }]
+    }],
+    max_tokens=512,
 )
 # The model has no access to this report. It will fabricate plausible-sounding numbers.
 ```
@@ -155,14 +200,14 @@ response = client.messages.create(
 ```python
 # GOOD: Retrieve the actual report; model reads and extracts
 earnings_report = retrieve_document("acme_q3_2025_earnings.pdf")
-response = client.messages.create(
-    model="claude-sonnet-4-6",
-    max_tokens=512,
+response = llm.chat(
+    model="balanced",
     system="Answer using only the provided document. Quote directly where possible.",
     messages=[{
         "role": "user",
         "content": f"Document:\n{earnings_report}\n\nWhat were the key financial metrics?"
-    }]
+    }],
+    max_tokens=512,
 )
 ```
 

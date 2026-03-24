@@ -27,7 +27,7 @@ These are two points on the same spectrum:
 | Pattern | What it does | Best for |
 |---|---|---|
 | **Prompted JSON** | System prompt instructs model to return JSON; you parse and validate | Simple extraction, low stakes |
-| **Tool use** | Model fills typed function arguments; add `strict: true` for API-level schema guarantees | Extraction, triggering actions, agents |
+| **Tool use** (also called **function calling**) | Model fills typed function arguments; add `strict: true` for API-level schema guarantees | Extraction, triggering actions, agents |
 
 The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output. With `strict: true` on a tool definition, the API enforces that shape — guaranteed types, required fields present, no unexpected properties.
 
@@ -44,6 +44,25 @@ The key shift: instead of hoping the model formats its response correctly, you d
 Works for low-stakes extraction when you control the prompt carefully:
 
 ```python
+# --- pseudocode ---
+import json
+
+def extract_contact(text: str) -> dict:
+    response = llm.chat(
+        model="balanced",
+        system=(
+            "Extract contact information and return valid JSON only. "
+            "No markdown, no explanation — raw JSON.\n\n"
+            'Schema: {"name": string, "email": string or null, "phone": string or null}'
+        ),
+        messages=[{"role": "user", "content": text}],
+        max_tokens=256,
+    )
+    return json.loads(response.text)
+```
+
+```python
+# In practice — Anthropic SDK
 import anthropic
 import json
 
@@ -61,13 +80,16 @@ def extract_contact(text: str) -> dict:
         messages=[{"role": "user", "content": text}]
     )
     return json.loads(response.content[0].text)
+    # OpenAI: response.choices[0].message.content | Gemini: response.text
 ```
 
 Fragile: the model may wrap the JSON in a markdown code block, add a comment, or omit a field. Use this only when you have a reliable fallback for parse failures.
 
-### Tool use (structured output)
+### Tool use / function calling (structured output)
 
-Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments — no markdown stripping, no `json.loads`. Add `strict: true` to the tool definition to get API-level guarantees: correct types, all required fields present, no unexpected properties:
+Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments — no markdown stripping, no `json.loads`. Add `strict: true` to the tool definition to get API-level guarantees: correct types, all required fields present, no unexpected properties.
+
+The examples below use Anthropic's SDK. The concept is identical across providers, but the response shape differs — see the provider comparison table at the end of this layer.
 
 ```python
 import anthropic
@@ -220,6 +242,23 @@ price = tool_use.input["price"]  # typed, validated, no parsing
 4. **Ignoring required vs optional fields** — Fields not in `required` may be omitted. Code that accesses them without a default will crash.
 5. **Registering all tools for every request** — See the production gotcha.
 
+### Provider comparison: function calling API shapes
+
+The tool / function calling concept is the same across providers, but the request and response fields differ:
+
+| | Anthropic | OpenAI |
+|---|---|---|
+| **Request field** | `tools` | `tools` |
+| **Force a specific tool** | `tool_choice: {"type": "tool", "name": "..."}` | `tool_choice: {"type": "function", "function": {"name": "..."}}` |
+| **Model chose a tool** | `stop_reason == "tool_use"` | `finish_reason == "tool_calls"` |
+| **Tool call in response** | `block.type == "tool_use"` (in `response.content`) | `choice.message.tool_calls[n]` |
+| **Tool call ID** | `block.id` | `tool_call.id` |
+| **Tool arguments** | `block.input` (dict) | `tool_call.function.arguments` (JSON string — parse it) |
+| **Result message role** | `"user"` | `"tool"` |
+| **Result format** | `{"type": "tool_result", "tool_use_id": id, "content": "..."}` | `{"role": "tool", "tool_call_id": id, "content": "..."}` |
+
+The tool definition schema itself (`name`, `description`, `parameters` / `input_schema` using JSON Schema) is nearly identical — both providers follow the same JSON Schema vocabulary. The main structural difference is `parameters` (OpenAI) vs `input_schema` (Anthropic) as the key name.
+
 ---
 
 ## Layer 3 — Deep Dive
@@ -324,6 +363,7 @@ The sophistication of an agent is largely a function of the tools it has access 
 
 ### Further reading
 
-- [Tool use — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) — Anthropic's reference for tool definition, `tool_choice`, multi-tool calls, and the full request/response lifecycle.
-- [JSON Schema specification](https://json-schema.org/specification) — The schema language used for tool input definitions. Understanding `type`, `enum`, `required`, and `$ref` covers 95% of tool authoring.
+- [Tool use — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) [Anthropic] — Reference for tool definition, `tool_choice`, multi-tool calls, and the full request/response lifecycle using Anthropic's API.
+- [Function calling — OpenAI documentation](https://platform.openai.com/docs/guides/function-calling) [OpenAI] — The equivalent OpenAI reference; useful for understanding the `tool_calls` response shape and `role: "tool"` result format.
+- [JSON Schema specification](https://json-schema.org/specification) — The schema language used for tool input definitions across all providers. Understanding `type`, `enum`, `required`, and `$ref` covers 95% of tool authoring.
 - [ReAct: Synergising Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. The paper that formalised the reason-then-act loop that underlies most tool-use agent patterns.

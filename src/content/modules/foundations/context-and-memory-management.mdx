@@ -57,6 +57,35 @@ Reserve for output       1,000–4,000 tokens
 Track actual usage, not theoretical maximums:
 
 ```python
+# --- pseudocode ---
+def chat_with_budget(
+    system: str,
+    history: list[dict],
+    user_message: str,
+    context_limit: int = 180_000,
+    max_output: int = 2_048,
+) -> tuple[str, list[dict]]:
+    history = history + [{"role": "user", "content": user_message}]
+
+    response = llm.chat(
+        model="balanced",
+        system=system,
+        messages=history,
+        max_tokens=max_output,
+    )
+
+    reply = response.text
+    history = history + [{"role": "assistant", "content": reply}]
+
+    used = response.usage.total      # field name varies by SDK — see provider table in 1.1
+    pct  = used / context_limit * 100
+    print(f"[context: {used:,} / {context_limit:,} tokens ({pct:.0f}%)]")
+
+    return reply, history
+```
+
+```python
+# In practice — Anthropic SDK
 import anthropic
 
 client = anthropic.Anthropic()
@@ -81,6 +110,7 @@ def chat_with_budget(
     history = history + [{"role": "assistant", "content": reply}]
 
     used = response.usage.input_tokens + response.usage.output_tokens
+    # OpenAI: response.usage.prompt_tokens + response.usage.completion_tokens
     pct  = used / context_limit * 100
     print(f"[context: {used:,} / {context_limit:,} tokens ({pct:.0f}%)]")
 
@@ -129,9 +159,9 @@ def summarise_history(
     to_summarise = history[:-keep_last_n]
     recent       = history[-keep_last_n:]
 
-    # Ask the model to compress the older turns
+    # Ask the model to compress the older turns — use a fast/cheap model for this
     summary_response = client.messages.create(
-        model="claude-haiku-4-5-20251001",  # cheap model for compression
+        model="claude-haiku-4-5-20251001",  # fast model; use gpt-4o-mini or gemini-flash on other providers
         max_tokens=512,
         system="Summarise the following conversation turns into a concise paragraph. "
                "Preserve all facts, decisions, and constraints. "
@@ -197,13 +227,13 @@ The two most important constraints: limit the number of chunks and cap each chun
 history = []
 while True:
     user_input = input("You: ")
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
+    response = llm.chat(
+        model="balanced",
+        messages=history + [{"role": "user", "content": user_input}],
         max_tokens=1024,
-        messages=history + [{"role": "user", "content": user_input}]
     )
     history.append({"role": "user",      "content": user_input})
-    history.append({"role": "assistant", "content": response.content[0].text})
+    history.append({"role": "assistant", "content": response.text})
 ```
 
 **Budget-aware history — controlled and observable:**
@@ -270,12 +300,14 @@ Most agent frameworks implement some combination of these. The key design questi
 For applications where context overflow would be catastrophic (long document processing, multi-agent pipelines), count tokens before sending:
 
 ```python
+# In practice — Anthropic SDK
+# Anthropic exposes a count_tokens API call; OpenAI users can count locally with tiktoken
 import anthropic
 
 client = anthropic.Anthropic()
 
 def count_tokens(system: str, messages: list[dict]) -> int:
-    """Count tokens for a request without sending it."""
+    """Count tokens for a request without sending it (Anthropic-specific API)."""
     response = client.messages.count_tokens(
         model="claude-sonnet-4-6",
         system=system,
@@ -290,11 +322,11 @@ if token_count > CONTEXT_LIMIT - MAX_OUTPUT_TOKENS:
     history = summarise_history(history)
 ```
 
-`count_tokens` makes an API call but does not run inference — it is fast and cheap. Use it as a pre-flight check in pipelines where a context overflow would require restarting a long workflow.
+`count_tokens` makes an API call but does not run inference — it is fast and cheap. Use it as a pre-flight check in pipelines where a context overflow would require restarting a long workflow. **OpenAI users** can get equivalent counts locally with the [`tiktoken`](https://github.com/openai/tiktoken) library (no API call required). **Google Gemini** exposes token counts in the response metadata after the call.
 
 ### Further reading
 
 - [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. Demonstrates the U-shaped attention pattern in long-context models and its implications for document placement.
-- [Prompt caching — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — How to structure prompts for cache hits; cost and latency implications.
-- [Token counting — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/token-counting) — API reference for pre-flight token counting.
+- [Prompt caching — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) [Anthropic] — How to structure prompts for cache hits; cost and latency implications. OpenAI and Google have equivalent features under slightly different names.
+- [Token counting — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/token-counting) [Anthropic] — API reference for pre-flight token counting via Anthropic's API.
 - [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) — Packer et al., 2023. Proposes a virtual context management system that pages memory in and out, analogous to OS virtual memory — useful background for agent memory architectures.
