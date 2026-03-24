@@ -15,38 +15,50 @@ import Footer from '@/components/layout/Footer.astro';
     <!-- Author -->
     <section class="mb-16">
       <div class="flex items-start gap-6 mb-8">
-        <!-- TODO: replace with your actual photo -->
         <div class="w-20 h-20 rounded-full bg-brand-950 border border-brand-500/30 flex items-center justify-center text-3xl shrink-0">
           👤
         </div>
         <div>
           <h1 class="text-3xl font-semibold text-white mb-1">
-            <!-- TODO: replace with your name -->
-            [Your Name]
+            Mohamed Ansari
           </h1>
           <p class="text-slate-400 mb-3">
-            <!-- TODO: replace with your title/description -->
-            [Your title — e.g. "Software Engineer & AI educator"]
+            Engineering Manager — SRE &amp; Platform
           </p>
-          <!-- TODO: replace spans with <a href="..."> once you have real profile URLs -->
           <div class="flex gap-3">
-            <span class="text-sm text-slate-600 cursor-default">GitHub</span>
-            <span class="text-sm text-slate-600 cursor-default">LinkedIn</span>
-            <span class="text-sm text-slate-600 cursor-default">X / Twitter</span>
+            <a
+              href="https://github.com/hmohamedansari"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm text-brand-400 hover:text-brand-300 transition-colors"
+            >GitHub</a>
+            <a
+              href="https://hmohamedansari.github.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-sm text-brand-400 hover:text-brand-300 transition-colors"
+            >Website</a>
           </div>
         </div>
       </div>
 
-      <!-- TODO: replace with your actual bio -->
       <div class="prose-lesson">
         <p class="text-slate-300 leading-relaxed mb-4">
-          [Write 2–3 paragraphs about yourself here. Who you are, what you've built,
-          and what gives you the perspective to teach this material.]
+          I'm an Engineering Manager leading SRE and Platform teams. My day-to-day is
+          reliability, infrastructure, and the systems that keep production running — which
+          means I care about AI the way an operator does: what breaks, what it costs, and
+          whether it holds up when the demo is over.
+        </p>
+        <p class="text-slate-300 leading-relaxed mb-4">
+          I built AI Academy because the content I needed didn't exist. Vendor docs are
+          optimised to get you to their next API call. Academic papers assume you want a
+          literature review. Blog posts are mostly surface-level hype or narrow tutorials
+          that age in months. None of that helps you make real architectural decisions.
         </p>
         <p class="text-slate-300 leading-relaxed">
-          [Why you built AI Academy — what was missing from existing resources,
-          what you want learners to walk away with, and what you believe about
-          how AI education should work.]
+          The goal here is practical and durable knowledge — the kind that lets you design
+          a system, review a design, or call out a bad tradeoff. No vendor lock-in,
+          no hand-waving, no prerequisites beyond curiosity and a willingness to read code.
         </p>
       </div>
     </section>
