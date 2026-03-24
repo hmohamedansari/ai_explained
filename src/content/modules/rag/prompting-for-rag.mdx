@@ -1,0 +1,276 @@
+---
+moduleId: "2.5"
+title: "Prompting for RAG"
+description: "Retrieved chunks are only as useful as the instructions you give the model for using them. The grounding instruction, context format, citation pattern, and no-answer path are what turn a retrieval result into a reliable, trustworthy answer."
+track: "rag"
+order: 5
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 14
+  layer3: 17
+productionGotcha: "Instruction placement matters more than most people expect. 'Answer only from the provided documents' buried at the end of a long context is followed less reliably than the same instruction in the system prompt before any context appears. In long prompts, models attend more reliably to instructions at the beginning. Put grounding instructions in the system prompt."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Retrieval finds the right chunks. The prompt tells the model what to do with them.
+
+Without explicit instructions, the model will blend the retrieved content with whatever it knows from training — producing answers that sound grounded but quietly mix sources. Three instructions make the difference:
+
+**Grounding** — "Answer using only the provided documents." Without this, the model treats context as a hint, not a constraint.
+
+**No-answer path** — "If the answer is not in the documents, say so." Without this, the model fills gaps with hallucinations rather than admitting uncertainty.
+
+**Citation** — "Cite the source number for each claim." Without this, users can't verify answers and you can't debug retrievals.
+
+These aren't optional polish — they determine whether your RAG system is reliable or just mostly reliable.
+
+### Production Gotcha
+
+> **Common Gotcha:** Instruction placement matters more than most people expect. 'Answer only from the provided documents' buried at the end of a long context is followed less reliably than the same instruction in the system prompt before any context appears. Put grounding instructions in the system prompt, not the user message.
+
+---
+
+## Layer 2 — Guided
+
+### The grounding instruction
+
+The single most important element in a RAG prompt:
+
+```python
+# --- pseudocode ---
+SYSTEM_PROMPT = (
+    "Answer the user's question using only the provided documents. "
+    "If the answer is not clearly present in the documents, say: "
+    "'I don't have enough information in the available documents to answer this.' "
+    "Do not use knowledge from outside the provided documents."
+)
+```
+
+Why the explicit "do not use knowledge from outside" matters: without it, models naturally fill gaps with training knowledge. The answer sounds grounded but isn't. This is the failure mode that's hardest to detect — it produces confident, plausible output from the wrong source.
+
+### Formatting context for the model
+
+How you structure the retrieved chunks affects how well the model uses them:
+
+```python
+# --- pseudocode ---
+def format_context(chunks: list[dict]) -> str:
+    """
+    chunks: [{"text": "...", "source": "filename.pdf", "chunk_index": 2}]
+    """
+    parts = []
+    for i, chunk in enumerate(chunks, 1):
+        source = chunk.get("source", "unknown")
+        parts.append(f"[{i}] Source: {source}\n{chunk['text']}")
+    return "\n\n---\n\n".join(parts)
+```
+
+Key decisions:
+- **Number each chunk** (`[1]`, `[2]`, ...) so citations are unambiguous
+- **Include the source** so the model can relay it and you can verify
+- **Separate chunks clearly** (`---`) so the model doesn't blend adjacent chunks
+- **Most relevant chunk first** — the primacy effect means content at the start of context is attended to more reliably
+
+### The full RAG prompt template
+
+```python
+# --- pseudocode ---
+def build_rag_prompt(query: str, chunks: list[dict]) -> tuple[str, str]:
+    """Returns (system_prompt, user_message)."""
+    if not chunks:
+        # No retrieval results — tell the model explicitly
+        return (
+            "You are a helpful assistant. You have no documents to reference for this query.",
+            f"I don't have relevant information in my knowledge base. Question: {query}",
+        )
+
+    context = format_context(chunks)
+
+    system = (
+        "Answer the user's question using only the provided documents below. "
+        "For each factual claim, cite the source number in brackets, e.g. [1] or [2]. "
+        "If the answer is not present in the documents, say exactly: "
+        "'I don't have enough information in the available documents to answer this.' "
+        "Do not use knowledge from outside the provided documents."
+    )
+
+    user = f"Documents:\n\n{context}\n\nQuestion: {query}"
+
+    return system, user
+
+
+def rag_answer(query: str, chunks: list[dict]) -> str:
+    system, user = build_rag_prompt(query, chunks)
+    response = llm.chat(
+        model="balanced",
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        max_tokens=512,
+    )
+    return response.text
+```
+
+```python
+# In practice — Anthropic SDK
+import anthropic
+
+client = anthropic.Anthropic()
+
+def rag_answer(query: str, chunks: list[dict]) -> str:
+    system, user = build_rag_prompt(query, chunks)
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=512,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    return response.content[0].text
+    # OpenAI: response.choices[0].message.content | Gemini: response.text
+```
+
+### Handling the no-answer case
+
+The no-answer path is as important as the happy path. Two situations need explicit handling:
+
+**No chunks retrieved** — your search returned nothing relevant. Don't send an empty context to the model; return a useful message directly.
+
+**Chunks retrieved but answer not present** — the model needs explicit permission to say "I don't know" rather than fabricating. The exact phrasing in the system prompt matters: models trained to be helpful tend to answer rather than admit uncertainty, so the instruction needs to be direct.
+
+```python
+def rag_answer_with_fallback(query: str) -> str:
+    chunks = hybrid_search(query, top_k=5)
+
+    # Hard threshold: if no chunks pass a minimum relevance score, don't send them
+    relevant = [c for c in chunks if c.get("score", 0) > RELEVANCE_THRESHOLD]
+
+    if not relevant:
+        return "I don't have information about that in my knowledge base. Try rephrasing or check the source documentation directly."
+
+    system, user = build_rag_prompt(query, relevant)
+    return llm.chat(model="balanced", system=system, messages=[{"role": "user", "content": user}], max_tokens=512).text
+```
+
+### Handling conflicting documents
+
+When retrieved chunks contradict each other (e.g. an old policy and an updated one), tell the model how to handle it:
+
+```python
+system = (
+    "Answer the user's question using only the provided documents. "
+    "If documents contradict each other, note the conflict and cite both sources. "
+    "Prefer more recent documents when dates are available. "
+    "If the answer is not present, say so."
+)
+```
+
+Without this instruction, the model silently picks one source — usually whichever appears earlier in the context.
+
+### Before vs After
+
+**No grounding instructions — blended output:**
+```python
+# BAD: model uses documents as hints, not constraints
+system = "You are a helpful assistant."
+user = f"Here is some context:\n{context}\n\nQuestion: {query}"
+# Model answers using context + training knowledge combined
+# Output sounds grounded but may include invented details
+```
+
+**Grounded with citation — verifiable output:**
+```python
+# GOOD: model constrained to retrieved content, output is auditable
+system = (
+    "Answer using only the provided documents. "
+    "Cite the source number [1], [2] for each claim. "
+    "If the answer is not in the documents, say so."
+)
+user = f"Documents:\n\n{context}\n\nQuestion: {query}"
+# Output: "According to [1], enterprise customers receive a 60-day refund window."
+# Auditable: you can verify [1] is the right source
+```
+
+### Common mistakes
+
+1. **Grounding instruction in the user message, not system prompt** — In long prompts, instructions at the start of the system prompt are followed more reliably than those buried at the end of user content.
+2. **No no-answer instruction** — The model will fabricate an answer rather than admit uncertainty. Always specify the exact fallback phrase.
+3. **Unlabelled context blocks** — Context passed as a wall of text gives the model no way to cite specific sources. Number every chunk and include its source.
+4. **Including low-relevance chunks** — Passing 10 chunks when only 2 are relevant dilutes the signal. Apply a score threshold before including chunks in the prompt.
+5. **Max tokens too low** — If the model is cut off mid-citation or mid-sentence, the answer is unusable. Set `max_tokens` based on the expected answer length plus citation overhead, not a global default.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Instruction position and the primacy effect
+
+Research on long-context language models consistently shows that information at the beginning and end of a long context is attended to more reliably than information in the middle (the "lost in the middle" effect covered in module 1.6). The same applies to instructions.
+
+Practical implications for RAG prompts:
+- **System prompt**: grounding instruction, citation rule, no-answer instruction — all before the documents
+- **Context block**: most relevant chunk first, least relevant last
+- **User message**: the question at the very end — it's the most recent content and the model attends to it strongly
+
+Placing the question *before* the context (a common pattern) can reduce faithfulness — the model starts generating before fully reading the retrieved documents.
+
+### Faithfulness vs completeness
+
+There is a fundamental tension in RAG prompting:
+
+**High faithfulness** — the model answers only from retrieved documents. Answers are accurate but may be incomplete if retrieval missed relevant content.
+
+**High completeness** — the model supplements retrieved content with training knowledge to give a full answer. Answers are more complete but less auditable.
+
+For most production RAG systems, favour faithfulness. An answer that says "I don't have enough information" is better than one that mixes verified and hallucinated content without marking the boundary. Completeness is improved by fixing retrieval, not by relaxing the grounding constraint.
+
+### Multi-document aggregation queries
+
+Some queries require synthesising across many documents: "What did all our Q4 reports say about customer churn?" This pattern strains a simple RAG prompt because:
+- The answer requires reading 10+ chunks simultaneously
+- The model must detect similarities and contradictions across sources
+- No single chunk contains the full answer
+
+Approaches:
+- **Map-reduce**: summarise each chunk individually ("what does this document say about churn?"), then synthesise the summaries in a second call
+- **Structured extraction**: for each chunk, extract structured fields (date, churn rate, trend direction), then aggregate programmatically
+- **Dedicated synthesis prompt**: tell the model it is aggregating, not answering from one source, and provide a structured output format
+
+```python
+# --- pseudocode: map-reduce over many chunks ---
+def aggregate_across_docs(query: str, chunks: list[dict]) -> str:
+    # Map: extract from each chunk independently
+    summaries = []
+    for chunk in chunks:
+        summary = llm.chat(
+            model="fast",
+            system="Extract only information directly relevant to the query. Be concise.",
+            messages=[{"role": "user", "content": f"Query: {query}\n\nDocument excerpt:\n{chunk['text']}"}],
+            max_tokens=150,
+        ).text
+        summaries.append({"source": chunk["source"], "summary": summary})
+
+    # Reduce: synthesise the extracted summaries
+    synthesis_context = "\n\n".join(
+        f"[{i+1}] {s['source']}: {s['summary']}" for i, s in enumerate(summaries)
+    )
+    return llm.chat(
+        model="balanced",
+        system=(
+            "Synthesise the following per-document summaries into one coherent answer. "
+            "Note any contradictions or trends across sources. Cite source numbers."
+        ),
+        messages=[{"role": "user", "content": f"Query: {query}\n\nSummaries:\n{synthesis_context}"}],
+        max_tokens=512,
+    ).text
+```
+
+### Further reading
+
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. The foundational paper on attention degradation across long contexts; directly relevant to instruction and context placement in RAG prompts.
+- [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476) — Saad-Falcon et al., 2023. Automated RAG evaluation including faithfulness scoring; useful complement to the RAGAS approach covered in module 2.6.
+- [Seven Failure Points When Engineering a Retrieval Augmented Generation System](https://arxiv.org/abs/2401.05856) — Barnett et al., 2024. Practitioner analysis of where RAG fails in production; the prompting failures in this module are derived from their taxonomy.

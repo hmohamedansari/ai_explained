@@ -1,0 +1,76 @@
+{
+  "title": "Evaluating RAG Systems — Check your understanding",
+  "moduleId": "2.6",
+  "questions": [
+    {
+      "id": "2.6-q1",
+      "type": "multiple-choice",
+      "question": "You update your chunking strategy and want to know if retrieval improved. What is the fastest and cheapest way to measure this?",
+      "options": [
+        "Ask a frontier model to rate the quality of answers before and after the change",
+        "Deploy to 5% of users and compare thumbs-up rates",
+        "Run recall@k against a ground-truth eval set — comparing retrieved chunk IDs to labelled relevant chunk IDs requires no model calls",
+        "Compare BLEU scores between expected and generated answers"
+      ],
+      "answer": 2,
+      "explanation": "Retrieval evaluation requires only a ground-truth eval set (query → relevant chunk IDs) and your search function. No model calls. No inference costs. You compare the set of retrieved IDs against the labelled relevant IDs and compute recall@k. This makes it fast, cheap, and appropriate for CI — you can run it on every indexing pipeline change without incurring generation costs.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.6-q2",
+      "type": "multiple-choice",
+      "question": "Your RAG system's RAGAS context_precision score is 0.31. What does this indicate?",
+      "options": [
+        "31% of queries return the correct answer",
+        "The retrieved chunks are 31% similar to the query on average",
+        "Only 31% of the retrieved chunks were actually used in generating the answer — the system is over-retrieving irrelevant content",
+        "The model's answers are 31% faithful to the retrieved context"
+      ],
+      "answer": 2,
+      "explanation": "Context precision measures what fraction of the retrieved chunks were actually used (or useful) in generating the answer. A score of 0.31 means roughly 7 out of every 10 retrieved chunks are irrelevant noise that the model has to ignore. The fix is to reduce top-k, raise your relevance threshold, or improve retrieval quality — the model is being asked to find a signal in mostly noise.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.6-q3",
+      "type": "multiple-choice",
+      "question": "You evaluate your RAG system by checking whether the final answers are accurate. Your accuracy score is 0.88. Later a user reports a confident wrong answer on a query where the correct chunk was not retrieved. Why didn't your evaluation catch this?",
+      "options": [
+        "0.88 accuracy is too low a threshold — you needed at least 0.95 to catch rare failures",
+        "End-to-end accuracy conflates retrieval and generation failures — a model can produce a plausible-sounding wrong answer from a wrong chunk, which reads as correct when reviewed quickly",
+        "The user's query was an edge case not representable in an eval set",
+        "Answer accuracy evaluation requires more than 50 examples to be reliable"
+      ],
+      "answer": 1,
+      "explanation": "When you evaluate only the final answer, a model that faithfully synthesises a wrong chunk looks like a success if the answer sounds plausible. This is the central danger: good generation quality masks bad retrieval quality. The fix is to measure retrieval independently (did the right chunk come back?) before evaluating answer accuracy. An 0.88 end-to-end accuracy score hides how often retrieval is failing.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.6-q4",
+      "type": "multiple-choice",
+      "question": "You use the same model to both generate RAG answers and judge their faithfulness. What bias does this introduce?",
+      "options": [
+        "The model will always score its own answers as perfectly faithful",
+        "Models have self-preference bias — they tend to rate their own outputs more favourably than an independent judge would, inflating faithfulness scores",
+        "Using the same model for generation and judging doubles the token cost without adding information",
+        "The model cannot access its own outputs for evaluation"
+      ],
+      "answer": 1,
+      "explanation": "Self-preference bias is well-documented in LLM-as-judge research: models rate their own outputs more favourably than outputs from other models, even when quality is equivalent. For faithfulness evaluation, this means a model judging its own outputs will produce inflated scores, masking real faithfulness failures. Use a different or stronger model as the judge, or average across multiple judge models.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.6-q5",
+      "type": "multiple-choice",
+      "question": "Three months after launch, your recall@5 is still 0.89 but users report the system gives wrong answers on questions that should be easy. What production monitoring signal most directly explains this?",
+      "options": [
+        "Retrieval latency p95 has increased — the system is timing out before finding the right chunks",
+        "Retrieval miss rate has spiked — users are asking about topics where no relevant chunks exist in the current index",
+        "Faithfulness scores have dropped — the model is no longer adhering to the retrieved context",
+        "Context precision has dropped — too many chunks are being retrieved per query"
+      ],
+      "answer": 1,
+      "explanation": "A stable recall@5 means the system still retrieves correctly when relevant chunks exist. 'Easy' questions getting wrong answers suggests the relevant chunks don't exist — the knowledge base has a gap. Retrieval miss rate (fraction of queries where no chunk passes the relevance threshold) directly measures this. A spike in miss rate combined with stable recall@5 indicates the query distribution has shifted and new topics aren't covered by the current index.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

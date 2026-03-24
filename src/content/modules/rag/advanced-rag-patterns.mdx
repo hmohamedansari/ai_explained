@@ -1,0 +1,285 @@
+---
+moduleId: "2.7"
+title: "Advanced RAG Patterns"
+description: "Basic RAG fails when queries are vague, answers span multiple documents, or context evolves across a conversation. Four patterns — multi-query retrieval, HyDE, contextual retrieval, and small-to-big — each fix a specific retrieval failure mode. Know which failure you have before reaching for a pattern."
+track: "rag"
+order: 7
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 17
+  layer3: 20
+productionGotcha: "Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval begins. Always measure p50/p95 latency impact before enabling a pattern in production — the quality gain may not justify the cost for interactive applications. Start with basic RAG, measure where it fails, then reach for the appropriate pattern."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Basic RAG — embed the query, find similar chunks, pass them to the model — fails in predictable ways:
+
+| Failure mode | Symptom | Pattern that fixes it |
+|---|---|---|
+| Query is vague or phrased differently from the documents | Low recall — right document isn't in top-k | **Multi-query retrieval** |
+| Query is abstract; documents are concrete | Low recall — semantic gap between question and answer | **HyDE** (Hypothetical Document Embeddings) |
+| Right chunk is retrieved but lacks surrounding context | Model says "I don't have enough information" despite correct retrieval | **Small-to-big retrieval** |
+| Similar chunk embeddings regardless of topic distinction | Low precision — chunks from unrelated topics are retrieved | **Contextual retrieval** |
+| User references earlier conversation turns | Wrong chunks — retrieval ignores conversation context | **Conversational RAG** |
+
+The principle: diagnose the failure mode first, then apply the pattern. Adding complexity without a measured problem to solve costs latency without a quality payoff.
+
+### Production Gotcha
+
+> **Common Gotcha:** Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval. Always measure p50/p95 latency impact before enabling a pattern — start with basic RAG, measure where it fails, then reach for the appropriate fix.
+
+---
+
+## Layer 2 — Guided
+
+### Multi-query retrieval
+
+When a single query doesn't capture all relevant phrasings, generate multiple variations and take the union of results:
+
+```python
+# --- pseudocode ---
+def multi_query_retrieve(query: str, top_k: int = 5) -> list[dict]:
+    # Step 1: Generate query variations with a fast, cheap model
+    variations_response = llm.chat(
+        model="fast",
+        system=(
+            "Generate 3 alternative search queries for the same information need. "
+            "Use different words and phrasings. Return one query per line, no numbering or bullets."
+        ),
+        messages=[{"role": "user", "content": query}],
+        max_tokens=120,
+    )
+    queries = [query] + [q.strip() for q in variations_response.text.strip().split("\n") if q.strip()]
+
+    # Step 2: Retrieve for each query, deduplicate by chunk ID
+    seen_ids: set[str] = set()
+    all_chunks: list[dict] = []
+
+    for q in queries:
+        results = hybrid_search(q, top_k=top_k)
+        for chunk in results:
+            if chunk["id"] not in seen_ids:
+                seen_ids.add(chunk["id"])
+                all_chunks.append(chunk)
+
+    # Step 3: Return a wider pool for re-ranking (module 2.4)
+    return all_chunks
+```
+
+**When to use:** queries that are ambiguous, highly specific (users know what they want but not the exact words the document uses), or that could be answered by content with different surface phrasing.
+
+**Latency cost:** N+1 LLM calls (1 to generate variations + 1 per query to embed and search). Use a fast model for generation; cache common query expansions if traffic patterns repeat.
+
+### HyDE — Hypothetical Document Embeddings
+
+Standard RAG embeds the question. But questions and their answers often look different in embedding space — "How do I configure the firewall?" sits far from "Set `FIREWALL_POLICY=strict` in `/etc/config`."
+
+HyDE generates a plausible answer first, then embeds *that* and uses it to retrieve similar documents:
+
+```python
+# --- pseudocode ---
+def hyde_retrieve(query: str, top_k: int = 5) -> list[dict]:
+    # Step 1: Generate a hypothetical answer — doesn't need to be correct
+    hypothesis = llm.chat(
+        model="fast",
+        system=(
+            "Write a plausible passage that would answer the question, "
+            "as if it were from a technical document. "
+            "It doesn't need to be accurate — it will be used only to find similar real documents."
+        ),
+        messages=[{"role": "user", "content": query}],
+        max_tokens=200,
+    ).text
+
+    # Step 2: Embed the hypothesis, not the query
+    hypothesis_vector = embedding_model.embed(hypothesis)
+
+    # Step 3: Retrieve documents similar to the hypothesis
+    return vector_db.search(vector=hypothesis_vector, top_k=top_k)
+```
+
+**Why it works:** the hypothesis is in "answer space" — the same embedding neighbourhood as real documents that contain the answer. Embedding the question puts you in "question space," which may be distant from "answer space" for factual lookups.
+
+**When to use:** abstract or high-level queries against technical or procedural documentation. Less useful when queries and documents share similar vocabulary.
+
+**Latency cost:** one extra LLM call (hypothesis generation) before any retrieval. Keep `max_tokens` low — a 100-token hypothesis is usually sufficient.
+
+### Small-to-big retrieval (parent-child chunks)
+
+Index at a fine granularity (sentence or short paragraph) for precise retrieval, but expand to a larger unit (paragraph or section) before passing to the model:
+
+```python
+# Index structure: two levels
+# "child" chunks: small, precise retrieval units (150–200 chars)
+# "parent" chunks: larger context units (800–1000 chars), each child points to a parent
+
+def index_with_parents(sections: list[dict]) -> None:
+    for section in sections:
+        parent_id = section["id"]
+        # Store the full parent
+        parent_store[parent_id] = section["text"]
+
+        # Split into child chunks and point each to the parent
+        children = fixed_chunks(section["text"], chunk_size=200, overlap=20)
+        for i, child_text in enumerate(children):
+            vector_db.store(
+                id=f"{parent_id}-child-{i}",
+                vector=embedding_model.embed(child_text),
+                text=child_text,
+                metadata={"parent_id": parent_id, "source": section["source"]},
+            )
+
+
+def small_to_big_retrieve(query: str, top_k: int = 5) -> list[str]:
+    # Retrieve at child granularity (precise match)
+    child_results = vector_db.search(vector=embedding_model.embed(query), top_k=top_k * 2)
+
+    # Expand to parent context (sufficient context for the model)
+    seen_parents: set[str] = set()
+    parent_texts: list[str] = []
+
+    for child in child_results:
+        parent_id = child["metadata"]["parent_id"]
+        if parent_id not in seen_parents:
+            seen_parents.add(parent_id)
+            parent_texts.append(parent_store[parent_id])
+
+    return parent_texts[:top_k]
+```
+
+**When to use:** when retrieval recall is good (right child chunk is found) but answer quality is poor (model lacks surrounding context). The child chunk is precise enough to find; the parent chunk has enough context for a complete answer.
+
+### Contextual retrieval
+
+A technique for improving chunk embeddings by prepending a document-aware summary to each chunk before embedding it. Without context, a chunk like "The maximum value is 100." is ambiguous — 100 of what, in what system, compared to what baseline?
+
+```python
+# --- pseudocode ---
+def contextualise_chunk(full_document: str, chunk: str) -> str:
+    """
+    Generate a one-sentence context for the chunk based on the full document.
+    Prepend it to the chunk text before embedding.
+    """
+    context = llm.chat(
+        model="fast",
+        system=(
+            "Given the full document and a specific excerpt, write one concise sentence "
+            "that situates the excerpt within the document — what section it's from, "
+            "what concept it relates to. Be specific. Do not repeat the excerpt."
+        ),
+        messages=[{"role": "user", "content":
+            f"Full document:\n{full_document[:3000]}\n\nExcerpt:\n{chunk}"
+        }],
+        max_tokens=60,
+    ).text.strip()
+
+    return f"{context}\n\n{chunk}"
+
+
+def index_with_context(documents: list[dict]) -> None:
+    for doc in documents:
+        for chunk in chunk_document(doc["text"], doc["id"], doc["source"]):
+            contextualised = contextualise_chunk(doc["text"], chunk["text"])
+            chunk["embedding"] = embedding_model.embed(contextualised)
+            # Store original text (not the contextualised version) for the model to read
+            vector_db.store(**chunk)
+```
+
+**Key insight:** embed the contextualised version (better retrieval), but pass the original chunk text to the model (cleaner, no repetition). The context improves the embedding without cluttering the answer.
+
+**When to use:** large document collections where many chunks share generic language. Particularly effective for technical manuals, legal documents, and long-form reports where section context is critical.
+
+**Cost:** one LLM call per chunk at index time. For a 10,000-chunk corpus, this is 10,000 calls. Run with a fast model; this is an indexing cost, not a per-query cost.
+
+### Conversational RAG
+
+In a multi-turn conversation, a follow-up like "What about for enterprise customers?" only makes sense in the context of the previous exchange. Retrieval needs to incorporate the conversation, not just the latest message:
+
+```python
+# --- pseudocode ---
+def conversational_retrieve(
+    history: list[dict],
+    top_k: int = 5,
+) -> list[dict]:
+    # Condense history into a standalone retrieval query
+    condensed = llm.chat(
+        model="fast",
+        system=(
+            "Given the conversation history, rewrite the user's last question "
+            "as a complete, standalone search query that captures the full context. "
+            "Return only the rewritten query."
+        ),
+        messages=history,
+        max_tokens=80,
+    ).text.strip()
+
+    return hybrid_search(condensed, top_k=top_k)
+```
+
+This avoids the failure mode where a bare "What about enterprise?" retrieves nothing useful because it lacks the topic established two turns earlier.
+
+### Common mistakes
+
+1. **Adding patterns without measuring the failure** — Multi-query retrieval adds latency even when your recall is already 0.92. Measure recall@k first; only add patterns when it's below your threshold.
+2. **HyDE hypothesis too long** — A 500-token hypothesis drifts from the original intent and retrieves tangentially related documents. Keep hypotheses to 100–200 tokens.
+3. **Small-to-big without deduplication** — Multiple children pointing to the same parent will cause the parent to be retrieved multiple times. Deduplicate by parent ID before expanding.
+4. **Contextual retrieval at query time** — Contextualising chunks is an indexing cost, not a query cost. Running it at query time for every retrieved chunk multiplies latency by the number of chunks.
+5. **Conversational RAG with full history** — Condensing a 20-turn history into a retrieval query produces poor results. Summarise history periodically (module 1.6) or use only the last 3–5 turns for condensation.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Self-RAG and corrective RAG
+
+**Self-RAG** (Asai et al., 2023) trains the model to decide when to retrieve (not every query needs retrieval), critique its own outputs for faithfulness, and reflect on whether retrieved passages are relevant. Rather than always retrieving, it retrieves selectively and validates the output.
+
+**Corrective RAG** (Yan et al., 2024) adds a retrieval evaluator: after initial retrieval, a lightweight model scores each chunk for relevance. Irrelevant chunks are discarded; if no relevant chunks remain, the system falls back to web search or broader retrieval. The generation model only sees validated chunks.
+
+Both require additional components and increase latency significantly. They're most relevant when:
+- Retrieval recall is consistently poor and can't be improved by better chunking or hybrid search
+- High-stakes outputs where the cost of hallucination outweighs additional latency
+
+For most production systems, strong hybrid search + a re-ranker + a faithfulness guardrail on outputs gets you 90% of the benefit at a fraction of the complexity.
+
+### Choosing a pattern based on your eval data
+
+Rather than adding patterns speculatively, use your evaluation data from module 2.6:
+
+| Observation | Diagnosis | Pattern |
+|---|---|---|
+| Recall@5 is low (< 0.75) | Query isn't matching the right documents | Multi-query + HyDE |
+| Recall@10 is high but Recall@5 is low | Right document retrieved but ranked poorly | Re-ranker (module 2.4) |
+| Faithfulness is low despite good recall | Model not using retrieved context | Prompting fix (module 2.5) |
+| Context precision is low | Too many irrelevant chunks passed | Reduce top-k; add relevance threshold |
+| Good eval scores but poor answers on specific queries | Chunking splits the answer across chunks | Small-to-big or larger chunk size |
+
+The eval data from module 2.6 is the diagnostic that tells you which pattern to reach for. Without it, you're adding complexity to a system you haven't measured.
+
+### Latency budgets
+
+Each pattern has a latency cost. Here's an approximate ordering for an interactive application (target: under 2 seconds total):
+
+| Pattern | Added latency | Mitigation |
+|---|---|---|
+| Basic RAG | Baseline: embed + search (~50–200ms) | Cache common embeddings |
+| + Hybrid search | +BM25 search time (~10–50ms) | Usually acceptable |
+| + Re-ranking | +50–200ms (cross-encoder inference) | Only re-rank top-20, not top-100 |
+| + Multi-query (N=3) | +3× embedding + search time | Parallelise; cache variations |
+| + HyDE | +300–1000ms (generation round-trip) | Use fast model; cache by query |
+| + Contextual retrieval | Indexing cost only — no query latency | Run offline |
+
+Contextual retrieval is unique: all the cost is at index time. It's the best latency/quality tradeoff among the advanced patterns.
+
+### Further reading
+
+- [Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)](https://arxiv.org/abs/2212.10496) — Gao et al., 2022. The paper introducing Hypothetical Document Embeddings; explains why answer-space embeddings outperform question-space embeddings for dense retrieval.
+- [Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection](https://arxiv.org/abs/2310.11511) — Asai et al., 2023. Selective retrieval with self-critique; foundational for understanding when to retrieve vs when to answer from training.
+- [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884) — Yan et al., 2024. Adding a retrieval evaluator to filter irrelevant chunks before generation.
+- [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) [Anthropic] — Anthropic's write-up and evaluation of contextual chunk enrichment; the benchmark data showing recall improvement is useful regardless of which provider you use.

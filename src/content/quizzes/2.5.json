@@ -1,0 +1,76 @@
+{
+  "title": "Prompting for RAG — Check your understanding",
+  "moduleId": "2.5",
+  "questions": [
+    {
+      "id": "2.5-q1",
+      "type": "multiple-choice",
+      "question": "You add the instruction 'Answer only from the provided documents' at the end of a 3,000-token context block. Users report the model still occasionally adds information not in the retrieved chunks. What is the most likely cause?",
+      "options": [
+        "The model does not support grounding instructions",
+        "3,000 tokens exceeds the effective context window for this type of instruction",
+        "Instructions placed after long context blocks are followed less reliably than instructions in the system prompt before the context — move it to the system prompt",
+        "The instruction phrasing is too vague — replace with a more specific rule"
+      ],
+      "answer": 2,
+      "explanation": "Models attend more reliably to instructions at the beginning of long prompts than to instructions placed after large context blocks. A grounding instruction buried after 3,000 tokens of retrieved content will be followed inconsistently. The fix is to place it in the system prompt, before any documents appear, where it receives primacy attention.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.5-q2",
+      "type": "multiple-choice",
+      "question": "Your RAG system retrieves relevant chunks but sometimes the model says 'I cannot determine the answer from the provided information' when the answer is clearly present. What is most likely missing from your prompt?",
+      "options": [
+        "A no-answer instruction — the model is over-applying a fallback phrase that was never defined, causing it to trigger even when the answer is present",
+        "More retrieved chunks — the model needs more context to find the answer",
+        "A stronger model — the current model lacks the reading comprehension needed",
+        "A citation instruction — without it, the model cannot identify which chunk contains the answer"
+      ],
+      "answer": 0,
+      "explanation": "When a no-answer fallback phrase is defined in the system prompt, models sometimes over-trigger it — especially if the instruction is too broadly worded ('if unsure, say you don't know'). If the answer is clearly present in the chunks, the issue is likely an over-broad no-answer instruction. Refine the wording to specify the exact condition: 'If the answer is not clearly stated in the provided documents, say so' — and test with examples where the answer is present.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.5-q3",
+      "type": "multiple-choice",
+      "question": "Two retrieved chunks contradict each other: one says the return window is 30 days, another (from a newer policy) says 60 days. Without a conflict-handling instruction, what will the model most likely do?",
+      "options": [
+        "Always return the information from the first chunk in the context block",
+        "Refuse to answer because the sources conflict",
+        "Silently pick one source, usually whichever appears first in the context, with no indication of the conflict",
+        "Average the two values and return 45 days"
+      ],
+      "answer": 2,
+      "explanation": "Without a conflict-handling instruction, models typically resolve contradictions silently by picking one source — often the one that appears earlier in the context (primacy bias). The user receives a confident answer with no indication that conflicting information exists. Add an explicit instruction: 'If documents contradict each other, note the conflict and cite both sources. Prefer more recent documents when dates are available.'",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.5-q4",
+      "type": "multiple-choice",
+      "question": "Why should retrieved chunks be numbered ([1], [2], ...) in the context block rather than passed as an unlabelled block of text?",
+      "options": [
+        "Numbered chunks are processed faster by the model",
+        "Numbers allow the model to cite specific sources in its answer, making claims auditable and enabling debugging of which chunk was used",
+        "Unlabelled chunks cause the model to treat the entire context as a single document",
+        "Vector databases require numbered documents to maintain index ordering"
+      ],
+      "answer": 1,
+      "explanation": "Numbered chunks serve three purposes: (1) the model can cite [1], [2] etc. in its answer, making each claim auditable; (2) you can verify whether the citation is correct — did the model actually use the right chunk?; (3) when an answer is wrong, you can trace it to the specific chunk that was retrieved and identify whether the problem is retrieval (wrong chunk) or generation (right chunk, wrong answer). Unlabelled context makes all three impossible.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.5-q5",
+      "type": "multiple-choice",
+      "question": "A user asks 'What did all our Q4 reports say about customer churn?' and your standard RAG prompt returns a vague summary. What prompting pattern addresses this multi-document aggregation query?",
+      "options": [
+        "Pass all Q4 report chunks in a single context block and increase max_tokens",
+        "Use a map-reduce approach: extract relevant information from each chunk independently, then synthesise the extracted summaries in a second call",
+        "Switch to a frontier model — only frontier models can aggregate across multiple documents",
+        "Add a citation instruction so the model references each report individually"
+      ],
+      "answer": 1,
+      "explanation": "Multi-document aggregation queries require the model to synthesise across many sources simultaneously, which strains a single long-context call. The map-reduce approach breaks this into two steps: first extract the relevant information from each chunk independently (using a fast model with a narrow prompt), then synthesise the extracts into a coherent answer. This reduces noise in the synthesis step and scales to larger document sets than a single context block allows.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}
