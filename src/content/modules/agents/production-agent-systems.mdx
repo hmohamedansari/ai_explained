@@ -213,9 +213,23 @@ async def run_with_lease(task_id: str, goal: str):
             if not lease.renew(task_id, lease_id):
                 raise LeaseLost(f"Lost lease on task {task_id}")
 
+    # Keep a reference to the outer task so the renew loop can cancel it directly.
+    # Raising from inside a background task is not enough — asyncio swallows
+    # exceptions from tasks that are never awaited.
+    current_task = asyncio.current_task()
+
+    async def renew_periodically():
+        while True:
+            await asyncio.sleep(60)
+            if not lease.renew(task_id, lease_id):
+                current_task.cancel()   # propagate lease loss to the main coroutine
+                return
+
     renew_task = asyncio.create_task(renew_periodically())
     try:
         return await run_with_checkpoints(task_id, goal, TOOLS)
+    except asyncio.CancelledError:
+        raise LeaseLost(f"Lost lease on task {task_id}")
     finally:
         renew_task.cancel()
         lease.release(task_id, lease_id)
