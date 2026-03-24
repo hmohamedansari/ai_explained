@@ -207,13 +207,16 @@ If server and client protocol versions are incompatible, the connection fails at
 
 ### MCP transports compared
 
+The MCP specification (2025-11-25) defines two transports:
+
 | Transport | Use case | Latency | Deployment |
 |---|---|---|---|
 | **stdio** | Local tools (same machine) | ~1ms | Subprocess; simplest |
-| **HTTP + SSE** | Remote tools, shared services | ~10–100ms | Network service; scalable |
-| **WebSocket** | Real-time bidirectional | ~5–20ms | Long-lived connections |
+| **Streamable HTTP** | Remote tools, shared services | ~10–100ms | Network service; scalable |
 
-For production multi-tenant deployments, HTTP+SSE is the norm. stdio is the default for local development and desktop agents.
+**Streamable HTTP** is the current production transport. The client sends requests as HTTP POST to a single endpoint; the server may respond with a JSON body or an SSE stream depending on whether the response is simple or streaming. The client may also open a separate GET connection on the same endpoint to receive server-initiated messages. This replaces the legacy HTTP+SSE transport from the 2024-11-05 spec — if you see references to "HTTP+SSE" as a distinct MCP transport, they describe the older model.
+
+stdio is the default for local development and desktop agents.
 
 ### MCP vs direct function calling
 
@@ -221,7 +224,7 @@ For production multi-tenant deployments, HTTP+SSE is the norm. stdio is the defa
 |---|---|---|
 | Schema discovery | Hardcoded in app | Dynamic, at connect time |
 | Tool implementation | In-process | Separate process or service |
-| Transport | N/A (in-process) | stdio, HTTP+SSE |
+| Transport | N/A (in-process) | stdio, Streamable HTTP |
 | Multi-model support | Provider-specific | Provider-agnostic |
 | Versioning | Manual | Protocol-level negotiation |
 

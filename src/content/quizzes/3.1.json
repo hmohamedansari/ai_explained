@@ -50,12 +50,12 @@
       "question": "Which MCP transport is most appropriate for a tool server that needs to handle requests from multiple application instances in a production cloud deployment?",
       "options": [
         "stdio — lowest latency because it runs as a local subprocess",
-        "HTTP + SSE — network-accessible, scalable, and supports multiple concurrent clients",
+        "Streamable HTTP — network-accessible, scalable, and supports multiple concurrent clients over a standard HTTP endpoint",
         "WebSocket — required for any tool that returns results asynchronously",
         "stdio — easiest to deploy because it requires no network configuration"
       ],
       "answer": 1,
-      "explanation": "stdio is a subprocess transport — it runs the MCP server as a child process of a single application instance. For a cloud deployment with multiple instances, each instance would spawn its own subprocess, which defeats sharing and scaling. HTTP + SSE is network-addressable: a single MCP server handles requests from all application instances, scales horizontally, and is the standard production transport for shared tool services.",
+      "explanation": "stdio is a subprocess transport — it runs the MCP server as a child process of a single application instance. For a cloud deployment with multiple instances, each would spawn its own subprocess, which defeats sharing and scaling. Streamable HTTP (the current MCP production transport as of the 2025-11-25 spec) is network-addressable: a single MCP server handles requests from all application instances via standard HTTP POST, scales horizontally, and supports both simple JSON responses and SSE streaming for longer operations. The older 'HTTP+SSE' transport model from the 2024-11-05 spec has been superseded by Streamable HTTP.",
       "personas": ["junior", "senior", "sre"]
     },
     {

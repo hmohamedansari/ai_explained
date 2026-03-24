@@ -55,7 +55,7 @@
         "Use synchronous tools only to avoid the problem"
       ],
       "answer": 1,
-      "explanation": "Both answers A and B have merit in practice — server-side timeouts are the safety net, but explicit cancellation is the correct primary pattern. When a session ends (user disconnects, timeout, or explicit exit), cancel any in-flight async jobs by calling the cancellation endpoint. This respects the downstream service's resources and prevents billing for work that will never be consumed. Server-side timeouts catch the cases where cancellation fails.",
+      "explanation": "Explicit cancellation is the correct primary pattern: when the user session ends, call the job's cancel endpoint so the downstream service stops consuming resources and stops billing for work that will never be used. Server-side timeouts (option A) are a useful safety net for when cancellation fails or is not implemented, but they are not a substitute — a 5-minute timeout still wastes 5 minutes of resources per orphaned job. Relying on timeouts as the primary mechanism is reactive; explicit cancellation is proactive.",
       "personas": ["junior", "senior", "sre"]
     },
     {

@@ -218,14 +218,32 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
-On the frontend:
+On the frontend, use `fetch()` — `EventSource` only supports GET and cannot send a request body. Read the response as a stream and parse SSE lines manually:
+
 ```javascript
-const es = new EventSource("/chat", { method: "POST" });
-es.onmessage = (event) => {
-  const { type, data } = JSON.parse(event.data);
-  if (type === "text") appendToChat(data);
-  if (data === "[DONE]") es.close();
-};
+async function streamChat(message) {
+  const response = await fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    for (const line of decoder.decode(value).split("\n")) {
+      if (!line.startsWith("data: ")) continue;
+      const payload = line.slice(6).trim();
+      if (payload === "[DONE]") return;          // plain sentinel — check before JSON.parse
+      const { type, data } = JSON.parse(payload);
+      if (type === "text") appendToChat(data);
+    }
+  }
+}
 ```
 
 ---

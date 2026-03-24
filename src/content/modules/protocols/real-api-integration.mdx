@@ -115,8 +115,19 @@ def request_with_retry(
             response = client.request(method, url, **kwargs)
 
             if response.status_code == 429:
-                # Respect Retry-After header if present
-                retry_after = float(response.headers.get("Retry-After", base_delay * (2 ** attempt)))
+                # Retry-After may be seconds (numeric) or an HTTP-date string
+                retry_after_header = response.headers.get("Retry-After")
+                if retry_after_header:
+                    try:
+                        retry_after = float(retry_after_header)
+                    except ValueError:
+                        # HTTP-date format: "Wed, 21 Oct 2026 07:28:00 GMT"
+                        from email.utils import parsedate_to_datetime
+                        from datetime import timezone, datetime as dt
+                        retry_dt = parsedate_to_datetime(retry_after_header)
+                        retry_after = max(0.0, (retry_dt - dt.now(timezone.utc)).total_seconds())
+                else:
+                    retry_after = base_delay * (2 ** attempt)
                 time.sleep(retry_after)
                 continue
 
@@ -144,26 +155,28 @@ def request_with_retry(
 ```python
 import uuid
 
-def create_order(customer_id: str, items: list[dict]) -> dict:
-    """Create a customer order. Safe to retry — uses idempotency key."""
-    # Generate a deterministic key from the operation parameters
-    # so retries of the same logical operation use the same key
-    idempotency_key = str(uuid.uuid5(
-        uuid.NAMESPACE_OID,
-        f"create_order:{customer_id}:{sorted(str(i) for i in items)}"
-    ))
+def create_order(
+    customer_id: str,
+    items: list[dict],
+    idempotency_key: str | None = None,
+) -> dict:
+    """Create a customer order. Pass idempotency_key to safely retry a specific attempt."""
+    # Generate a random key once per user-intended operation and reuse it across retries.
+    # Do NOT derive the key from the payload — a customer placing the same order twice
+    # is two distinct operations and both should be processed.
+    key = idempotency_key or str(uuid.uuid4())
 
     response = request_with_retry(
         client,
         "POST",
         "/orders",
         json={"customer_id": customer_id, "items": items},
-        headers={"Idempotency-Key": idempotency_key},
+        headers={"Idempotency-Key": key},
     )
     return response.json()
 ```
 
-The idempotency key should be deterministic from the input — if you retry because of a timeout, you want to reuse the same key so the server recognises the duplicate. Using `uuid.uuid4()` (random) would generate a new key on every retry, defeating the purpose.
+Generate a random key (`uuid4`) once when the user initiates the operation and pass it through all retry attempts. The same key scopes deduplication to a single intended operation — the server returns the original result if it has already processed a request with this key. Never derive the key from the payload alone: two customers placing identical orders, or one customer legitimately reordering the same items, would be wrongly collapsed into one.
 
 Not all APIs support idempotency keys. For those that don't, either avoid retrying mutations or implement deduplication on your side by caching the operation result.
 

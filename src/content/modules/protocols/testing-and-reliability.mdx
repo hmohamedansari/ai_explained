@@ -37,11 +37,14 @@ Most teams write only unit and integration tests, skipping contract tests. This 
 ### Unit tests for tool implementations
 
 ```python
+import re
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
-# The tool implementation
+# The tool implementation — validates format before calling the API
 def get_customer_order(order_id: str) -> dict:
+    if not re.match(r"^ORD-\d{8}$", order_id):
+        raise ValueError(f"Invalid order_id: {order_id!r}. Expected format: ORD-XXXXXXXX")
     response = api_client.get(f"/orders/{order_id}")
     if response.status_code == 404:
         return {"error": "Order not found", "order_id": order_id}
@@ -60,13 +63,12 @@ class TestGetCustomerOrder:
 
     def test_handles_not_found(self, mock_api):
         mock_api.get.return_value = MagicMock(status_code=404, json=lambda: {})
-        result = get_customer_order("ORD-INVALID")
+        result = get_customer_order("ORD-00000001")  # valid format, 404 response
         assert "error" in result
-        assert result["order_id"] == "ORD-INVALID"
+        assert result["order_id"] == "ORD-00000001"
 
     def test_rejects_invalid_order_id_format(self):
-        # Schema validation should catch this before the API call
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid order_id"):
             get_customer_order("not-an-order-id")
 ```
 
@@ -80,8 +82,9 @@ from typing import Callable
 class MockTool:
     """A configurable mock that records calls and returns preset responses."""
 
-    def __init__(self, name: str, responses: list | Callable):
+    def __init__(self, name: str, schema: dict, responses: list | Callable):
         self.name = name
+        self.schema = schema
         self._responses = responses if callable(responses) else iter(responses)
         self.calls: list[dict] = []
 
@@ -91,16 +94,33 @@ class MockTool:
             return self._responses(**kwargs)
         return next(self._responses)
 
+    def as_tool_schema(self) -> dict:
+        return self.schema
+
 # Build a mock tool set for a test
 def make_test_tools():
-    search_mock = MockTool("search_knowledge_base", responses=[
-        '{"results": [{"id": "doc-1", "text": "Refunds take 5–7 business days."}]}',
-        '{"results": []}',  # Second call returns empty
-    ])
-    return {search_mock.name: search_mock}, [search_mock.as_schema()]
+    search_mock = MockTool(
+        name="search_knowledge_base",
+        schema={
+            "name": "search_knowledge_base",
+            "description": "Search the knowledge base for relevant documents.",
+            "input_schema": {
+                "type": "object",
+                "properties": {"query": {"type": "string", "description": "Search query"}},
+                "required": ["query"],
+            },
+        },
+        responses=[
+            '{"results": [{"id": "doc-1", "text": "Refunds take 5–7 business days."}]}',
+            '{"results": []}',
+        ],
+    )
+    return {search_mock.name: search_mock}, [search_mock.as_tool_schema()]
 
-# Test that the model calls the right tool
-def test_refund_query_calls_search():
+# Test that the model selects the right tool for a refund query
+# This test verifies the model's tool selection decision — not tool execution.
+# The mock records calls only when executed via the full agentic loop (integration tests).
+def test_refund_query_selects_search_tool():
     tools_dict, tool_schemas = make_test_tools()
 
     response = llm.chat(
@@ -110,8 +130,8 @@ def test_refund_query_calls_search():
     )
 
     assert response.stop_reason == "tool_use"
-    assert any(tc.name == "search_knowledge_base" for tc in response.tool_calls)
-    assert "refund" in tools_dict["search_knowledge_base"].calls[0].get("query", "").lower()
+    tool_call = next(tc for tc in response.tool_calls if tc.name == "search_knowledge_base")
+    assert "refund" in tool_call.arguments.get("query", "").lower()
 ```
 
 ### Contract tests
