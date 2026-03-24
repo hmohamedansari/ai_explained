@@ -1,0 +1,287 @@
+---
+moduleId: "4.2"
+title: "Memory and State"
+description: "Memory is what separates a stateless chatbot from an agent that can work across sessions and build on past experience. This module covers the four memory types, how to manage the lifecycle of each, and the anti-patterns that cause agents to accumulate stale, conflicting, or poisoned state."
+track: "agents"
+order: 2
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 18
+  layer3: 14
+productionGotcha: "The 'store everything' pattern turns memory into a liability. An agent that accumulates every observation, result, and intermediate thought across sessions eventually retrieves its own past mistakes as relevant context. Write to memory intentionally: define criteria for what is worth storing, attach TTLs to time-sensitive facts, and build correction paths so stale or wrong memories can be overwritten. Memory without a lifecycle is a slow-motion context poisoning attack."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An agent's memory determines what it can know, retain, and act on. There are four fundamentally different stores, each with different scope, cost, and appropriate use:
+
+| Type | Scope | Persists? | Use for |
+|---|---|---|---|
+| **In-context** | Current session | No | Working state, recent turns, active task |
+| **External key-value** | Cross-session | Yes | User preferences, facts, session summaries |
+| **Vector (semantic)** | Cross-session | Yes | Past conversations, documents, episodic recall |
+| **Episodic / procedural** | Cross-session | Yes | How to do things — successful past task strategies |
+
+No single type covers everything. Production agents typically combine two or three, reading from external stores into context at session start and writing back on session end or milestone.
+
+---
+
+## Layer 2 — Guided
+
+### In-context memory (working memory)
+
+The conversation history is the agent's working memory. It is the fastest to read and write, but it is bounded by the context window and disappears at session end.
+
+```python
+class InContextMemory:
+    def __init__(self, max_tokens: int = 8000):
+        self.messages: list[dict] = []
+        self.max_tokens = max_tokens
+
+    def add(self, role: str, content: str):
+        self.messages.append({"role": role, "content": content})
+        self._prune_if_needed()
+
+    def _prune_if_needed(self):
+        """Summarise oldest messages when approaching the token limit."""
+        if estimate_tokens(self.messages) > self.max_tokens:
+            # Summarise the oldest half, keep recent turns verbatim
+            old = self.messages[:len(self.messages) // 2]
+            summary = llm.chat(
+                model="fast",
+                messages=[{
+                    "role": "user",
+                    "content": f"Summarise these conversation turns concisely:\n{format_messages(old)}"
+                }]
+            ).text
+            self.messages = [
+                {"role": "system", "content": f"[Earlier context summary]: {summary}"}
+            ] + self.messages[len(self.messages) // 2:]
+```
+
+### External key-value memory
+
+For facts that should persist across sessions — user preferences, confirmed facts, session state:
+
+```python
+import json
+import time
+
+class KeyValueMemory:
+    """
+    Structured memory for discrete, named facts.
+    Each entry carries metadata: source, timestamp, TTL, confidence.
+    """
+
+    def __init__(self, store):  # store: Redis, DynamoDB, or any KV backend
+        self.store = store
+
+    def write(
+        self,
+        key: str,
+        value: str,
+        source: str,
+        ttl_seconds: int | None = None,
+        confidence: float = 1.0,
+    ):
+        entry = {
+            "value": value,
+            "source": source,           # provenance: "user_stated", "tool_result", "inferred"
+            "written_at": time.time(),
+            "confidence": confidence,
+            "ttl": ttl_seconds,
+        }
+        self.store.set(key, json.dumps(entry))
+        if ttl_seconds:
+            self.store.expire(key, ttl_seconds)
+
+    def read(self, key: str) -> dict | None:
+        raw = self.store.get(key)
+        if not raw:
+            return None
+        entry = json.loads(raw)
+        # Surface stale high-confidence entries for review, not silent use
+        age = time.time() - entry["written_at"]
+        if age > 86400 * 7 and entry["confidence"] < 0.8:  # 7 days, low confidence
+            entry["_stale_warning"] = True
+        return entry
+
+    def correct(self, key: str, new_value: str, source: str = "user_correction"):
+        """Explicitly overwrite a memory with a correction, preserving history."""
+        existing = self.read(key)
+        if existing:
+            # Keep previous value under a versioned key for audit
+            self.store.set(f"{key}:prev:{int(time.time())}", json.dumps(existing))
+        self.write(key, new_value, source=source, confidence=1.0)
+```
+
+### Vector (semantic) memory
+
+For retrieval by meaning — past conversations, documents, examples:
+
+```python
+class VectorMemory:
+    def __init__(self, vector_db, embedding_fn):
+        self.db = vector_db
+        self.embed = embedding_fn
+
+    def store(
+        self,
+        content: str,
+        metadata: dict,
+        ttl_days: int | None = None,
+    ):
+        """Store a memory with write criteria metadata."""
+        embedding = self.embed(content)
+        self.db.upsert({
+            "id": generate_id(content),
+            "vector": embedding,
+            "content": content,
+            "metadata": {
+                **metadata,
+                "stored_at": time.time(),
+                "expires_at": time.time() + ttl_days * 86400 if ttl_days else None,
+                "source": metadata.get("source", "unknown"),
+            }
+        })
+
+    def retrieve(self, query: str, top_k: int = 5) -> list[dict]:
+        """Retrieve relevant memories, filtering out expired entries."""
+        results = self.db.query(self.embed(query), top_k=top_k * 2)
+        now = time.time()
+        valid = [
+            r for r in results
+            if r["metadata"].get("expires_at") is None
+            or r["metadata"]["expires_at"] > now
+        ]
+        return valid[:top_k]
+```
+
+### Memory lifecycle: write criteria
+
+Not everything the agent observes deserves to be stored. Define explicit write criteria:
+
+```python
+class MemoryWritePolicy:
+    """Decides whether an observation is worth storing long-term."""
+
+    WRITE_CRITERIA = {
+        # Store: confirmed facts with clear provenance
+        "user_stated_preference": True,
+        "tool_result_verified": True,
+        "task_completion_strategy": True,
+
+        # Don't store: intermediate reasoning, failed attempts, tool errors
+        "intermediate_reasoning": False,
+        "failed_tool_call": False,
+        "speculative_inference": False,
+    }
+
+    def should_write(self, observation: dict) -> bool:
+        observation_type = observation.get("type")
+        if observation_type not in self.WRITE_CRITERIA:
+            return False  # default deny
+        return self.WRITE_CRITERIA[observation_type]
+
+    def ttl_for(self, observation: dict) -> int | None:
+        """Return TTL in seconds, or None for no expiry."""
+        ttl_map = {
+            "user_stated_preference": None,        # permanent until corrected
+            "task_completion_strategy": 86400 * 90, # 90 days
+            "tool_result_verified": 86400 * 7,      # 1 week — may change
+            "session_summary": 86400 * 30,          # 1 month
+        }
+        return ttl_map.get(observation.get("type"))
+```
+
+### Provenance and correction
+
+Every memory should carry its source so it can be trusted, questioned, or overwritten:
+
+```python
+PROVENANCE_LEVELS = {
+    "user_stated":   1.0,   # User said it directly — highest trust
+    "tool_verified": 0.9,   # Confirmed by tool call against authoritative source
+    "agent_inferred": 0.6,  # Model derived it — treat as hypothesis, not fact
+    "recalled":       0.5,  # Retrieved from past memory — may be stale
+}
+
+def store_with_provenance(memory: KeyValueMemory, key: str, value: str, source: str):
+    confidence = PROVENANCE_LEVELS.get(source, 0.5)
+    memory.write(key, value, source=source, confidence=confidence)
+    if confidence < 0.7:
+        # Flag low-confidence memories for review before acting on them
+        memory.write(f"{key}:needs_verification", "true", source="system", ttl_seconds=3600)
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Memory coherence across stores
+
+When the same fact exists in multiple stores, they can contradict each other. A user corrects their timezone preference verbally (in-context) but the external KV store still has the old value. At next session start, the agent loads the stale KV entry.
+
+Resolution strategy:
+
+```python
+def load_session_memory(user_id: str, session_context: list[dict]) -> dict:
+    """Merge memory sources with conflict resolution."""
+    kv_memory = kv_store.get_all(user_id)
+    vector_memories = vector_store.retrieve(build_session_query(session_context))
+
+    merged = {}
+    for key, entry in kv_memory.items():
+        merged[key] = entry
+
+    # In-session corrections override stored values
+    for correction in extract_corrections(session_context):
+        if correction["key"] in merged:
+            merged[correction["key"]]["value"] = correction["new_value"]
+            merged[correction["key"]]["source"] = "in_session_correction"
+
+    return merged
+```
+
+### Forgetting as a feature
+
+The ability to evict memories deliberately is as important as the ability to store them. Three eviction strategies:
+
+| Strategy | Mechanism | Use for |
+|---|---|---|
+| **TTL-based** | Expiry timestamp on every write | Time-sensitive facts (prices, availability) |
+| **Correction-based** | Explicit overwrite with `correct()` | User preference changes, factual updates |
+| **Confidence decay** | Reduce confidence over time, evict below threshold | Inferred facts that have not been confirmed |
+
+```python
+def decay_confidences(memory: KeyValueMemory, decay_rate: float = 0.05):
+    """Reduce confidence of unverified inferences over time."""
+    for key in memory.list_keys():
+        entry = memory.read(key)
+        if entry and entry["source"] == "agent_inferred":
+            new_confidence = entry["confidence"] - decay_rate
+            if new_confidence < 0.3:
+                memory.delete(key)
+            else:
+                memory.write(key, entry["value"], source=entry["source"],
+                             confidence=new_confidence)
+```
+
+### Memory poisoning
+
+If an agent stores content from external sources without validation, those memories can contain injected instructions (see module 3.6). Memories retrieved at session start are particularly dangerous — they are treated as high-trust context.
+
+Guards:
+- Never store raw external content verbatim — summarise through the model first
+- Tag externally-sourced memories with low confidence and `source: "external"`
+- Delimit retrieved memories in the prompt the same way you delimit RAG chunks
+
+### Further reading
+
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) — Packer et al., 2023. Formalises paged memory for LLMs; the tiered store model here draws from this architecture.
+- [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442) — Park et al., 2023. Memory stream + reflection + retrieval architecture; still the clearest published design for episodic agent memory.

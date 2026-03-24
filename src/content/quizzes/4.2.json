@@ -1,0 +1,76 @@
+{
+  "title": "Memory and State — Check your understanding",
+  "moduleId": "4.2",
+  "questions": [
+    {
+      "id": "4.2-q1",
+      "type": "multiple-choice",
+      "question": "An agent stores every tool result, every intermediate reasoning step, and every user message to its vector memory store. Six months later, users report the agent gives inconsistent answers and sometimes cites its own past mistakes as supporting evidence. What is the root cause?",
+      "options": [
+        "Vector memory has a fixed capacity and old memories are overwritten incorrectly",
+        "The 'store everything' pattern accumulates stale, wrong, and irrelevant content — when retrieved, past mistakes become context that the agent treats as valid information",
+        "The embedding model has drifted and old vectors no longer match queries correctly",
+        "The agent is hallucinating — the memory system is not causing this"
+      ],
+      "answer": 1,
+      "explanation": "Storing everything means storing mistakes, outdated facts, speculative inferences, and failed tool results alongside valid information. Vector retrieval has no concept of 'this is wrong' — it retrieves by semantic similarity. Past mistakes that are semantically similar to a current query will be retrieved and treated as valid context. The fix is a write policy: define criteria for what is worth storing, attach TTLs to time-sensitive facts, and build correction paths for overwriting wrong entries.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.2-q2",
+      "type": "multiple-choice",
+      "question": "A user tells an agent 'my timezone is UTC+9' in a session. The agent stores this in external key-value memory. Three months later, the user moves to UTC-5 and says so in a new session. The agent still greets them based on UTC+9. What memory lifecycle feature is missing?",
+      "options": [
+        "A longer TTL — the timezone memory should have expired after 3 months automatically",
+        "A correction path — external memory needs an explicit mechanism to overwrite an existing entry when the user provides updated information, rather than silently keeping the stale value",
+        "In-context memory — timezone preferences should never be stored externally",
+        "Provenance tracking — if the source was 'user_stated', the entry cannot be overwritten"
+      ],
+      "answer": 1,
+      "explanation": "The problem is missing correction semantics. The key-value store has the old value; the new session's in-context information is not propagated back to storage. A correction path should detect when a user states something that contradicts a stored value and explicitly overwrite it — preserving the old value in a versioned history for audit purposes. TTL-based expiry would only help if the timezone preference was expected to change on a schedule, which it isn't.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.2-q3",
+      "type": "multiple-choice",
+      "question": "What does 'provenance' mean in the context of agent memory, and why does it matter?",
+      "options": [
+        "The physical location where memory data is stored",
+        "The source and trust level of a stored memory — whether it was stated by the user, confirmed by a tool, or inferred by the model — which determines how much weight to give it and when to verify it",
+        "The index position of a memory in the vector store",
+        "The expiry timestamp attached to a memory entry"
+      ],
+      "answer": 1,
+      "explanation": "Provenance answers 'where did this come from and how much should I trust it?' User-stated facts are high-confidence. Tool-verified facts are high-confidence. Model-inferred facts are hypotheses that should be treated with lower confidence until confirmed. Without provenance, all memories look equally authoritative — the agent may act on a speculative inference with the same confidence as a user-confirmed fact. Provenance enables appropriate confidence weighting and targeted verification.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.2-q4",
+      "type": "multiple-choice",
+      "question": "An agent reads a customer support email using a tool and stores the email's full text verbatim in vector memory for future retrieval. What security risk does this create?",
+      "options": [
+        "No risk — vector memory is private and inaccessible to external systems",
+        "Memory poisoning — if the email contains injected instructions, they are stored as trusted content and may be retrieved as context in future sessions, directing the agent's behavior without the user's knowledge",
+        "Privacy risk only — no security impact",
+        "Performance risk — long text entries slow vector search"
+      ],
+      "answer": 1,
+      "explanation": "Storing external content verbatim in memory is a prompt injection persistence vector. An attacker who can send an email to the agent can embed instructions that get stored in memory. When retrieved in a future session, those instructions appear as internal context — often treated with higher trust than the current user's message. The fix: never store raw external content verbatim. Summarise through the model first (which can filter injected instructions), and tag the summary with low confidence and an external source label.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.2-q5",
+      "type": "multiple-choice",
+      "question": "You have two memory stores: in-context (working memory) and external key-value. At the start of a new session, the agent loads the user's stored city from key-value memory: 'London'. During the session, the user says 'I just moved to Tokyo.' At session end, which memory should reflect 'Tokyo' and why?",
+      "options": [
+        "In-context only — external memory is read-only",
+        "Both — in-context should reflect the correction immediately; external should be updated at session end so future sessions start with the correct value",
+        "External only — in-context memory is discarded at session end anyway",
+        "Neither — user statements in-session should not override previously stored facts"
+      ],
+      "answer": 1,
+      "explanation": "In-context memory reflects the current session state — 'Tokyo' should be used for the remainder of this session immediately. External memory persists across sessions — it must be updated at session end so future sessions don't load stale data. Failing to write back means each new session reloads 'London' until the user corrects it again. This is the in-context correction → external write-back pattern: detect corrections in session, apply in context immediately, persist on session close.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

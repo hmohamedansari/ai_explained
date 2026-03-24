@@ -1,0 +1,76 @@
+{
+  "title": "Human-in-the-Loop — Check your understanding",
+  "moduleId": "4.6",
+  "questions": [
+    {
+      "id": "4.6-q1",
+      "type": "multiple-choice",
+      "question": "An agent is configured to require human approval for every action, including read-only searches. Users report the agent is 'unusable.' What design principle does this violate?",
+      "options": [
+        "Human oversight should not be applied to agents at all",
+        "HITL must be selective — applied to high-risk, irreversible, or low-confidence actions; blanket approval for all actions adds friction without proportionate safety benefit and makes the system impractical",
+        "Read-only actions are inherently safe and can never require approval",
+        "Approval latency should be reduced by automating the approval step"
+      ],
+      "answer": 1,
+      "explanation": "Human-in-the-loop that adds wait time to every action negates the value of having an agent. The design question is not 'should we have human review?' but 'which specific actions warrant it, and under what conditions?' The answer should be based on reversibility and risk: irreversible or high-impact actions need gates; routine, reversible, low-confidence-threshold actions should proceed automatically. Applying the same gate to a read-only search and a database deletion is both impractical and unnecessary.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.6-q2",
+      "type": "multiple-choice",
+      "question": "An agent submits an approval request for an irreversible action and waits. The human reviewer never responds. After 5 minutes, the approval times out. What is the correct default behaviour on timeout?",
+      "options": [
+        "Auto-approve — the action was not explicitly rejected",
+        "Auto-reject — if the reviewer didn't respond in time, the action should not proceed; missing a review window is not implicit consent",
+        "Retry the approval request indefinitely until a response is received",
+        "Proceed with a reduced-scope version of the action"
+      ],
+      "answer": 1,
+      "explanation": "For irreversible actions, the safe default on timeout is rejection. The absence of a response is not consent — the reviewer may have missed the notification, been unavailable, or the notification may have failed to deliver. Auto-approving on timeout would make the approval gate meaningless: an attacker could simply wait for reviewers to be unavailable. Auto-reject preserves safety; the task can be retried when a reviewer is available.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.6-q3",
+      "type": "multiple-choice",
+      "question": "A confidence-based escalation system routes agent outputs with confidence below 0.65 to human review. An agent produces an output with estimated confidence 0.82 but containing a factual error. What does this reveal about confidence-based escalation?",
+      "options": [
+        "The confidence threshold should be raised to 0.95 to catch more errors",
+        "Confidence estimation is imperfect — a high confidence score does not guarantee correctness; confidence escalation reduces error rate but cannot eliminate it, and must be combined with other quality checks for high-stakes outputs",
+        "The confidence estimator has a bug and should be replaced",
+        "Confidence-based escalation should only be used for low-stakes tasks"
+      ],
+      "answer": 1,
+      "explanation": "Confidence estimation is a proxy, not a guarantee. A model can be highly confident and wrong — especially when the error involves plausible-sounding but incorrect facts that aren't obviously uncertain. Confidence escalation reduces the rate of errors reaching users, but doesn't eliminate them. For high-stakes outputs, confidence gates should be combined with other checks: domain-specific validators, cross-reference against authoritative sources, or mandatory human review regardless of confidence for specific action types.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.6-q4",
+      "type": "multiple-choice",
+      "question": "An audit trail records every human touchpoint in an agent session. Six months after a disputed action, a user claims they never approved the deletion of their records. What fields in the audit trail are essential to resolve this dispute?",
+      "options": [
+        "The agent's internal reasoning at the time of the action",
+        "The approval event with: action type, action payload, reviewer ID, decision, timestamp, and optionally the reviewer's rationale — these together prove whether approval was given, by whom, and for what specific action",
+        "The model's confidence score at the time of the action",
+        "The session token and IP address of the session"
+      ],
+      "answer": 1,
+      "explanation": "Resolving a dispute requires: what was approved (action type and exact payload), who approved it (reviewer ID), when they approved it (timestamp), and what decision they made. The action payload is critical — 'delete approved' means nothing without knowing which record was in scope. The reviewer ID establishes accountability. The timestamp establishes chronology. Rationale is optional but valuable if the reviewer noted reasoning. Model confidence and session metadata don't resolve the core question of whether the specific action had explicit approval.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.6-q5",
+      "type": "multiple-choice",
+      "question": "A long-running agent task is in progress when a business requirement changes — the task should stop before completing a now-unwanted step. The agent has no interrupt mechanism. What is the only remaining option?",
+      "options": [
+        "Wait for the task to complete and then undo the unwanted actions",
+        "Kill the worker process — the task will restart from scratch on the next retry",
+        "Without an interrupt mechanism, the options are limited to killing the process (losing progress and potentially triggering retries) or waiting for natural completion; async interrupt points are an architectural requirement for long-running agent tasks, not an optional enhancement",
+        "Modify the system prompt mid-execution to change the agent's behaviour"
+      ],
+      "answer": 2,
+      "explanation": "Without an interrupt mechanism, you have no clean way to stop a running agent — only destructive options (kill the process) or waiting for completion and then undoing effects. Killing the process may trigger task queue retries that restart the unwanted work. This is why async interrupt points are an architectural requirement for long-running tasks: they allow operators to pause, inspect, or cancel an in-flight agent cleanly, without losing completed work or triggering unwanted retries.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

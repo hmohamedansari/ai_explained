@@ -1,0 +1,209 @@
+---
+moduleId: "4.1"
+title: "What is an Agent"
+description: "An agent is not a smarter chatbot — it is a different execution model. This module defines what makes something agentic, maps the spectrum from single call to autonomous agent, and gives you the decision matrix to know which approach fits your problem."
+track: "agents"
+order: 1
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 16
+  layer3: 13
+productionGotcha: "Teams reach for agents when a chain would do. Every added degree of autonomy multiplies failure surface: more tool calls, more context accumulation, more opportunity for compounding errors. The question before building an agent is not 'can we use an agent here?' — it is 'what is the cheapest architecture that reliably solves this problem?' Single calls and deterministic chains deserve a real evaluation before autonomy enters."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A **single LLM call** takes input, returns output, and stops. A **chain** executes a fixed sequence of calls — the output of step 1 feeds step 2. An **agent** runs a loop: it decides what to do next, executes it, observes the result, and repeats until the task is done or it gives up.
+
+The defining property of an agent is **delegated decision-making** — you hand the model a goal and let it choose the sequence of actions to reach it. This is powerful for tasks where the path isn't known in advance. It is also the source of every failure mode in this track.
+
+**The four capabilities that together define an agent:**
+
+| Capability | What it means |
+|---|---|
+| **Tool use** | Can take actions in the world (search, write, call APIs) |
+| **Planning** | Can decompose a goal into a sequence of steps |
+| **Memory** | Can maintain state across multiple turns or sessions |
+| **Self-correction** | Can observe failure and try a different approach |
+
+A system with all four is fully agentic. Many production systems are partially agentic — two or three capabilities, the others handled deterministically. Partial autonomy is often the right answer.
+
+---
+
+## Layer 2 — Guided
+
+### The agentic loop
+
+```python
+def run_agent(goal: str, tools: list[dict], max_iterations: int = 10) -> str:
+    messages = [{"role": "user", "content": goal}]
+    memory = AgentMemory()
+
+    for step in range(max_iterations):
+        # 1. Reason: model decides what to do next
+        response = llm.chat(
+            model="balanced",
+            system=build_agent_system_prompt(memory),
+            messages=messages,
+            tools=tools,
+        )
+
+        # 2. If done, return
+        if response.stop_reason == "end_turn":
+            return response.text
+
+        # 3. Act: execute the chosen tool(s)
+        messages.append({"role": "assistant", "content": response.content})
+        tool_results = execute_tools(response.tool_calls)
+
+        # 4. Observe: add results back to context
+        messages.append({"role": "user", "content": tool_results})
+        memory.record(response.tool_calls, tool_results)
+
+    return "Task incomplete — maximum steps reached."
+```
+
+Each iteration is one reason→act→observe cycle. The model sees all previous steps and results, so context grows with each iteration.
+
+### The decision matrix
+
+Before building an agent, map your task to the right architecture:
+
+| Architecture | Autonomy | Latency | Cost | Failure modes | Use when |
+|---|---|---|---|---|---|
+| **Single call** | None | ~1s | Low | Hallucination, context limits | Output is derivable from prompt alone |
+| **Chain** | None | ~2–10s | Medium | Error propagation | Steps and their order are known upfront |
+| **Supervised agent** | Partial | ~10–60s | Medium–high | Loop, wrong tool | Steps are unknown but recoverable failure is tolerable |
+| **Autonomous agent** | Full | Minutes | High | Compounding errors, runaway loops | Open-ended tasks with no deterministic path |
+
+**Thresholds to apply:**
+
+```python
+def choose_architecture(task: dict) -> str:
+    # Use a single call if:
+    if task["steps_known"] and task["step_count"] == 1:
+        return "single_call"
+
+    # Use a chain if:
+    if task["steps_known"] and task["step_count"] <= 5 and not task["requires_observation"]:
+        return "chain"
+
+    # Use a supervised agent if:
+    if task["steps_unknown"] and task["reversible_on_failure"] and task["budget_per_task"] < 0.50:
+        return "supervised_agent"
+
+    # Use a fully autonomous agent only if:
+    # — steps genuinely can't be determined upfront
+    # — task has clear completion criteria
+    # — failure cost is acceptable
+    # — human review is in place for irreversible actions
+    return "autonomous_agent"
+```
+
+**Apply these questions before reaching for agents:**
+
+1. *Do I know the steps ahead of time?* → Use a chain.
+2. *Is a single model call sufficient?* → Use a single call.
+3. *Is the cost of a wrong step acceptable?* → If no, add human review.
+4. *What is the maximum acceptable latency?* → Agents add at least one full LLM round-trip per step.
+
+### Capability taxonomy
+
+Not all agents have all four capabilities. Match capabilities to what the task actually needs:
+
+```python
+# Minimal viable agent — tool use only, no persistent memory
+class ToolAgent:
+    def run(self, query: str) -> str:
+        return run_tool_loop(query, tools=self.tools, max_iterations=5)
+
+# Stateful agent — tool use + in-context memory
+class StatefulAgent:
+    def __init__(self):
+        self.history: list[dict] = []
+
+    def run(self, query: str) -> str:
+        self.history.append({"role": "user", "content": query})
+        result = run_tool_loop_with_history(query, self.history, self.tools)
+        self.history.append({"role": "assistant", "content": result})
+        return result
+
+# Planning agent — adds explicit task decomposition before acting
+class PlanningAgent:
+    def run(self, goal: str) -> str:
+        plan = self.decompose(goal)       # module 4.3
+        return self.execute_plan(plan)
+```
+
+Only add capabilities that the task needs. A planning layer adds latency and cost — don't add it unless the task is complex enough to benefit.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Autonomy spectrum and control points
+
+Full autonomy is not a binary — it exists on a spectrum:
+
+```
+Low autonomy                                    High autonomy
+     │                                               │
+     ▼                                               ▼
+Single call → Prompted chain → Supervised agent → Autonomous agent
+                                    ↑                    ↑
+                              Human approves        Model decides
+                              each action           all actions
+```
+
+In production, the right answer is almost always somewhere in the middle. Common patterns:
+
+- **Scripted backbone + autonomous fill-ins**: deterministic orchestration for the critical path, autonomous reasoning for sub-tasks that don't have known solutions
+- **Autonomy with reversibility gates**: agent acts freely on reversible operations; pauses and requests approval for irreversible ones (delete, send, publish)
+- **Confidence-gated escalation**: agent proceeds autonomously when confidence is high; escalates to human when below a threshold
+
+### When agents fail silently
+
+Agents fail in ways that are harder to detect than simple API errors. The model does not raise an exception when it:
+
+- Calls the right tool with wrong arguments (schema mismatch passes through)
+- Loops on a subtask that will never succeed
+- Reaches the goal by a path that incurs unexpected side effects
+- Silently uses cached or stale context from earlier in the session
+
+Silent failures are more dangerous than loud ones. Build detection into the loop, not just at the output.
+
+### Task complexity scoring
+
+Before routing to an agent, score the task:
+
+```python
+def task_complexity_score(task: str, context: dict) -> float:
+    """Returns 0.0 (trivially simple) to 1.0 (maximally complex)."""
+    factors = {
+        "unknown_steps":     0.3 if context.get("steps_unknown") else 0.0,
+        "multi_domain_tools": 0.2 if context.get("tool_count", 0) > 3 else 0.0,
+        "irreversible_actions": 0.25 if context.get("has_writes") else 0.0,
+        "ambiguous_goal":    0.25 if context.get("goal_ambiguous") else 0.0,
+    }
+    return sum(factors.values())
+
+# Route based on score
+score = task_complexity_score(task, context)
+if score < 0.3:
+    return single_call_handler(task)
+elif score < 0.6:
+    return chain_handler(task)
+else:
+    return agent_handler(task)
+```
+
+### Further reading
+
+- [Anthropic — Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Taxonomy of agent architectures with explicit guidance on when not to use agents; the decision framework here maps closely to this.
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. The paper that formalised the reason-act-observe loop; foundational reading for understanding agentic execution.
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) — Sumers et al., 2023. Taxonomy of memory, planning, and action in language agents; useful for understanding the four-capability model.

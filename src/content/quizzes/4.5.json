@@ -1,0 +1,76 @@
+{
+  "title": "Agent Failure Modes — Check your understanding",
+  "moduleId": "4.5",
+  "questions": [
+    {
+      "id": "4.5-q1",
+      "type": "multiple-choice",
+      "question": "An agent calls search_knowledge_base(query='refund policy') five times in a row with no variation. Each call returns the same empty result. The loop continues until the context window fills. What two mitigations would have prevented this?",
+      "options": [
+        "Increasing top-k and adding more documents to the knowledge base",
+        "A loop detector that identifies repeated call signatures and injects a corrective message, combined with a max_iterations cap that terminates the loop and returns a partial result",
+        "Switching to a more capable model and increasing max_tokens",
+        "Disabling the tool for the remainder of the session after the first empty result"
+      ],
+      "answer": 1,
+      "explanation": "Two independent safeguards are needed. The loop detector catches the repetition early and injects a corrective message ('You've called this tool 3 times with the same arguments — try a different approach'). The max_iterations cap is the hard backstop — even if the corrective message doesn't work, the loop terminates and returns what the agent has so far. Together they handle the failure at different points: detection enables recovery, the cap guarantees termination.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.5-q2",
+      "type": "multiple-choice",
+      "question": "An agent calls delete_record(record_id='REC-99999'). The record ID looks syntactically valid but doesn't exist. Schema validation passes. The deletion API returns a 404. Which validation layer catches this, and which doesn't?",
+      "options": [
+        "Schema validation catches it — the format is wrong",
+        "Schema validation does not catch it (the format is valid); semantic validation catches it — a validator checks that the record_id exists before the delete is attempted",
+        "Neither layer catches it — the 404 is the only signal",
+        "Schema validation catches format issues; the agent self-corrects on 404 automatically"
+      ],
+      "answer": 1,
+      "explanation": "Schema validation checks structure and format — 'REC-99999' matches the expected pattern, so it passes. Semantic validation checks meaning — a validator that calls the API to confirm the record exists before deleting would catch this. The structured 404 error from the deletion API is also a valid catch, but only after the deletion is attempted. For irreversible actions, a pre-flight semantic check (does this thing exist?) is preferable to discovering the error after attempting the action.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.5-q3",
+      "type": "multiple-choice",
+      "question": "Step 2 of a 5-step task returns incorrect pricing data. The agent uses this to complete steps 3, 4, and 5 with high confidence. The final output contains wrong prices, cited correctly from the wrong intermediate result. Which failure mode is this?",
+      "options": [
+        "Hallucination — the model invented the prices",
+        "Tool failure — the pricing tool returned an error",
+        "Compounding error — a wrong intermediate result propagates through subsequent steps, with each step faithfully reasoning from the wrong input",
+        "Context overflow — correct pricing data was pushed out of context"
+      ],
+      "answer": 2,
+      "explanation": "This is the compounding error failure mode: the model is behaving correctly at every step — it faithfully uses the data it received. The problem is that step 2's data was wrong, and every subsequent step built on that wrong foundation. The final output is confident, well-cited, and wrong. The mitigation is checkpoint verification: after step 2, verify that the pricing data meets expected criteria (e.g., values within a plausible range) before proceeding to steps that take irreversible or high-stakes actions.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.5-q4",
+      "type": "multiple-choice",
+      "question": "An agent accumulates 40 tool results and reasoning traces over a long session. You notice the model begins ignoring instructions from the system prompt that it was following earlier in the session. What is the most likely cause?",
+      "options": [
+        "The model's instruction-following degrades with more context",
+        "Context overflow — the working context has grown so large that early content (including the system prompt's key instructions) is being attended to less reliably, causing degraded behaviour",
+        "The tool results contain conflicting instructions that override the system prompt",
+        "The session has exceeded the provider's rate limit, causing degraded responses"
+      ],
+      "answer": 1,
+      "explanation": "As context grows, models attend less reliably to instructions at the beginning of long prompts — a well-documented limitation sometimes called the 'lost-in-the-middle' effect. System prompt instructions that were clearly followed at the start of the session may be effectively ignored when the context is dominated by 40 tool results. The fix is proactive context compression: summarise the middle of the conversation history before it grows to the point where early instructions lose their effect.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.5-q5",
+      "type": "multiple-choice",
+      "question": "A step in an agent task is retried after a crash. To prevent duplicate side effects, the retry must not re-execute actions that already completed. What mechanism provides this guarantee?",
+      "options": [
+        "Checking whether the step raised an exception — if no exception, it completed",
+        "Idempotent step execution: each step has a deterministic key derived from task_id and step_id; completed steps cache their result under this key; retries return the cached result without re-executing the action",
+        "The task queue deduplicates retries automatically",
+        "Logging step completion to a file and checking the log before retrying"
+      ],
+      "answer": 1,
+      "explanation": "Idempotent step execution is the correct mechanism. The key is deterministic from (task_id, step_id) — not random — so the same logical step in a retried task uses the same cache key and hits the stored result. No re-execution occurs, no side effects are duplicated. Checking for exceptions doesn't help when the crash occurred after the step completed but before it was marked done. Task queues provide at-least-once delivery — they do not deduplicate at the step level. File-based logging is fragile and doesn't survive node failures.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

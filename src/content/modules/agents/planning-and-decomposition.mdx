@@ -1,0 +1,256 @@
+---
+moduleId: "4.3"
+title: "Planning and Decomposition"
+description: "Complex tasks fail when handed to an agent as a single goal. Planning is the process of decomposing a goal into executable steps — deciding what to do, in what order, and when to revise the plan based on what actually happens."
+track: "agents"
+order: 3
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 17
+  layer3: 13
+productionGotcha: "Planning has a cost. A planning step adds one full LLM call before any action is taken, and replanning adds another. For tasks that take 2–3 steps, the planning overhead can exceed the cost of the task itself. Benchmark: if the agent reliably completes the task correctly without a planning step, don't add one. Planning is not a quality booster — it is a structure tool for tasks whose path genuinely cannot be determined from the goal alone."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Given the goal "research competitors and draft a comparison report," an agent without planning will attempt to do everything in one loop — often calling tools in a confused order, losing track of sub-goals, and producing incomplete output.
+
+**Planning** breaks the goal into a sequenced task graph before acting. The agent answers "what needs to happen?" before asking "how do I do the next thing?"
+
+Three planning patterns, from simplest to most structured:
+
+| Pattern | How it works | Use when |
+|---|---|---|
+| **ReAct** | Interleave reasoning with action — think, then act, then observe | Tasks where each step informs the next |
+| **Plan-then-execute** | Generate a full plan upfront, then execute each step | Tasks with known structure and stable sub-goals |
+| **Dynamic replanning** | Execute with a plan, revise the plan when observations contradict it | Long tasks where reality diverges from the plan |
+
+---
+
+## Layer 2 — Guided
+
+### ReAct — reason, act, observe
+
+ReAct is not a library — it is a prompt pattern. Before each action, the model explicitly states its current reasoning:
+
+```python
+REACT_SYSTEM = """You are a research agent. For each step, follow this format exactly:
+
+Thought: [your reasoning about what to do next and why]
+Action: [the tool to call]
+Observation: [you will see the result here]
+
+Continue until you have enough information to answer, then respond directly."""
+
+def run_react_agent(goal: str, tools: list[dict]) -> str:
+    messages = [{"role": "user", "content": goal}]
+
+    for _ in range(12):
+        response = llm.chat(
+            model="balanced",
+            system=REACT_SYSTEM,
+            messages=messages,
+            tools=tools,
+        )
+        if response.stop_reason == "end_turn":
+            return response.text
+
+        messages.append({"role": "assistant", "content": response.content})
+        results = execute_tools(response.tool_calls)
+        messages.append({"role": "user", "content": results})
+```
+
+The "Thought:" prefix does two things: it forces the model to articulate its reasoning before acting (reducing impulsive tool calls), and it makes the agent's decision process visible in logs.
+
+### Plan-then-execute
+
+For tasks with a predictable structure, generate a plan first, then execute each step independently:
+
+```python
+def plan_then_execute(goal: str, tools: list[dict]) -> str:
+    # Step 1: Generate a structured plan
+    plan_response = llm.chat(
+        model="balanced",
+        messages=[{
+            "role": "user",
+            "content": f"""Break this goal into ordered steps. Be specific.
+Output as a numbered list. Each step should be independently executable.
+
+Goal: {goal}"""
+        }]
+    )
+    steps = parse_plan(plan_response.text)
+
+    # Step 2: Execute each step
+    results = {}
+    for i, step in enumerate(steps):
+        context = format_prior_results(results)
+        response = llm.chat(
+            model="balanced",
+            messages=[{
+                "role": "user",
+                "content": f"Prior results:\n{context}\n\nExecute this step: {step}"
+            }],
+            tools=tools,
+        )
+        results[i] = run_tool_loop_for_step(response, tools)
+
+    # Step 3: Synthesise
+    synthesis = llm.chat(
+        model="balanced",
+        messages=[{
+            "role": "user",
+            "content": f"Goal: {goal}\n\nStep results:\n{format_results(results)}\n\nWrite the final output."
+        }]
+    )
+    return synthesis.text
+```
+
+Plan-then-execute works well when sub-steps are independent and can run in parallel:
+
+```python
+import asyncio
+
+async def parallel_plan_execute(goal: str, tools: list[dict]) -> str:
+    steps = await generate_plan_async(goal)
+    # Identify which steps are independent
+    independent_steps = [s for s in steps if not s.get("depends_on")]
+    dependent_steps = [s for s in steps if s.get("depends_on")]
+
+    # Run independent steps in parallel
+    parallel_results = await asyncio.gather(*[
+        execute_step_async(step, tools) for step in independent_steps
+    ])
+    results = dict(zip([s["id"] for s in independent_steps], parallel_results))
+
+    # Run dependent steps sequentially with prior results
+    for step in dependent_steps:
+        dep_results = {d: results[d] for d in step["depends_on"]}
+        results[step["id"]] = await execute_step_async(step, tools, context=dep_results)
+
+    return await synthesise_async(goal, results)
+```
+
+### Dynamic replanning
+
+When observations invalidate the current plan, regenerate the relevant portion:
+
+```python
+def should_replan(step_result: str, current_plan: list[str], step_index: int) -> bool:
+    """Ask the model whether this result requires changing the remaining plan."""
+    remaining = current_plan[step_index + 1:]
+    if not remaining:
+        return False
+
+    response = llm.chat(
+        model="fast",
+        messages=[{
+            "role": "user",
+            "content": f"""Step result: {step_result}
+
+Remaining planned steps:
+{chr(10).join(f'{i+1}. {s}' for i, s in enumerate(remaining))}
+
+Does this result make any of the remaining steps unnecessary, impossible, or wrong?
+Answer YES or NO, then briefly explain."""
+        }]
+    )
+    return response.text.strip().upper().startswith("YES")
+
+def dynamic_plan_execute(goal: str, tools: list[dict]) -> str:
+    plan = generate_plan(goal)
+    results = {}
+
+    for i, step in enumerate(plan):
+        results[i] = execute_step(step, tools, context=results)
+
+        if i < len(plan) - 1 and should_replan(results[i], plan, i):
+            # Regenerate remaining steps based on what we now know
+            plan = plan[:i+1] + regenerate_remaining(goal, plan[:i+1], results)
+
+    return synthesise(goal, results)
+```
+
+Replanning is expensive — one extra LLM call per step. Use it only when the task is long and the risk of executing an invalidated plan is high.
+
+### When not to plan
+
+```python
+PLANNING_THRESHOLD = {
+    "step_count": 3,        # Don't plan if the task takes fewer than 3 steps
+    "task_duration": 30,    # Don't plan if the task takes under 30 seconds anyway
+    "known_structure": False # Don't plan if you can write the steps in code
+}
+
+def needs_planning(task: dict) -> bool:
+    if task["estimated_steps"] < PLANNING_THRESHOLD["step_count"]:
+        return False
+    if task["structure_known"]:  # Chain is more reliable than plan
+        return False
+    if task["goal_ambiguous"]:   # Clarify the goal before planning
+        return False
+    return True
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Task decomposition quality
+
+The quality of a plan depends on the decomposition. Bad decompositions produce plans where steps:
+- Are too coarse (a single step does too much)
+- Are interdependent in ways the model doesn't track
+- Include steps that don't contribute to the goal
+- Miss prerequisite steps
+
+A simple evaluation of a generated plan:
+
+```python
+def evaluate_plan_quality(goal: str, plan: list[str]) -> dict:
+    response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": f"""Evaluate this plan for the goal: "{goal}"
+
+Plan:
+{chr(10).join(f'{i+1}. {s}' for i, s in enumerate(plan))}
+
+Rate each of these (1-5):
+1. Coverage: does the plan cover all aspects of the goal?
+2. Atomicity: are steps small enough to execute independently?
+3. Ordering: are steps in the right sequence?
+4. Redundancy: are any steps unnecessary?
+
+Output as JSON: {{"coverage": N, "atomicity": N, "ordering": N, "redundancy": N, "issues": ["..."]}}"""
+        }]
+    )
+    return parse_json(response.text)
+```
+
+Run this during development to identify systematic decomposition failures before deploying.
+
+### Hierarchical planning
+
+For complex tasks, a two-level hierarchy reduces plan length and improves focus:
+
+```
+High-level plan: [Research, Draft, Review, Finalise]
+     │
+     └─ Low-level plan for "Research":
+        [Search competitors, Extract pricing, Find feature lists, Summarise findings]
+```
+
+The high-level plan stays stable; individual sub-plans can be regenerated if they fail without replanning the entire task.
+
+### Further reading
+
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. Original ReAct paper; the reason-act-observe loop and its evaluation on multi-hop QA and decision tasks.
+- [Plan-and-Solve Prompting](https://arxiv.org/abs/2305.04091) — Wang et al., 2023. Systematic comparison of plan-first vs react-style execution; useful data on when planning improves vs degrades performance.
+- [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601) — Yao et al., 2023. Extension of planning to tree-structured exploration; relevant when a task has branching solution paths.

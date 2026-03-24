@@ -1,0 +1,76 @@
+{
+  "title": "Production Agent Systems — Check your understanding",
+  "moduleId": "4.7",
+  "questions": [
+    {
+      "id": "4.7-q1",
+      "type": "multiple-choice",
+      "question": "A worker completes step 3 of a 6-step agent task and then crashes before marking step 3 as done. The task queue retries the task from the beginning. Steps 1–3 execute again, sending a duplicate email and charging the user twice. What two mechanisms working together would have prevented this?",
+      "options": [
+        "Catch the exception at step 3 and retry only that step",
+        "Checkpoints (so the task resumes from step 3, not step 1) and idempotency keys (so the retry of step 3 returns the cached result instead of re-executing the side effects)",
+        "A dead-letter queue to hold the failed task for manual review",
+        "A unique task ID assigned at submission time"
+      ],
+      "answer": 1,
+      "explanation": "Two distinct mechanisms are needed. Checkpoints let the task resume from step 3 instead of step 1 — eliminating unnecessary re-execution of steps 1–2. But even with a checkpoint, step 3 itself may retry (the crash happened before it was marked done). Idempotency keys on the side effects (email, charge) ensure that a retried step 3 returns the previously stored result without re-triggering the external action. Neither alone is sufficient: checkpoints without idempotency still allows a step to duplicate its side effects on retry; idempotency without checkpoints still re-runs all prior steps.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.7-q2",
+      "type": "multiple-choice",
+      "question": "A step's idempotency key is generated as `hashlib.sha256(json.dumps(step_args).encode()).hexdigest()`. The same agent task is submitted twice by two different users with identical arguments (e.g., both request a report for customer_id='C-001'). What is the problem with this key design?",
+      "options": [
+        "SHA-256 is too slow for high-throughput use",
+        "The key is derived from the payload, not from the task identity — two separate legitimate operations with the same arguments share a key and the second is silently deduplicated, returning the first user's result to the second user",
+        "The key should use MD5 for compatibility with older systems",
+        "JSON serialisation is non-deterministic and may produce different hashes for the same arguments"
+      ],
+      "answer": 1,
+      "explanation": "Idempotency keys must be derived from task identity (task_id and step_id), not from the operation's arguments. A payload-derived key collapses two logically distinct operations — submitted at different times by different users — into one. The second request silently returns the first user's cached result. The correct key is `hash(task_id + ':' + step_id)`, which is unique per task instance. The same step in two separate task submissions gets two different keys even if the arguments are identical.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.7-q3",
+      "type": "multiple-choice",
+      "question": "A worker acquires a lease on task T-100 and begins execution. Halfway through, the worker process is killed by the OS. No other worker can pick up T-100, even after 10 minutes. What lease design property is missing?",
+      "options": [
+        "The lease was not stored in a database with ACID guarantees",
+        "The lease has no expiry — a lease without TTL creates a stuck task; when the holder dies, no other worker can acquire it until the lease is manually deleted",
+        "The lease ID should be a sequential integer, not a UUID",
+        "The lease acquisition should require a quorum of distributed lock managers"
+      ],
+      "answer": 1,
+      "explanation": "A lease without expiry (TTL) is a permanent lock. When the worker holding it dies, the lock is never released and no other worker can acquire the task. The correct design is SET NX EX: set the key only if it doesn't exist (NX), with an automatic expiry (EX). When the worker is alive, it renews the lease periodically. If the worker dies, the lease expires and another worker can acquire it. This is the core of stuck-task recovery without manual intervention.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.7-q4",
+      "type": "multiple-choice",
+      "question": "A team member argues: 'We're using Celery with Redis broker — tasks are guaranteed to execute exactly once, so we don't need idempotency keys.' Is this correct?",
+      "options": [
+        "Correct — Celery with Redis provides exactly-once delivery semantics",
+        "Incorrect — most task queues (including Celery) provide at-least-once delivery; a task may execute more than once if the worker crashes after completing but before acknowledging; exactly-once semantics must be implemented at the application layer using idempotency keys",
+        "Correct, but only when using Redis Streams rather than standard Redis queues",
+        "Incorrect — Celery provides at-most-once delivery, meaning tasks may be lost"
+      ],
+      "answer": 1,
+      "explanation": "At-least-once delivery is the default for most task queues, including Celery. A task is considered complete only when the broker receives the acknowledgement from the worker. If the worker crashes after doing the work but before sending the ACK, the broker re-queues the task for another worker. This is by design — it prevents task loss — but it means the work may execute more than once. Exactly-once semantics require application-layer idempotency: the worker checks whether the step already completed (via a stored result keyed on task_id + step_id) before executing it again.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.7-q5",
+      "type": "multiple-choice",
+      "question": "A multi-step agent task has a checkpoint stored after step 4. A replay is triggered. Steps 1–4 re-execute but their side effects (API calls, database writes) do not fire again. The final output is identical to the original run. What mechanism enables this?",
+      "options": [
+        "The checkpoint includes the full output so the agent skips replayed steps automatically",
+        "Replay safety: each step checks a persistent store for a previously committed result before executing; if found, it returns the cached result without calling the tool — the checkpoint determines where to resume, replay safety ensures replayed steps produce no new side effects",
+        "The agent detects it is in replay mode and switches to a read-only execution policy",
+        "The task queue suppresses API calls during replay"
+      ],
+      "answer": 1,
+      "explanation": "Replay safety is separate from checkpointing. The checkpoint determines the resume point (step 5, not step 1). But replay safety is what makes it safe to re-run steps 1–4 during recovery: each step, before executing, checks whether its result is already in the effect store. If it is, it returns the stored result. If not, it executes normally. This means replayed steps produce no new side effects — they return the result that was committed the first time. Without replay safety, a checkpoint-based restart would still re-execute all side effects for steps 1–4.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

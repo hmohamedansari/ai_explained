@@ -1,0 +1,76 @@
+{
+  "title": "What is an Agent — Check your understanding",
+  "moduleId": "4.1",
+  "questions": [
+    {
+      "id": "4.1-q1",
+      "type": "multiple-choice",
+      "question": "A user asks: 'Summarise the three attached documents into a single brief.' Your system always performs exactly three steps: extract text from each document, combine the extracts, and summarise. Which architecture fits this task?",
+      "options": [
+        "Autonomous agent — the model decides how to handle the documents",
+        "Chain — the steps and their order are known upfront, so a fixed sequence is more reliable and cheaper than delegating decisions to an agent",
+        "Supervised agent — document processing benefits from iterative refinement",
+        "Orchestrator/worker — each document should be handled by a specialist"
+      ],
+      "answer": 1,
+      "explanation": "The task has a known, fixed structure: three steps in a defined order. A chain is the right architecture — it is cheaper, faster, and more reliable than an agent because there are no decisions to delegate. Agents add value when the path to the goal is unknown in advance. When the steps are known, hardcode them.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.1-q2",
+      "type": "multiple-choice",
+      "question": "Using the decision matrix, which combination of task properties most strongly justifies using a fully autonomous agent?",
+      "options": [
+        "Steps known upfront, no external tool calls needed, goal is clear",
+        "Steps unknown upfront, task requires observing intermediate results to decide the next action, and the goal has clear completion criteria",
+        "Task takes under 5 seconds, cost per task is under $0.01, user expects immediate response",
+        "Task requires a single web search followed by a fixed summarisation"
+      ],
+      "answer": 1,
+      "explanation": "An autonomous agent is justified when the path cannot be determined upfront and the agent must observe results to decide what to do next. Clear completion criteria are also required — without them, the agent has no way to know when to stop. The other options describe tasks better served by single calls or chains: known steps, low latency requirements, or fixed structure all point away from agents.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.1-q3",
+      "type": "multiple-choice",
+      "question": "An agent completes a research task in 12 steps. The same task could have been done in 4 steps by a well-designed chain. The final output is correct. Is this a problem?",
+      "options": [
+        "No — if the output is correct, the number of steps does not matter",
+        "Yes — 12 steps instead of 4 means roughly 3× the LLM calls, 3× the cost, 3× the latency, and 3× the opportunity for compounding errors, all of which compound as task volume grows",
+        "Only if the task took longer than the user's acceptable response time",
+        "No — agents naturally take more steps than chains and this is expected overhead"
+      ],
+      "answer": 1,
+      "explanation": "Inefficiency in step count is a real production problem. Each extra step costs tokens, adds latency, and creates another opportunity for a tool error or compounding mistake. At scale, an agent that takes 3× the necessary steps has 3× the operating cost and 3× the failure surface. This is why trajectory efficiency is a first-class eval metric — task success rate alone does not tell you whether the agent is operating correctly.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.1-q4",
+      "type": "multiple-choice",
+      "question": "Which of the four agent capabilities — tool use, planning, memory, self-correction — is strictly required for a task that asks an agent to 'search the web for today's pricing of three products and return a comparison table'?",
+      "options": [
+        "All four — production agents always need all capabilities",
+        "Tool use only — the task requires calling a search tool but has no need for multi-session memory, explicit planning, or self-correction",
+        "Planning and tool use — the task has three sub-tasks that need to be planned",
+        "Memory and tool use — the agent must remember previous results while searching"
+      ],
+      "answer": 1,
+      "explanation": "The task requires exactly one capability: tool use (web search). The steps are simple enough that no explicit planning is needed — the agentic loop handles three sequential searches naturally. No cross-session memory is required (single task, single session). Self-correction is a nice-to-have but not a requirement for a bounded three-item search. Adding capabilities that aren't needed increases cost and complexity without improving outcomes.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "4.1-q5",
+      "type": "multiple-choice",
+      "question": "An agent 'successfully' answers a factual question by confidently synthesising information from two tool results — but one tool result was silently wrong, and the agent never detected the error. What failure category is this?",
+      "options": [
+        "Model hallucination — the model invented information",
+        "Tool failure — the tool returned an error code",
+        "Silent failure — the agent completed with a wrong answer that looks correct because there was no error signal to trigger self-correction",
+        "Context overflow — the correct information was pushed out of the context window"
+      ],
+      "answer": 2,
+      "explanation": "This is a silent failure: the agent behaved correctly given what it observed — but what it observed was wrong. No exception was raised, no error code was returned, and the output looks plausible. Silent failures are the most dangerous category because they don't trigger any monitoring alert and can go undetected until a user or downstream system is harmed by the wrong output. This is why intermediate result verification matters more than just checking final output.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

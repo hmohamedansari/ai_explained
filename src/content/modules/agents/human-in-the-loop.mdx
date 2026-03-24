@@ -1,0 +1,292 @@
+---
+moduleId: "4.6"
+title: "Human-in-the-Loop"
+description: "Human oversight is not a bolt-on safety feature — it is an architectural primitive that determines what an agent is permitted to do autonomously and what requires a human decision. This module covers the design of approval gates, interrupt points, confidence escalation, and audit trails that make human oversight practical at scale."
+track: "agents"
+order: 6
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 17
+  layer3: 13
+productionGotcha: "Human-in-the-loop that adds 30 seconds of wait time to every action is indistinguishable from not having an agent. HITL must be selective — applied to high-risk, irreversible, or low-confidence actions, not to everything. The design question is not 'should we add human review?' but 'which specific actions require human approval, under what conditions, and how do we make the approval fast enough to be practical?'"
+draft: false
+---
+
+## Layer 1 — Surface
+
+An agent without human oversight is only as safe as its worst tool call. Human-in-the-loop (HITL) is the architecture that defines where humans remain in the decision chain.
+
+**Three mechanisms, each serving a different purpose:**
+
+| Mechanism | What it does | When to use it |
+|---|---|---|
+| **Approval gate** | Agent pauses and waits for explicit human approval before proceeding | Before irreversible or high-cost actions |
+| **Confidence escalation** | Agent proceeds autonomously when confident; routes to human when uncertain | When task quality degrades below a threshold |
+| **Interrupt point** | Human can pause or cancel an in-flight agent session | Long-running tasks where requirements may change |
+
+None of these are binary — they exist on a spectrum, and the right combination depends on the risk profile of the task and the cost of human review time.
+
+---
+
+## Layer 2 — Guided
+
+### Approval gates
+
+An approval gate pauses the agent and sends a structured request for human review:
+
+```python
+import asyncio
+from dataclasses import dataclass
+from enum import Enum
+
+class ApprovalDecision(Enum):
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    MODIFIED = "modified"
+
+@dataclass
+class ApprovalRequest:
+    action_id: str
+    agent_id: str
+    action_type: str
+    description: str         # human-readable summary of what will happen
+    payload: dict            # the actual action parameters
+    reversibility: str       # "reversible", "partially_reversible", "irreversible"
+    estimated_impact: str    # "low", "medium", "high"
+
+async def request_approval(request: ApprovalRequest) -> tuple[ApprovalDecision, dict]:
+    """Submit an approval request and wait for a human decision."""
+    approval_id = await approval_queue.submit(request)
+
+    # Wait up to 5 minutes for approval
+    try:
+        decision = await asyncio.wait_for(
+            approval_queue.wait_for_decision(approval_id),
+            timeout=300.0,
+        )
+        return decision.status, decision.modifications or {}
+    except asyncio.TimeoutError:
+        await approval_queue.expire(approval_id)
+        raise ApprovalTimeoutError(f"Approval request {approval_id} timed out")
+
+# Integrate into the tool execution path
+APPROVAL_REQUIRED = {
+    "delete_record":   "irreversible",
+    "send_email":      "partially_reversible",
+    "publish_content": "partially_reversible",
+    "modify_config":   "reversible",
+}
+
+async def execute_with_gate(tool_name: str, arguments: dict, agent_id: str) -> str:
+    reversibility = APPROVAL_REQUIRED.get(tool_name)
+    if reversibility:
+        request = ApprovalRequest(
+            action_id=generate_id(),
+            agent_id=agent_id,
+            action_type=tool_name,
+            description=build_human_description(tool_name, arguments),
+            payload=arguments,
+            reversibility=reversibility,
+            estimated_impact=assess_impact(tool_name, arguments),
+        )
+        decision, modifications = await request_approval(request)
+
+        if decision == ApprovalDecision.REJECTED:
+            return f"Action '{tool_name}' was rejected by reviewer. Reason may be in modifications."
+        if decision == ApprovalDecision.MODIFIED:
+            arguments = {**arguments, **modifications}
+
+    return TOOL_REGISTRY[tool_name](**arguments)
+```
+
+### Confidence-based escalation
+
+Rather than requiring approval for specific action types, escalate when the agent's confidence is low:
+
+```python
+def estimate_confidence(response_text: str, task_context: str) -> float:
+    """Ask a fast model to assess the agent's confidence in its output."""
+    check = llm.chat(
+        model="fast",
+        messages=[{
+            "role": "user",
+            "content": f"""Task context: {task_context}
+
+Agent response: {response_text[:500]}
+
+Rate the agent's confidence in this response on a scale from 0.0 to 1.0.
+Consider: does it express uncertainty? Are claims specific and verifiable?
+Is the reasoning complete?
+
+Output only a number between 0.0 and 1.0."""
+        }]
+    )
+    try:
+        return float(check.text.strip())
+    except ValueError:
+        return 0.5  # default to middle if parsing fails
+
+ESCALATION_THRESHOLDS = {
+    "low_stakes":    0.4,   # Only escalate if very uncertain
+    "medium_stakes": 0.65,
+    "high_stakes":   0.85,  # Escalate unless highly confident
+}
+
+def run_with_escalation(task: str, stake_level: str = "medium_stakes") -> str:
+    result = run_agent(task)
+    confidence = estimate_confidence(result, task)
+    threshold = ESCALATION_THRESHOLDS[stake_level]
+
+    if confidence < threshold:
+        return escalate_to_human(
+            task=task,
+            agent_result=result,
+            confidence=confidence,
+            reason=f"Confidence {confidence:.2f} below threshold {threshold}",
+        )
+    return result
+```
+
+### Async interrupt points
+
+For long-running agent sessions, expose control points that allow humans to pause, inspect, or cancel:
+
+```python
+class InterruptibleAgent:
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self._pause_event = asyncio.Event()
+        self._cancel_event = asyncio.Event()
+        self._pause_event.set()  # Start unpaused
+
+    async def check_interrupt(self):
+        """Call this at the start of each iteration."""
+        if self._cancel_event.is_set():
+            raise AgentCancelled(f"Session {self.session_id} was cancelled by operator")
+        if not self._pause_event.is_set():
+            await status_store.set(self.session_id, "paused")
+            await self._pause_event.wait()  # Block until resumed
+            await status_store.set(self.session_id, "running")
+
+    def pause(self):
+        self._pause_event.clear()
+
+    def resume(self):
+        self._pause_event.set()
+
+    def cancel(self):
+        self._cancel_event.set()
+        self._pause_event.set()  # Unblock if paused so cancellation is detected
+
+    async def run(self, goal: str, tools: list[dict]) -> str:
+        messages = [{"role": "user", "content": goal}]
+        for step in range(10):
+            await self.check_interrupt()
+            response = llm.chat(model="balanced", messages=messages, tools=tools)
+            if response.stop_reason == "end_turn":
+                return response.text
+            # ... tool execution ...
+        return "Task incomplete."
+```
+
+Expose `pause()`, `resume()`, and `cancel()` through an admin API or UI so operators can intervene in real time.
+
+### Audit trail construction
+
+Every human touchpoint must be recorded:
+
+```python
+@dataclass
+class AuditEvent:
+    event_type: str          # "gate_presented", "approved", "rejected", "escalated", "auto_proceeded"
+    session_id: str
+    agent_id: str
+    action_type: str
+    action_payload: dict
+    reviewer_id: str | None
+    decision: str | None
+    timestamp: float
+    rationale: str | None
+
+def build_audit_trail(session_id: str) -> list[AuditEvent]:
+    """Reconstruct the full decision log for a session."""
+    return audit_log.query(session_id=session_id, order_by="timestamp")
+
+def export_audit_report(session_id: str) -> str:
+    events = build_audit_trail(session_id)
+    lines = [f"Audit trail for session {session_id}"]
+    for e in events:
+        lines.append(
+            f"[{format_ts(e.timestamp)}] {e.event_type}: {e.action_type} "
+            f"→ {e.decision or 'auto'}"
+            + (f" (reviewer: {e.reviewer_id})" if e.reviewer_id else "")
+        )
+    return "\n".join(lines)
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### HITL as architectural primitive
+
+Human oversight is not an afterthought added to handle edge cases — it is a design constraint that shapes the entire agent architecture. Before building, answer:
+
+1. **What actions require human approval, always?** (irreversible writes, high-cost operations, external communications)
+2. **What triggers escalation?** (confidence thresholds, specific entity types, value thresholds)
+3. **How fast can humans respond?** (determines whether synchronous or async approval is feasible)
+4. **What does "no response" mean?** (timeout → auto-reject, auto-approve, or hold indefinitely?)
+
+These decisions belong in the design phase, not in the incident review.
+
+### Reversibility assessment
+
+Before acting, classify reversibility programmatically:
+
+```python
+REVERSIBILITY_MAP = {
+    # Fully reversible — can undo completely
+    "create_draft": "reversible",
+    "add_tag": "reversible",
+    "modify_config": "reversible",
+
+    # Partially reversible — some consequences can't be undone
+    "send_notification": "partially_reversible",   # notification received, can't unsend
+    "charge_card": "partially_reversible",          # charge can be refunded but not un-made
+
+    # Irreversible — cannot be undone
+    "delete_record": "irreversible",
+    "send_email": "irreversible",
+    "publish_publicly": "irreversible",
+    "provision_infrastructure": "irreversible",
+}
+
+def gate_level_for(action: str, value: float | None = None) -> str:
+    """Return the review level required for this action."""
+    reversibility = REVERSIBILITY_MAP.get(action, "irreversible")
+    if reversibility == "irreversible":
+        return "mandatory_review"
+    if reversibility == "partially_reversible":
+        return "review_if_high_value" if (value or 0) > 100 else "auto_proceed"
+    return "auto_proceed"
+```
+
+### Escalation tiers
+
+A flat "human approves everything" model doesn't scale. Structure escalation in tiers:
+
+| Tier | Route to | Response time target | Trigger |
+|---|---|---|---|
+| **Automated** | No human; agent proceeds | Immediate | High confidence, reversible action |
+| **Async review** | On-call queue; reviewed within 1h | 1 hour | Medium confidence or partially reversible |
+| **Synchronous gate** | Real-time reviewer in UI | 5 minutes | Low confidence or irreversible action |
+| **Escalation** | Manager or domain expert | 30 minutes | High-value, ambiguous, or novel situation |
+
+### Further reading
+
+- [Responsible Scaling Policy — Anthropic](https://www.anthropic.com/news/anthropics-responsible-scaling-policy) [Anthropic] — Concrete framework for classifying risk levels and required oversight; the tier structure here is informed by this approach.
+- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — Bai et al., 2022. The RLHF + constitutional approach; background on how human feedback shapes model behaviour at training vs inference time.
