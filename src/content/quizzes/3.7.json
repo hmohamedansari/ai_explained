@@ -1,0 +1,76 @@
+{
+  "title": "Production Operations — Check your understanding",
+  "moduleId": "3.7",
+  "questions": [
+    {
+      "id": "3.7-q1",
+      "type": "multiple-choice",
+      "question": "Three of your agent's five tools are responding slowly. Sessions are timing out after 30 seconds. You add a 30-second session-level timeout but the problem persists. What is missing?",
+      "options": [
+        "A shorter session timeout — 30 seconds is too long",
+        "Per-tool timeouts — without them, one slow tool blocks the full session regardless of the session-level timeout, and slow tools compound across sequential calls",
+        "Retry logic — the slow tools should be retried on timeout",
+        "A circuit breaker — slow tools should be marked as unavailable"
+      ],
+      "answer": 1,
+      "explanation": "A 30-second session timeout is a ceiling on the total session, but it doesn't limit how long any individual tool can block. If three tools each take 15 seconds, that's 45 seconds of tool time — the session timeout fires before the model can finish. Per-tool timeouts (e.g., 10 seconds per tool) cap the worst-case time per tool call. When a tool hits its timeout, it returns a structured error immediately, the model can choose an alternative path, and the session stays within the overall budget.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.7-q2",
+      "type": "multiple-choice",
+      "question": "Your tool error rate alert fires at 11% (threshold: 10%). You check the logs and find all failures come from a single tool: get_inventory. What is the correct immediate response?",
+      "options": [
+        "Increase the alert threshold to 15% until the team can investigate",
+        "Open the circuit breaker for get_inventory manually to stop hammering the failing service, then investigate the root cause",
+        "Retry all failed calls — transient errors should clear automatically",
+        "Disable the entire agent until get_inventory is restored"
+      ],
+      "answer": 1,
+      "explanation": "When a tool fails consistently, continuing to call it adds load to an already-struggling service, potentially extending the outage. Opening the circuit breaker stops the traffic immediately, lets the service recover, and returns fast errors to sessions that would otherwise block waiting for the tool. The circuit breaker half-open phase (periodic probe requests) will automatically detect recovery. Increasing the threshold hides the signal; retrying hammers the service further; disabling the whole agent is disproportionate if the tool is optional.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.7-q3",
+      "type": "multiple-choice",
+      "question": "A session_iterations_p95 metric shows that 95% of sessions complete in 3 iterations or fewer, but the metric has been rising from 3 to 6 over the past week. No users have complained yet. What does this indicate?",
+      "options": [
+        "Normal variation — iteration counts fluctuate with query complexity",
+        "An early warning that the model is requiring more tool calls to complete tasks — possible causes include tool quality degradation, prompt drift, or a shift in query distribution toward harder questions",
+        "The metric is misconfigured — p95 should never exceed the max_iterations cap",
+        "Users are sending longer queries, which naturally require more iterations"
+      ],
+      "answer": 1,
+      "explanation": "Rising iteration counts indicate the model is taking more steps to complete tasks — which has cost implications (more LLM calls, more tool calls) and reliability implications (each additional iteration is an opportunity for something to go wrong). Common causes: a tool's quality has degraded (returning worse results, causing the model to retry), a prompt change reduced instruction clarity, or users are asking harder questions. Catching this before users complain is the value of monitoring operational metrics — investigate the cause before iteration counts reach the cap.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.7-q4",
+      "type": "multiple-choice",
+      "question": "Cost per session has spiked to $0.85 (budget: $0.10). The total session count is unchanged. What is the most likely operational cause?",
+      "options": [
+        "The LLM provider increased their pricing",
+        "Sessions are retrieving far more data than usual — a change in tool behavior is returning larger responses, inflating the context fed to the model on each iteration",
+        "The circuit breaker is causing sessions to retry too many times",
+        "The token count per request increased because the system prompt was updated"
+      ],
+      "answer": 1,
+      "explanation": "An 8.5× cost spike with no change in session count points to a change in what's happening within sessions, not how many there are. The most common cause is tool response size — if a tool change started returning 10× more data, that data flows into the model's context window on every subsequent iteration, multiplying costs. Check token usage per session (input vs output) and look at tool result sizes in the logs. System prompt changes could also cause this (answer D is plausible) but typically don't produce an 8.5× spike unless the prompt was dramatically expanded.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.7-q5",
+      "type": "multiple-choice",
+      "question": "An optional enrichment tool (fetch_related_content) starts failing. Sessions continue but users notice responses are less detailed. What is the correct graceful degradation behavior?",
+      "options": [
+        "Return an error to the user explaining that enrichment is unavailable",
+        "Fail the session — partial results are misleading",
+        "Return a structured message from the failing tool ('fetch_related_content is currently unavailable — proceeding without enrichment') so the model knows to continue without that data",
+        "Silently drop the tool from available tools until it recovers"
+      ],
+      "answer": 2,
+      "explanation": "Optional tools are by definition non-blocking — sessions should continue when they fail. A structured degradation message gives the model accurate information to reason with: it knows the enrichment step was skipped and can adjust its response accordingly (e.g., note that additional context may be available later). Silently dropping the tool from the available set would confuse the model if it expected the tool to be present. Failing the session for an optional tool is disproportionate. The degradation message is the clean path.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

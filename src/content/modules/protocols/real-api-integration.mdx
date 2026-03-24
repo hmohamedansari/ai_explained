@@ -1,0 +1,346 @@
+---
+moduleId: "3.4"
+title: "Real API Integration"
+description: "Wrapping a real API as a tool means handling all the things the happy path ignores — auth token expiry, rate limits, flaky networks, non-idempotent operations, and paginated results. This module covers the mechanics of building tool integrations that survive production."
+track: "protocols"
+order: 4
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 20
+  layer3: 15
+productionGotcha: "Retrying a non-idempotent POST on a 500 error causes duplicate side effects — a payment charged twice, an order created twice, an email sent twice. Before adding retry logic to any tool, determine whether the underlying operation is safe to repeat. If it is not, add an idempotency key so the API can detect and deduplicate the repeat."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A tool that calls a real API has to handle what real APIs do: require authentication, enforce rate limits, sometimes fail, return more results than fit in one response, and occasionally deliver results asynchronously via webhooks.
+
+**The five integration mechanics that catch teams by surprise:**
+
+| Mechanic | What goes wrong without it |
+|---|---|
+| **Auth** | Credentials expire mid-session; secrets in logs |
+| **Retries** | Transient errors become permanent failures |
+| **Rate limits** | A burst of tool calls triggers 429s and the whole session fails |
+| **Idempotency** | A retry creates a duplicate transaction or record |
+| **Pagination** | The tool returns page 1 and the model never knows there are 47 more pages |
+
+Each of these is a one-time implementation that prevents an entire class of production incident.
+
+---
+
+## Layer 2 — Guided
+
+### Authentication patterns
+
+**API key in header (most common for tool integrations):**
+```python
+import httpx
+import os
+
+class APIClient:
+    def __init__(self):
+        self.api_key = os.environ["SERVICE_API_KEY"]  # Never hardcode
+        self.base_url = "https://api.example.com/v1"
+        self.client = httpx.Client(
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            timeout=30.0,
+        )
+
+    def get(self, path: str, **params) -> dict:
+        response = self.client.get(f"{self.base_url}{path}", params=params)
+        response.raise_for_status()
+        return response.json()
+```
+
+**OAuth 2.0 client credentials (service-to-service):**
+```python
+import time
+
+class OAuthClient:
+    def __init__(self, client_id: str, client_secret: str, token_url: str):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.token_url = token_url
+        self._token: str | None = None
+        self._token_expiry: float = 0
+
+    def _get_token(self) -> str:
+        if self._token and time.time() < self._token_expiry - 60:
+            return self._token  # Reuse if not within 60s of expiry
+        response = httpx.post(self.token_url, data={
+            "grant_type": "client_credentials",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+        })
+        response.raise_for_status()
+        data = response.json()
+        self._token = data["access_token"]
+        self._token_expiry = time.time() + data["expires_in"]
+        return self._token
+
+    def get(self, url: str) -> dict:
+        headers = {"Authorization": f"Bearer {self._get_token()}"}
+        response = httpx.get(url, headers=headers)
+        response.raise_for_status()
+        return response.json()
+```
+
+Never fetch a new token on every request — that's N extra round-trips per tool call and will hit auth rate limits. Cache with expiry.
+
+### Retry with exponential backoff and jitter
+
+```python
+import time
+import random
+import httpx
+
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+def request_with_retry(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    max_attempts: int = 4,
+    base_delay: float = 1.0,
+    **kwargs,
+) -> httpx.Response:
+    for attempt in range(max_attempts):
+        try:
+            response = client.request(method, url, **kwargs)
+
+            if response.status_code == 429:
+                # Respect Retry-After header if present
+                retry_after = float(response.headers.get("Retry-After", base_delay * (2 ** attempt)))
+                time.sleep(retry_after)
+                continue
+
+            if response.status_code in RETRYABLE_STATUS_CODES and attempt < max_attempts - 1:
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 1.0)  # jitter
+                time.sleep(delay)
+                continue
+
+            return response
+
+        except (httpx.ConnectError, httpx.TimeoutException) as e:
+            if attempt == max_attempts - 1:
+                raise
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 1.0)
+            time.sleep(delay)
+
+    raise RuntimeError(f"All {max_attempts} attempts failed for {method} {url}")
+```
+
+**What to retry:** 429 (rate limited), 5xx (server error), network errors.
+**What not to retry:** 400 (bad request), 401 (auth), 403 (forbidden), 404 (not found). These will never succeed without fixing the request.
+
+### Idempotency keys
+
+```python
+import uuid
+
+def create_order(customer_id: str, items: list[dict]) -> dict:
+    """Create a customer order. Safe to retry — uses idempotency key."""
+    # Generate a deterministic key from the operation parameters
+    # so retries of the same logical operation use the same key
+    idempotency_key = str(uuid.uuid5(
+        uuid.NAMESPACE_OID,
+        f"create_order:{customer_id}:{sorted(str(i) for i in items)}"
+    ))
+
+    response = request_with_retry(
+        client,
+        "POST",
+        "/orders",
+        json={"customer_id": customer_id, "items": items},
+        headers={"Idempotency-Key": idempotency_key},
+    )
+    return response.json()
+```
+
+The idempotency key should be deterministic from the input — if you retry because of a timeout, you want to reuse the same key so the server recognises the duplicate. Using `uuid.uuid4()` (random) would generate a new key on every retry, defeating the purpose.
+
+Not all APIs support idempotency keys. For those that don't, either avoid retrying mutations or implement deduplication on your side by caching the operation result.
+
+### Pagination
+
+```python
+def list_all_orders(customer_id: str, page_size: int = 50) -> list[dict]:
+    """Fetch all orders across all pages."""
+    orders = []
+    cursor = None
+
+    while True:
+        params = {"customer_id": customer_id, "limit": page_size}
+        if cursor:
+            params["cursor"] = cursor
+
+        response = client.get("/orders", params=params)
+        data = response.json()
+
+        orders.extend(data["items"])
+
+        # Cursor-based pagination: stop when next_cursor is absent or null
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+
+    return orders
+```
+
+**Be careful with pagination in tools:** if a customer has 10,000 orders, fetching all of them into the model context is wasteful and expensive. Prefer tools that return a bounded result set with a "more available" signal:
+
+```python
+def list_customer_orders(customer_id: str, limit: int = 20, cursor: str | None = None) -> dict:
+    """
+    List customer orders. Returns up to `limit` orders and a cursor for the next page.
+    If `has_more` is true, call again with the returned `next_cursor` for more results.
+    """
+    response = client.get("/orders", params={
+        "customer_id": customer_id, "limit": limit, "cursor": cursor
+    })
+    data = response.json()
+    return {
+        "orders": data["items"],
+        "has_more": bool(data.get("next_cursor")),
+        "next_cursor": data.get("next_cursor"),
+    }
+```
+
+Return `has_more` and `next_cursor` so the model can decide whether to request the next page based on what it has found so far.
+
+### Receiving webhooks
+
+Webhooks deliver events asynchronously — the API calls you, rather than you calling the API. Common pattern: register a webhook endpoint, verify the payload, enqueue for processing.
+
+```python
+import hashlib
+import hmac
+from fastapi import FastAPI, Request, HTTPException
+
+app = FastAPI()
+WEBHOOK_SECRET = os.environ["WEBHOOK_SECRET"]
+
+@app.post("/webhooks/orders")
+async def receive_order_webhook(request: Request):
+    body = await request.body()
+
+    # Verify the payload signature — reject unauthenticated webhooks
+    signature = request.headers.get("X-Signature-SHA256", "")
+    expected = hmac.new(WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(f"sha256={expected}", signature):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    event = await request.json()
+
+    # Enqueue for async processing — respond fast (200) so the API doesn't retry
+    await event_queue.put(event)
+    return {"status": "accepted"}
+```
+
+Return 200 immediately — a slow webhook response causes the API to retry, creating duplicate events. Do the work asynchronously.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Backoff strategies compared
+
+| Strategy | Formula | When to use |
+|---|---|---|
+| **Fixed** | Always wait `d` seconds | Simple; okay for low-concurrency |
+| **Exponential** | Wait `d × 2^n` seconds | Standard for most APIs |
+| **Exponential + jitter** | Wait `d × 2^n + rand(0, d)` | Prevents thundering herd when many clients retry simultaneously |
+| **Decorrelated jitter** | Wait `rand(d, prev_wait × 3)` | Best distribution for high-concurrency clients |
+
+For tool integrations where many parallel sessions may hit the same API, always add jitter.
+
+### Circuit breaker implementation
+
+```python
+from enum import Enum
+import threading
+
+class CircuitState(Enum):
+    CLOSED = "closed"       # Normal operation
+    OPEN = "open"           # Failing — reject calls immediately
+    HALF_OPEN = "half_open" # Testing recovery
+
+class CircuitBreaker:
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: float = 60.0):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.state = CircuitState.CLOSED
+        self.failure_count = 0
+        self.last_failure_time: float = 0
+        self._lock = threading.Lock()
+
+    def call(self, fn, *args, **kwargs):
+        with self._lock:
+            if self.state == CircuitState.OPEN:
+                if time.time() - self.last_failure_time > self.recovery_timeout:
+                    self.state = CircuitState.HALF_OPEN
+                else:
+                    raise RuntimeError("Circuit open — service unavailable")
+
+        try:
+            result = fn(*args, **kwargs)
+            with self._lock:
+                self.failure_count = 0
+                self.state = CircuitState.CLOSED
+            return result
+        except Exception as e:
+            with self._lock:
+                self.failure_count += 1
+                self.last_failure_time = time.time()
+                if self.failure_count >= self.failure_threshold:
+                    self.state = CircuitState.OPEN
+            raise
+```
+
+The circuit breaker prevents the agentic loop from hammering a broken downstream service — after `failure_threshold` consecutive failures, it rejects calls immediately until the service has had time to recover.
+
+### Webhook security patterns
+
+| Pattern | What it prevents |
+|---|---|
+| HMAC signature verification | Forged webhook payloads from attackers |
+| Timestamp in signature | Replay attacks using old valid payloads |
+| Idempotency on event ID | Duplicate processing from API retries |
+| Allowlisted source IPs | Webhooks from unexpected origins |
+
+Always implement at minimum HMAC verification and event ID deduplication. Timestamp validation (reject events older than 5 minutes) prevents replay attacks.
+
+### API versioning compatibility
+
+APIs evolve. Protect your tool integrations from breaking changes:
+
+```python
+class VersionedAPIClient:
+    API_VERSION = "2026-01"  # Pin to a specific API version
+
+    def get(self, path: str, **params) -> dict:
+        response = self.client.get(
+            f"{self.base_url}{path}",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "API-Version": self.API_VERSION,  # Explicit version header
+            },
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()
+```
+
+Pin API versions explicitly. Subscribe to the provider's deprecation notices and test upgrades in staging before updating `API_VERSION` in production.
+
+### Further reading
+
+- [AWS — Exponential Backoff and Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) — The definitive analysis of backoff strategies under concurrent load, with simulation data.
+- [Stripe — Idempotent Requests](https://stripe.com/docs/api/idempotent_requests) — Clear example of how idempotency keys work in a production payment API.
+- [Webhook.site](https://webhook.site/) — Free tool for testing and debugging webhook payloads during development.

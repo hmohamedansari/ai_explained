@@ -1,0 +1,76 @@
+{
+  "title": "Tool Schema Design — Check your understanding",
+  "moduleId": "3.2",
+  "questions": [
+    {
+      "id": "3.2-q1",
+      "type": "multiple-choice",
+      "question": "A tool is defined with name: 'get_data', description: 'Gets data', and a single string parameter called 'id'. Users report the model frequently calls this tool when it should be calling a different tool, and passes wrong values for the id parameter. What is the root cause?",
+      "options": [
+        "The model lacks sufficient context window to read the full tool list",
+        "The tool name and description are too vague — the model cannot determine when to use it or what format 'id' expects, so it guesses",
+        "The tool needs more parameters to be useful",
+        "The model requires enum values for all string parameters"
+      ],
+      "answer": 1,
+      "explanation": "The schema is the instruction the model reads for tool selection and argument generation. A name of 'get_data' could apply to any data-fetching operation. A description of 'Gets data' tells the model nothing about when to use it or what it returns. A parameter called 'id' gives no hint about format (order ID? user ID? UUID?). The model fills these gaps with guesses. Fix: specific name ('get_customer_order'), precise description (what it does, returns, and when NOT to use it), and a documented parameter format.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.2-q2",
+      "type": "multiple-choice",
+      "question": "You have two similar tools: search_orders and search_tickets. The model frequently calls the wrong one. What addition to the tool descriptions most directly fixes this?",
+      "options": [
+        "Add more parameters to each tool to make them more distinct",
+        "Merge them into one tool with a 'type' parameter",
+        "Add explicit 'Do NOT use for X' clauses to each description — negative examples tell the model when not to pick each tool",
+        "Rename both tools to be more generic"
+      ],
+      "answer": 2,
+      "explanation": "When tools are similar, positive descriptions alone are insufficient — the model picks the first plausible match. Negative disambiguation ('Do NOT use for ticket lookups — use search_tickets for that') directly resolves the ambiguity at selection time. This is more effective than adding parameters (which complicates usage) or merging (which makes the tool harder to reason about). Explicit do-not-use clauses are a standard production technique for tool sets with overlapping domains.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.2-q3",
+      "type": "multiple-choice",
+      "question": "Your Pydantic model generates a JSON Schema for a tool's parameters. Six months later, the tool API adds a new required field. What is the safest schema update strategy?",
+      "options": [
+        "Immediately add it as a required field — clients will update quickly",
+        "Add it as an optional parameter with a default value first; make it required only after all clients have updated",
+        "Create a new tool with a version suffix and deprecate the old one",
+        "Both B and C are valid safe migration paths; A is the only unsafe option"
+      ],
+      "answer": 3,
+      "explanation": "Adding a required parameter is a breaking change — existing clients (and the model's cached schema) will not pass it, causing failures. Two safe paths exist: (1) add it as optional with a default, keeping the tool's name and contract stable; (2) deploy a new tool name alongside the old one, giving clients time to migrate. Both B and C are correct. Option A is the only dangerous approach because it immediately breaks all connected clients.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.2-q4",
+      "type": "multiple-choice",
+      "question": "Why should tool schemas be validated at runtime, before the tool implementation runs?",
+      "options": [
+        "JSON Schema validation is faster than Python type checking",
+        "The model always produces valid arguments when given a well-written schema, so validation is a safety net for schema bugs only",
+        "Runtime validation catches cases where the model produces malformed arguments — returning a structured error lets the model self-correct in the next turn rather than crashing the application",
+        "Runtime validation is required by the MCP specification"
+      ],
+      "answer": 2,
+      "explanation": "Even with a well-written schema, models occasionally produce arguments that don't match — wrong types, out-of-range values, or missing required fields. If the tool implementation crashes on bad input, the application fails and the user gets an error. If validation runs first and returns a structured error ('Invalid arguments: order_id must match ORD-XXXXXXXX'), the model sees the error as a tool result and can self-correct by trying again with a valid argument. This is the difference between a recoverable tool failure and an application crash.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.2-q5",
+      "type": "multiple-choice",
+      "question": "You have a tool with a deeply nested parameter object: filter.date.from and filter.date.to. The model frequently omits nested fields or passes the wrong structure. What redesign directly addresses this?",
+      "options": [
+        "Add more detailed descriptions to the nested fields",
+        "Flatten to explicit top-level parameters: date_from and date_to — flat schemas are easier for models to populate correctly than nested objects",
+        "Use anyOf to make the nested fields optional",
+        "Switch to a string parameter and ask the model to format the date range as a string"
+      ],
+      "answer": 1,
+      "explanation": "Models generate arguments by reading the schema and reasoning about how to fill each field. Nested objects require the model to maintain mental state across levels ('I'm in filter, then date, then I need from and to'). Flat schemas eliminate this cognitive overhead — date_from and date_to are unambiguous top-level fields. Flat is almost always better than nested for tool parameters unless the nesting reflects a naturally grouped concept (like a GeoJSON object) where separation would be more confusing.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

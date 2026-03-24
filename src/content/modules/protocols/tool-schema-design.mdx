@@ -1,0 +1,272 @@
+---
+moduleId: "3.2"
+title: "Tool Schema Design"
+description: "The schema is not documentation — it is the instruction the model reads to decide whether to call your tool and what to pass. A bad schema causes wrong tool selections, invalid arguments, and hallucinated parameter values. This module covers what separates a production schema from a prototype one."
+track: "protocols"
+order: 2
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 16
+  layer3: 12
+productionGotcha: "The model reads your tool description, not your source code. If the description says 'gets user data', the model has no idea whether to use it for profile lookups, preferences, or billing records. Ambiguous descriptions cause the model to guess — and guesses drift over time as the prompt context changes. Write descriptions as if you're writing a one-sentence specification for a new engineer, not a commit message."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A tool schema has three parts the model directly uses:
+
+1. **Name** — how the model refers to the tool in a call
+2. **Description** — why and when to use the tool (this is the primary signal for tool selection)
+3. **Parameters** — what arguments to pass and in what shape
+
+A model choosing between five tools with vague names and one-word descriptions will pick incorrectly. The same model choosing between five tools with specific names and precise descriptions will pick correctly almost every time. The schema is the prompt for tool selection.
+
+**A bad schema:**
+```json
+{
+  "name": "get_data",
+  "description": "Gets data",
+  "parameters": { "type": "object", "properties": { "id": { "type": "string" } } }
+}
+```
+
+**A good schema:**
+```json
+{
+  "name": "get_customer_order",
+  "description": "Retrieves a single customer order by order ID. Returns order status, line items, shipping address, and total. Use this when the user asks about a specific order. Do NOT use for order lists or search — use list_customer_orders for that.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "order_id": {
+        "type": "string",
+        "description": "The order ID in format ORD-XXXXXXXX (e.g. ORD-00012345)"
+      }
+    },
+    "required": ["order_id"]
+  }
+}
+```
+
+---
+
+## Layer 2 — Guided
+
+### Name conventions
+
+Follow a `verb_noun` pattern with enough specificity to distinguish from similar tools:
+
+| Bad | Better | Why |
+|---|---|---|
+| `get_data` | `get_customer_order` | Specific to the entity and operation |
+| `search` | `search_knowledge_base` | Distinguishes from `search_web` or `search_tickets` |
+| `update` | `update_ticket_status` | Unambiguous about what is being updated |
+| `send` | `send_slack_message` | Tool registry may contain `send_email` too |
+
+Names should be lowercase with underscores. Avoid abbreviations — `retrieve_kb_doc` is harder to reason about than `retrieve_knowledge_base_document`.
+
+### Description anatomy
+
+A complete description answers four questions:
+
+1. What does this tool do?
+2. What does it return?
+3. When should the model use it?
+4. When should the model *not* use it?
+
+```python
+# Example: describing a tool that queries order history
+description = """
+Retrieves the order history for a customer. Returns a list of orders
+with status, date, total, and order ID for each.
+
+Use when the user asks about their past orders, recent purchases,
+or wants to find a specific order by date or amount.
+
+Do NOT use to get details of a single order — use get_customer_order for that.
+Do NOT use if the user is asking about a return or refund — use get_return_status.
+"""
+```
+
+The "do NOT use" clauses are especially important when you have multiple similar tools. Without them, the model picks the first plausible match.
+
+### Parameter design
+
+**Use enums instead of free strings:**
+```json
+// Bad — model might pass "Pending", "PENDING", "in progress", "waiting"
+{ "status": { "type": "string", "description": "The status to filter by" } }
+
+// Good — model knows exactly what values are valid
+{
+  "status": {
+    "type": "string",
+    "enum": ["pending", "processing", "shipped", "delivered", "cancelled"],
+    "description": "Filter orders by status"
+  }
+}
+```
+
+**Required vs optional parameters:**
+```json
+{
+  "type": "object",
+  "properties": {
+    "customer_id": {
+      "type": "string",
+      "description": "Customer ID (required)"
+    },
+    "limit": {
+      "type": "integer",
+      "description": "Maximum results to return. Defaults to 10, max 50.",
+      "default": 10
+    },
+    "since_date": {
+      "type": "string",
+      "description": "ISO 8601 date string (e.g. 2026-01-15). Only return orders on or after this date."
+    }
+  },
+  "required": ["customer_id"]
+}
+```
+
+**Keep the shape flat:** nested objects are harder for the model to populate correctly. If you need nested data, describe the structure clearly:
+
+```json
+// Harder for the model — nested object with unclear semantics
+{
+  "filter": {
+    "type": "object",
+    "properties": {
+      "date": { "type": "object", "properties": { "from": ..., "to": ... } }
+    }
+  }
+}
+
+// Easier — flat, explicit parameters
+{
+  "date_from": { "type": "string", "description": "Start of date range, ISO 8601" },
+  "date_to":   { "type": "string", "description": "End of date range, ISO 8601" }
+}
+```
+
+### Schema validation at runtime
+
+Define schemas once and validate both the model's output and your implementation against them:
+
+```python
+import jsonschema
+
+ORDER_TOOL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "order_id": {"type": "string", "pattern": "^ORD-[0-9]{8}$"}
+    },
+    "required": ["order_id"],
+    "additionalProperties": False,
+}
+
+def call_get_customer_order(arguments: dict) -> dict:
+    # Validate before executing — catch model errors before they hit your API
+    try:
+        jsonschema.validate(arguments, ORDER_TOOL_SCHEMA)
+    except jsonschema.ValidationError as e:
+        return {"error": f"Invalid arguments: {e.message}"}
+    return fetch_order(arguments["order_id"])
+```
+
+Returning a structured error lets the model self-correct in the next turn rather than crashing your application.
+
+### Generating schemas from code
+
+Rather than maintaining JSON Schema by hand, derive it from your function signatures:
+
+```python
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class GetCustomerOrderArgs(BaseModel):
+    order_id: str = Field(description="Order ID in format ORD-XXXXXXXX")
+
+class ListCustomerOrdersArgs(BaseModel):
+    customer_id: str = Field(description="Customer ID")
+    status: Literal["pending", "shipped", "delivered", "cancelled"] | None = Field(
+        default=None,
+        description="Filter by status. Omit to return all orders."
+    )
+    limit: int = Field(default=10, ge=1, le=50, description="Max results (1–50)")
+
+# Generate schema from model
+schema = ListCustomerOrdersArgs.model_json_schema()
+# schema is now a valid JSON Schema dict — use directly as tool parameter schema
+```
+
+Pydantic is not required — any library that emits JSON Schema works. The benefit: schema and implementation stay in sync because they share the same type definition.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Schema versioning and backwards compatibility
+
+Tools are long-lived. When you need to change a schema:
+
+| Change type | Safe? | How |
+|---|---|---|
+| Add optional parameter | ✓ Safe | New parameter with `default`, not in `required` |
+| Add new tool | ✓ Safe | Old tool still works; deprecate gradually |
+| Change parameter description | ✓ Safe | Cosmetic; no breaking change |
+| Remove required parameter | ✓ Safe | Make it optional first; remove after clients updated |
+| Add required parameter | ✗ Breaking | Existing clients pass null; use new tool name instead |
+| Rename parameter | ✗ Breaking | Add new name as alias; deprecate old name |
+| Change parameter type | ✗ Breaking | New tool name + migration period |
+
+For breaking changes, deploy both the old and new tool simultaneously. Point old clients at the old schema; new clients use the new one. Remove the old version once no traffic remains.
+
+### Testing schemas
+
+Schemas should be tested as part of CI:
+
+```python
+import pytest
+from pydantic import ValidationError
+
+def test_valid_arguments_pass():
+    args = ListCustomerOrdersArgs(customer_id="C-001", status="shipped", limit=5)
+    assert args.limit == 5
+
+def test_invalid_status_rejected():
+    with pytest.raises(ValidationError):
+        ListCustomerOrdersArgs(customer_id="C-001", status="unknown_status")
+
+def test_limit_bounds_enforced():
+    with pytest.raises(ValidationError):
+        ListCustomerOrdersArgs(customer_id="C-001", limit=100)  # max is 50
+
+def test_schema_round_trips_through_json():
+    import json
+    schema = ListCustomerOrdersArgs.model_json_schema()
+    serialised = json.dumps(schema)
+    restored = json.loads(serialised)
+    assert restored["properties"]["limit"]["maximum"] == 50
+```
+
+### Number of tools
+
+Models handle a limited number of tools well. Beyond roughly 20–30 tools, selection accuracy degrades — the model is picking from a long menu without being able to read it all carefully. Strategies for large tool sets:
+
+- **Tool routing**: first call decides which category of tool to use, then a second call picks the specific tool from a smaller set
+- **Dynamic tool loading**: only surface tools relevant to the current conversation context
+- **Tool namespacing**: prefix tool names by domain (`orders_get`, `orders_list`, `returns_get`) so grouping is explicit even in a flat list
+- **Semantic tool search**: embed tool descriptions; at runtime, retrieve the top-k most relevant tools for the current query and pass only those to the model
+
+### Further reading
+
+- [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling) — Practical JSON Schema examples in the context of tool calling; schema patterns transfer to any provider.
+- [JSON Schema — Structuring a complex schema](https://json-schema.org/understanding-json-schema/structuring) — `$ref`, `allOf`, `anyOf`, and composition patterns for nested parameter schemas.
+- [Pydantic documentation](https://docs.pydantic.dev/) — Type-safe Python models with automatic JSON Schema generation; the standard library for schema-first tool development in Python.

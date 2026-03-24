@@ -1,0 +1,76 @@
+{
+  "title": "Tool Execution Patterns — Check your understanding",
+  "moduleId": "3.3",
+  "questions": [
+    {
+      "id": "3.3-q1",
+      "type": "multiple-choice",
+      "question": "A user asks your agent to 'check the weather in Paris, Berlin, and Tokyo'. The model returns three tool calls in a single response. How should you execute them?",
+      "options": [
+        "Execute them sequentially — tool calls within a single response must be ordered",
+        "Execute them in parallel — when the model returns multiple calls in one response, they are independent and can run concurrently",
+        "Execute only the first; ask the model to request the others one at a time",
+        "Return an error — models should not request multiple tool calls at once"
+      ],
+      "answer": 1,
+      "explanation": "When a model returns multiple tool calls in a single response, it is signalling that they are independent — the results are not interdependent. Executing them in parallel reduces total latency proportionally to the number of calls. Sequential execution for independent calls wastes time. The model handles all results together once they arrive, regardless of execution order.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.3-q2",
+      "type": "multiple-choice",
+      "question": "Your agentic loop has no max_iterations guard. A user submits a question that the model cannot answer with the available tools. What is the most likely outcome?",
+      "options": [
+        "The model returns a 'I cannot answer this' message after a few attempts",
+        "The model calls tools in a loop — trying variations of the same failing calls indefinitely — incurring unbounded token and tool costs",
+        "The API provider automatically terminates loops after 10 iterations",
+        "The model stops after the tool returns an error twice"
+      ],
+      "answer": 1,
+      "explanation": "Models do not self-terminate agentic loops when tools fail to produce a useful result. Without a cap, the model may keep trying — rephrasing the same query, combining results in different ways, or calling other tools hoping to find what it needs. Each iteration costs tokens and tool call overhead. The loop continues until the context window fills up or the application crashes. A max_iterations guard of 5–10 is a required safety feature, not an optimisation.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.3-q3",
+      "type": "multiple-choice",
+      "question": "When adding tool results back into the message history, you must include the model's previous response (containing the tool_use blocks) before adding the tool results. Why?",
+      "options": [
+        "The API requires strict message alternation and will reject out-of-order messages",
+        "The model needs to see its own tool call to interpret the result — without the tool_use block, the tool_result has no context and the model cannot reason about what the result means",
+        "Tool results are ignored unless they immediately follow a tool_use block",
+        "Including the model's previous response reduces total token count"
+      ],
+      "answer": 1,
+      "explanation": "A tool result is meaningless without the call that produced it — it's like seeing an answer without the question. The model uses the tool_use block (which contains the tool name and the exact arguments it passed) to interpret the result correctly. Without it, the model has no record of what it asked for, making the result ambiguous. Most provider APIs also require this alternating structure and will return an error if tool results appear without a corresponding tool_use block.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.3-q4",
+      "type": "multiple-choice",
+      "question": "One of three parallel tool calls fails with a transient error. What is the best response pattern?",
+      "options": [
+        "Abort the entire session — partial results are worse than no results",
+        "Silently retry the failed call up to 3 times before informing the model",
+        "Return the two successful results and a structured error for the failed one — the model can decide whether to retry, use partial results, or change approach",
+        "Return only the successful results without mentioning the failure"
+      ],
+      "answer": 2,
+      "explanation": "Returning a structured error for the failed call ('Tool weather_api failed: service temporarily unavailable') gives the model accurate information to reason with. It can decide the failure is tolerable (proceed with two cities), worth retrying, or worth changing approach. Aborting discards good results. Silent retries add latency and hide the failure from the model's reasoning. Omitting the failure misleads the model into thinking all calls succeeded, which can cause confident wrong answers.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.3-q5",
+      "type": "multiple-choice",
+      "question": "Your loop detection checks whether the exact same tool name and arguments appear twice in the last 3 calls. The model is calling get_search(query='pricing') twice with slightly different whitespace. Does your detection catch this?",
+      "options": [
+        "Yes — any repetition of the same tool name triggers the detector",
+        "No — exact string matching misses near-duplicate calls; normalise arguments (strip whitespace, lowercase) before comparing signatures",
+        "Yes — whitespace differences are normalised by JSON serialisation",
+        "No — loop detection should only trigger after 5 identical calls, not 2"
+      ],
+      "answer": 1,
+      "explanation": "A loop detector based on exact string matching is defeated by minor variations — extra whitespace, different capitalisation, reordered keys in a JSON object, or a slightly rephrased query. Normalise arguments before comparison: strip whitespace, lowercase strings, sort object keys. You may also want semantic similarity for query-style parameters. The goal is to detect when the model is spinning in a conceptually identical loop, not just an byte-identical one.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

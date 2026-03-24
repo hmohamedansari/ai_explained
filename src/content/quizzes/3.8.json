@@ -1,0 +1,76 @@
+{
+  "title": "Testing and Reliability — Check your understanding",
+  "moduleId": "3.8",
+  "questions": [
+    {
+      "id": "3.8-q1",
+      "type": "multiple-choice",
+      "question": "Your unit tests use a mock that returns {\"price\": 9.99} (number). Six months later, the real API silently changes to return {\"price\": \"9.99\"} (string). Your unit tests still pass. What type of test would have caught this?",
+      "options": [
+        "More unit tests with edge case inputs",
+        "Integration tests using the real model",
+        "Contract tests that validate the real API response structure against the types your mock declares",
+        "Load tests to verify the tool handles high request volumes"
+      ],
+      "answer": 2,
+      "explanation": "Unit tests pass because they test your code against your mock — and your mock is correct by definition. Integration tests use the real model but typically focus on end-to-end behavior, not field types. Contract tests compare the real API response (fetched from the actual endpoint, in staging) against the declared contract (field names and types). A contract test for the price field would assert isinstance(data['price'], (int, float)) — which would fail when the API changes to a string. This is exactly the gap contract tests are designed to fill.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.8-q2",
+      "type": "multiple-choice",
+      "question": "You want to verify that when the search_knowledge_base tool fails, the model still returns a useful response rather than crashing. What test approach is most direct?",
+      "options": [
+        "Run the integration test with the real tool and wait for a real outage",
+        "Use a fault-injecting mock that returns an error 100% of the time — verify the session returns a graceful message rather than an exception",
+        "Check the error handling code manually in a code review",
+        "Set the max_iterations to 1 so the session must complete without tools"
+      ],
+      "answer": 1,
+      "explanation": "Fault injection testing directly validates the behavior you care about: what happens when this specific tool fails? A mock configured to return an error for every call lets you test the failure path in a deterministic, fast, cheap way without waiting for a real outage. Test both the structural outcome (no exception propagates) and the semantic outcome (the response acknowledges the unavailability or offers an alternative). This is the most direct test of graceful degradation.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.8-q3",
+      "type": "multiple-choice",
+      "question": "You record a production tool trace (sequence of tool calls and responses for a real user session) and replay it in tests. A new prompt change causes the model to call tools in a different order. What does this tell you?",
+      "options": [
+        "The test is broken and should be deleted — traces become invalid when prompts change",
+        "The prompt change altered the model's tool calling strategy — the replay mismatch is a signal to review whether the new order is correct before deploying",
+        "Tool order does not affect outcomes, so the test should be updated to accept any order",
+        "The trace needs to be re-recorded with the new prompt before testing"
+      ],
+      "answer": 1,
+      "explanation": "A replay mismatch after a prompt change means the model is behaving differently — which may be intentional (the new prompt was designed to improve the tool strategy) or unintentional (a regression). The test's job is to surface this divergence for review. You should examine whether the new order is better, worse, or equivalent. If it is intentionally better, update the trace to reflect the new expected behavior. If it is a regression, fix the prompt. The trace is not 'broken' — it caught a behavioral change that needed a decision.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.8-q4",
+      "type": "multiple-choice",
+      "question": "Your tool integration go-live checklist includes 'integration tests passing against staging with real model.' A team member suggests skipping this to save token costs. What is the risk?",
+      "options": [
+        "None — unit and contract tests are sufficient to verify production readiness",
+        "Integration tests with the real model are the only tests that verify the model selects tools correctly, passes valid arguments, and produces acceptable responses — skipping them means this is untested until production",
+        "Token costs are negligible — the suggestion is based on a misunderstanding of costs",
+        "Integration tests can be replaced with manual testing before each release"
+      ],
+      "answer": 1,
+      "explanation": "Unit tests verify tool logic. Contract tests verify schema agreement. Neither tests whether the model uses the tools correctly — that requires a real model call. Integration tests answer: does the model call the right tool for this query? Does it pass arguments in the expected format? Does the end-to-end response meet quality expectations? These behaviors cannot be verified without a real model. The token cost of running an integration test suite (typically dozens of scenarios) is small compared to the cost of discovering model-tool incompatibilities in production.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.8-q5",
+      "type": "multiple-choice",
+      "question": "A property-based test generates random string inputs for a tool's query parameter and finds that the string 'SELECT * FROM users' causes the tool to return an internal database error message. What does this indicate?",
+      "options": [
+        "The test framework has a bug — SQL strings are not valid tool query inputs",
+        "The tool is not validating or sanitising inputs before passing them to a database — this is a SQL injection vulnerability that property-based testing has exposed",
+        "The database error is expected — the tool should return errors for invalid queries",
+        "The test should be updated to exclude SQL-like strings from the input space"
+      ],
+      "answer": 1,
+      "explanation": "A raw SQL string being passed directly to a database is a textbook SQL injection vulnerability. Property-based testing found it by generating inputs the developer did not anticipate. The fix is parameterised queries or an ORM — never interpolate user/model-provided strings into SQL. The fact that a property-based test found this, rather than a carefully crafted unit test, illustrates the value: humans tend to test the inputs they expect; property-based tests generate the inputs that expose real bugs.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

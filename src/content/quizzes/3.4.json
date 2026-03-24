@@ -1,0 +1,76 @@
+{
+  "title": "Real API Integration — Check your understanding",
+  "moduleId": "3.4",
+  "questions": [
+    {
+      "id": "3.4-q1",
+      "type": "multiple-choice",
+      "question": "Your tool calls an external API to create a payment record. The call times out at the network layer, so you retry it. The payment was actually processed on the first attempt. What production failure does this cause, and what prevents it?",
+      "options": [
+        "Double charge — prevented by checking the API response code before retrying",
+        "Double charge — prevented by using an idempotency key so the API recognises the retry and returns the original result instead of processing a second payment",
+        "Network timeout — prevented by increasing the timeout threshold",
+        "Double charge — prevented by retrying only on 5xx errors, not timeouts"
+      ],
+      "answer": 1,
+      "explanation": "A network timeout means you didn't receive the response — it doesn't mean the request failed. The payment may have been processed but the response was lost in transit. Retrying without an idempotency key creates a second payment. An idempotency key (sent with the original request and all retries) lets the API deduplicate: if it has already processed a request with this key, it returns the original result without processing again. This is the standard solution for safe retry of non-idempotent operations.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.4-q2",
+      "type": "multiple-choice",
+      "question": "An API returns HTTP 429 with a Retry-After: 30 header. What is the correct handling?",
+      "options": [
+        "Fail immediately — rate limit errors are not retryable",
+        "Retry after the number of seconds specified in Retry-After, then proceed with exponential backoff if 429s continue",
+        "Retry immediately — 429 is a transient error that clears on its own",
+        "Exponential backoff starting from 1 second, ignoring the Retry-After header"
+      ],
+      "answer": 1,
+      "explanation": "The Retry-After header is an explicit instruction from the API about when to retry. Honouring it respects the API's rate limiting contract and prevents your client from hammering the endpoint during a cooldown period. Retrying immediately re-triggers 429. Ignoring Retry-After and using your own backoff may retry too early (wasteful) or too late (adds unnecessary latency). If subsequent 429s arrive after the initial wait, switch to exponential backoff.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.4-q3",
+      "type": "multiple-choice",
+      "question": "A tool lists customer orders and returns all results in one call. In production, a customer has 8,000 orders. What problem does this create, and what is the better design?",
+      "options": [
+        "API latency increases — solved by increasing the tool's timeout",
+        "The entire order list is injected into the model's context window, consuming thousands of tokens and potentially exceeding the context limit — design the tool to return a bounded result set with a has_more flag and next_cursor for pagination",
+        "The API will return a 400 error for large result sets automatically",
+        "No problem — models handle large context efficiently"
+      ],
+      "answer": 1,
+      "explanation": "Returning thousands of orders to the model costs tokens proportional to the response size, may exceed the context window, and is almost never what the model actually needs. The correct design mirrors REST pagination: return a bounded set (e.g., 20 orders), include has_more: true and a next_cursor if more exist. The model can request additional pages if needed based on what it finds, rather than receiving all data upfront. This keeps token costs predictable and the context window usable.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.4-q4",
+      "type": "multiple-choice",
+      "question": "You need to cache OAuth 2.0 access tokens to avoid fetching a new one on every tool call. What is the correct expiry strategy?",
+      "options": [
+        "Cache indefinitely — tokens only expire when the API returns 401",
+        "Cache until the token's expires_in time minus a safety buffer (e.g., 60 seconds) — refresh proactively before expiry to avoid mid-request failures",
+        "Cache for exactly expires_in seconds — token expiry is precise",
+        "Fetch a new token for every tool call — caching adds unnecessary complexity"
+      ],
+      "answer": 1,
+      "explanation": "Using the token until the last second risks a 401 mid-request if the token expires during the API call. Subtracting a safety buffer (60 seconds is standard) ensures the token is refreshed before any in-flight request could expire it. Caching indefinitely means using expired tokens that return 401. Fetching a new token per call adds an extra round-trip to every tool invocation and may hit auth rate limits under load.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "3.4-q5",
+      "type": "multiple-choice",
+      "question": "Your application receives a webhook event and processes it synchronously in the request handler, which takes 8 seconds. The webhook provider retries any request not acknowledged within 5 seconds. What failure mode does this create?",
+      "options": [
+        "The webhook handler returns a timeout error and drops the event",
+        "The provider retries the event because the 5-second acknowledgement window elapsed, causing the event to be processed multiple times",
+        "The provider cancels the event after one retry",
+        "The 8-second processing is fine — webhook providers wait for completion"
+      ],
+      "answer": 1,
+      "explanation": "Webhook providers treat any response not received within their acknowledgement window as a failure and retry. If your handler takes 8 seconds but the window is 5 seconds, the provider sends the event again — and again, until it receives a timely 2xx response. Your handler processes the event multiple times. The fix: return 200 immediately (within the window) and process the event asynchronously on a queue. Include event ID deduplication so replayed events are processed exactly once.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

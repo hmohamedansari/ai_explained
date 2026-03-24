@@ -1,0 +1,362 @@
+---
+moduleId: "3.8"
+title: "Testing and Reliability"
+description: "Tool-using systems are hard to test because the interesting behavior emerges from the interaction between the model and the tools, not from either alone. This module covers the testing strategy that catches real failures: schema drift, unexpected model behavior, and integration regressions."
+track: "protocols"
+order: 8
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 18
+  layer3: 14
+productionGotcha: "Mock tools drift. Six months after you write a mock that returns {\"price\": 9.99}, the real API starts returning {\"price\": \"9.99\"} (string, not number) after a schema change. Your unit tests pass. Your contract tests would have caught this — but only if you have them. Run contract tests against real API responses at least weekly in staging, not just at integration time."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Testing a tool-using system has three distinct layers:
+
+| Layer | What it tests | Model involved? | Speed |
+|---|---|---|---|
+| **Unit** | Tool implementation and schema validation | No | Fast (ms) |
+| **Contract** | Schema agreement between mock and real API | No (uses real API samples) | Medium |
+| **Integration** | End-to-end: model + tools together | Yes | Slow + costs tokens |
+
+Most teams write only unit and integration tests, skipping contract tests. This creates a gap: unit tests pass (the mock is clean), integration tests pass (the model is well-behaved), but in production the real API returns something the mock never did.
+
+**All three layers are necessary.** Unit tests fast-cycle your logic. Contract tests keep your mocks honest. Integration tests confirm the model uses your tools the way you expect.
+
+---
+
+## Layer 2 — Guided
+
+### Unit tests for tool implementations
+
+```python
+import pytest
+from unittest.mock import patch, MagicMock
+
+# The tool implementation
+def get_customer_order(order_id: str) -> dict:
+    response = api_client.get(f"/orders/{order_id}")
+    if response.status_code == 404:
+        return {"error": "Order not found", "order_id": order_id}
+    return response.json()
+
+# Unit test — mock the API, test the tool's logic
+class TestGetCustomerOrder:
+    def test_returns_order_data(self, mock_api):
+        mock_api.get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {"id": "ORD-00000001", "status": "shipped", "total": 49.99}
+        )
+        result = get_customer_order("ORD-00000001")
+        assert result["status"] == "shipped"
+        assert result["total"] == 49.99
+
+    def test_handles_not_found(self, mock_api):
+        mock_api.get.return_value = MagicMock(status_code=404, json=lambda: {})
+        result = get_customer_order("ORD-INVALID")
+        assert "error" in result
+        assert result["order_id"] == "ORD-INVALID"
+
+    def test_rejects_invalid_order_id_format(self):
+        # Schema validation should catch this before the API call
+        with pytest.raises(ValueError):
+            get_customer_order("not-an-order-id")
+```
+
+### Mock tool setup for model tests
+
+To test model behavior without incurring real API costs or tool side effects:
+
+```python
+from typing import Callable
+
+class MockTool:
+    """A configurable mock that records calls and returns preset responses."""
+
+    def __init__(self, name: str, responses: list | Callable):
+        self.name = name
+        self._responses = responses if callable(responses) else iter(responses)
+        self.calls: list[dict] = []
+
+    def __call__(self, **kwargs) -> str:
+        self.calls.append(kwargs)
+        if callable(self._responses):
+            return self._responses(**kwargs)
+        return next(self._responses)
+
+# Build a mock tool set for a test
+def make_test_tools():
+    search_mock = MockTool("search_knowledge_base", responses=[
+        '{"results": [{"id": "doc-1", "text": "Refunds take 5–7 business days."}]}',
+        '{"results": []}',  # Second call returns empty
+    ])
+    return {search_mock.name: search_mock}, [search_mock.as_schema()]
+
+# Test that the model calls the right tool
+def test_refund_query_calls_search():
+    tools_dict, tool_schemas = make_test_tools()
+
+    response = llm.chat(
+        model="balanced",
+        messages=[{"role": "user", "content": "How long do refunds take?"}],
+        tools=tool_schemas,
+    )
+
+    assert response.stop_reason == "tool_use"
+    assert any(tc.name == "search_knowledge_base" for tc in response.tool_calls)
+    assert "refund" in tools_dict["search_knowledge_base"].calls[0].get("query", "").lower()
+```
+
+### Contract tests
+
+Contract tests verify that your mock matches what the real API actually returns:
+
+```python
+import pytest
+import httpx
+
+# The contract: what fields and types does the real API return?
+ORDER_CONTRACT = {
+    "id": str,
+    "status": str,
+    "total": (int, float),
+    "created_at": str,
+    "line_items": list,
+}
+
+@pytest.mark.contract  # Mark to skip in unit test runs; run in staging CI
+def test_order_api_contract():
+    """Verify real API response matches our mock's structure."""
+    response = httpx.get(
+        "https://api.example.com/v1/orders/ORD-00000001",
+        headers={"Authorization": f"Bearer {TEST_API_KEY}"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+
+    for field, expected_type in ORDER_CONTRACT.items():
+        assert field in data, f"Missing field: {field}"
+        assert isinstance(data[field], expected_type), (
+            f"Field {field}: expected {expected_type}, got {type(data[field])}"
+        )
+```
+
+Run contract tests in a staging environment on a schedule (daily or weekly), not just on deployment. APIs change without notice.
+
+### Replay traces
+
+Record real tool interactions and replay them as test fixtures:
+
+```python
+import json
+from pathlib import Path
+
+class ToolCallRecorder:
+    """Wraps tool execution and records call/response pairs."""
+
+    def __init__(self, output_dir: str = "test_fixtures"):
+        self.output_dir = Path(output_dir)
+        self.output_dir.mkdir(exist_ok=True)
+        self._trace: list[dict] = []
+
+    def record(self, name: str, arguments: dict, result: str):
+        self._trace.append({
+            "tool": name,
+            "arguments": arguments,
+            "result": result,
+        })
+
+    def save(self, scenario_name: str):
+        path = self.output_dir / f"{scenario_name}.json"
+        path.write_text(json.dumps(self._trace, indent=2))
+
+class TraceReplayer:
+    """Replays a recorded trace without calling real tools."""
+
+    def __init__(self, fixture_path: str):
+        self._calls = json.loads(Path(fixture_path).read_text())
+        self._index = 0
+
+    def execute(self, name: str, arguments: dict) -> str:
+        entry = self._calls[self._index]
+        assert entry["tool"] == name, f"Expected {entry['tool']}, got {name}"
+        self._index += 1
+        return entry["result"]
+```
+
+Replay tests catch regressions when you change model, prompt, or tool schema — if the recorded trace no longer matches what the model requests, the test fails.
+
+### Failure injection
+
+Test how your system behaves when tools fail:
+
+```python
+import random
+
+class FaultInjectingTool:
+    """Wraps a tool and injects configurable faults."""
+
+    def __init__(self, real_tool: Callable, error_rate: float = 0.3):
+        self.real_tool = real_tool
+        self.error_rate = error_rate
+
+    def __call__(self, **kwargs) -> str:
+        if random.random() < self.error_rate:
+            fault = random.choice([
+                lambda: (_ for _ in ()).throw(TimeoutError("Tool timed out")),
+                lambda: "Error: service temporarily unavailable",
+                lambda: "Error: rate limit exceeded — try again in 30s",
+                lambda: json.dumps({"error": "internal_error", "code": 500}),
+            ])
+            return fault() if callable(fault) else fault
+        return self.real_tool(**kwargs)
+
+# Use in tests to verify graceful degradation
+def test_session_handles_tool_timeout():
+    faulty_search = FaultInjectingTool(real_search_tool, error_rate=1.0)
+    result = run_tool_loop(
+        "What is our refund policy?",
+        tools=[make_schema(faulty_search)],
+        tool_executor=faulty_search,
+    )
+    # System should still return something useful, not crash
+    assert result is not None
+    assert "unavailable" in result.lower() or "unable" in result.lower()
+```
+
+### Go-live checklist
+
+```python
+# Pre-launch verification script
+import sys
+
+checks = []
+
+def check(name: str, condition: bool, severity: str = "MUST"):
+    checks.append({"name": name, "passed": condition, "severity": severity})
+    status = "✓" if condition else "✗"
+    print(f"  [{status}] {name}")
+
+print("=== Tool Integration Go-Live Checklist ===\n")
+
+print("Schema & Validation")
+check("All tools have non-empty descriptions", all_tools_have_descriptions())
+check("All required parameters are documented", all_required_params_documented())
+check("Schema validation runs before tool execution", schema_validation_enabled())
+
+print("\nSecurity")
+check("External content is delimited in all tool results", external_content_delimited())
+check("Tool permission checks are in place", permission_checks_enabled())
+check("No secrets in tool schemas or descriptions", no_secrets_in_schemas())
+
+print("\nResilience")
+check("Per-tool timeouts configured", timeouts_configured())
+check("Circuit breakers enabled for all external dependencies", circuit_breakers_enabled())
+check("Graceful degradation tested for all optional tools", degradation_tested())
+
+print("\nObservability")
+check("Tool call logging enabled", tool_logging_enabled())
+check("Per-session cost tracking enabled", cost_tracking_enabled())
+check("Error rate alerts configured", alerts_configured())
+
+print("\nTests")
+check("Unit tests passing", unit_tests_pass(), severity="MUST")
+check("Contract tests passing against staging APIs", contract_tests_pass(), severity="MUST")
+check("Integration tests run against staging with real model", integration_tests_pass(), severity="MUST")
+
+failures = [c for c in checks if not c["passed"] and c["severity"] == "MUST"]
+if failures:
+    print(f"\n✗ {len(failures)} MUST checks failed — not ready for launch")
+    sys.exit(1)
+else:
+    print("\n✓ All MUST checks passed")
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Property-based testing for schemas
+
+Property-based tests generate hundreds of random inputs and verify invariants hold:
+
+```python
+from hypothesis import given, strategies as st
+
+@given(
+    query=st.text(min_size=1, max_size=500),
+    limit=st.integers(min_value=1, max_value=50),
+)
+def test_search_never_crashes_on_valid_inputs(query, limit):
+    """For any valid input, search should return a result or a structured error — never raise."""
+    result = search_knowledge_base(query=query, limit=limit)
+    assert isinstance(result, (str, dict))
+    if isinstance(result, dict):
+        assert "results" in result or "error" in result
+
+@given(limit=st.integers().filter(lambda x: x < 1 or x > 50))
+def test_search_rejects_out_of_range_limit(limit):
+    """Limits outside 1–50 should be caught by schema validation."""
+    with pytest.raises((ValueError, jsonschema.ValidationError)):
+        search_knowledge_base(query="test", limit=limit)
+```
+
+Property tests surface edge cases that example-based tests miss: empty strings, unicode, very long inputs, boundary values.
+
+### Staging strategy
+
+```
+Development → Staging → Canary → Production
+```
+
+| Stage | What runs | Real model? | Real tools? |
+|---|---|---|---|
+| **Development** | Unit + contract tests | Mock | Mock |
+| **Staging** | Full integration suite | Real (small model) | Real (test accounts) |
+| **Canary** | 5% of production traffic | Real | Real |
+| **Production** | 100% of traffic | Real | Real |
+
+In staging, use real tool APIs but against test/sandbox accounts. Never point staging at production data stores — tool call errors in staging can corrupt production data.
+
+### Eval sets for tool-using systems
+
+Beyond standard integration tests, maintain a set of scenarios that verify end-to-end model + tool behavior:
+
+```python
+TOOL_EVAL_SET = [
+    {
+        "id": "order_lookup",
+        "input": "What's the status of order ORD-00000001?",
+        "expected_tools": ["get_customer_order"],
+        "expected_args_contain": {"order_id": "ORD-00000001"},
+        "answer_contains": ["shipped", "delivered", "processing"],
+    },
+    {
+        "id": "unknown_order",
+        "input": "Check order ORD-INVALID",
+        "expected_tools": ["get_customer_order"],
+        "answer_contains": ["not found", "unable to locate", "doesn't exist"],
+    },
+    {
+        "id": "no_tool_needed",
+        "input": "What are your business hours?",
+        "expected_tools": [],  # Model should answer from context, not call a tool
+        "answer_contains": ["hours", "open"],
+    },
+]
+```
+
+Run the eval set on every model upgrade, prompt change, or tool schema change. A drop in tool selection accuracy or answer quality is a signal to investigate before rolling out.
+
+### Further reading
+
+- [Pact — Consumer-Driven Contract Testing](https://docs.pact.io/) — Framework for contract testing between services; the concepts apply directly to tool mock contracts.
+- [Hypothesis — Property-based testing for Python](https://hypothesis.readthedocs.io/) — Generate test inputs automatically; particularly valuable for schema validation edge cases.
+- [Martin Fowler — TestDouble](https://martinfowler.com/bliki/TestDouble.html) — Taxonomy of test doubles (mocks, stubs, fakes, spies) — understanding which to use where keeps your test suite clean.

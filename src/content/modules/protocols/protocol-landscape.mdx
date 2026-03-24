@@ -1,0 +1,244 @@
+---
+moduleId: "3.1"
+title: "Protocol Landscape and MCP"
+description: "Before a model can call a tool, both sides have to agree on the contract — what the tool is called, what arguments it accepts, and what it returns. This module maps the protocol landscape and shows where MCP fits."
+track: "protocols"
+order: 1
+personas: ["junior", "senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 16
+  layer3: 14
+productionGotcha: "MCP tool schemas are contracts. Adding a required parameter to an existing tool breaks every connected client silently — the call still arrives but the model passes null for the new field. Treat tool schema changes like API version bumps: add optional parameters only, or issue a new tool name."
+draft: false
+---
+
+## Layer 1 — Surface
+
+When a model calls a tool, something has to define what that tool looks like: its name, its inputs, and its outputs. That definition is a *protocol* — a shared contract that both the caller (the model) and the implementer (your code or a service) agree on.
+
+**The landscape, from simplest to most structured:**
+
+| Protocol | What it standardises | Common use |
+|---|---|---|
+| Raw HTTP | Nothing — each API is bespoke | Public REST APIs |
+| OpenAPI / Swagger | HTTP paths, methods, request/response schemas | API documentation and client generation |
+| JSON-RPC 2.0 | Call-response message envelope over any transport | Remote procedure calls |
+| **MCP** | Tools, resources, and prompts specifically for AI | Connecting models to local tools and services |
+| A2A | Agent-to-agent task delegation | Multi-agent workflows |
+| AG-UI | Agent-to-UI event streaming | Frontend streaming interfaces |
+
+MCP (Model Context Protocol) is not replacing REST or OpenAPI — it adds a standardised layer on top of them. A common pattern: an MCP server wraps an existing REST API and exposes a curated set of tools that the model can call.
+
+**Three things MCP defines:**
+
+- **Tools** — functions the model can invoke (e.g. `search_docs`, `create_ticket`)
+- **Resources** — read-only data sources the model can query (e.g. a file, a database table)
+- **Prompts** — reusable prompt templates the host can inject
+
+---
+
+## Layer 2 — Guided
+
+### JSON Schema basics
+
+Every tool parameter is described with JSON Schema. You don't need to know the full spec — five concepts cover most cases:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The search query"
+    },
+    "max_results": {
+      "type": "integer",
+      "description": "Number of results to return (1–20)",
+      "default": 5
+    },
+    "status": {
+      "type": "string",
+      "enum": ["open", "closed", "all"],
+      "description": "Filter by ticket status"
+    }
+  },
+  "required": ["query"]
+}
+```
+
+Key rules:
+- `type` can be `string`, `integer`, `number`, `boolean`, `array`, `object`, or `null`
+- `description` is read by the model — write it for the model, not for humans
+- `required` lists parameters the model must always provide
+- `enum` constrains a string to a fixed set of values — always prefer this over free strings when the options are known
+- `default` documents the fallback but doesn't enforce it; your implementation must apply it
+
+### MCP architecture
+
+MCP uses a three-role model:
+
+```
+┌─────────────┐         ┌─────────────┐         ┌─────────────┐
+│    Host     │ ──────► │   Client    │ ──────► │   Server    │
+│ (your app)  │         │ (MCP layer) │         │ (tool impl) │
+└─────────────┘         └─────────────┘         └─────────────┘
+```
+
+- **Host** — your application; holds the conversation, calls the model, decides which MCP servers to connect to
+- **Client** — the MCP protocol handler embedded in your app; manages the transport and message lifecycle
+- **Server** — the process that exposes tools/resources; can be local (subprocess via stdio) or remote (HTTP+SSE)
+
+MCP uses JSON-RPC 2.0 as its message envelope:
+
+```json
+// Request (client → server)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "search_docs",
+    "arguments": { "query": "retry logic", "max_results": 3 }
+  }
+}
+
+// Response (server → client)
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      { "type": "text", "text": "Retry logic should use exponential backoff..." }
+    ]
+  }
+}
+```
+
+### Connecting a model to an MCP server
+
+```python
+# Pseudocode — MCP client initialisation and tool discovery
+client = mcp.Client(transport="stdio", command=["python", "my_server.py"])
+await client.connect()
+
+# Discover available tools
+tools = await client.list_tools()
+# tools is a list of { name, description, inputSchema } objects
+
+# Pass discovered tools to the model
+response = llm.chat(
+    model="balanced",
+    messages=[{"role": "user", "content": "Search for retry patterns"}],
+    tools=[t.to_llm_schema() for t in tools],
+)
+
+# If the model wants to call a tool
+if response.stop_reason == "tool_use":
+    for tool_call in response.tool_calls:
+        result = await client.call_tool(tool_call.name, tool_call.arguments)
+        # Add result to messages and continue the loop
+```
+
+**In practice — Python MCP SDK:**
+```python
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+server_params = StdioServerParameters(command="python", args=["server.py"])
+async with stdio_client(server_params) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await session.list_tools()
+```
+
+### Where OpenAPI fits
+
+Many teams already have OpenAPI specs for their APIs. The common pattern is to generate MCP tool definitions from the OpenAPI spec:
+
+```python
+# Generate MCP tool schemas from an OpenAPI spec
+import yaml
+
+def openapi_to_tools(spec_path: str) -> list[dict]:
+    with open(spec_path) as f:
+        spec = yaml.safe_load(f)
+    tools = []
+    for path, methods in spec["paths"].items():
+        for method, operation in methods.items():
+            if method not in ("get", "post", "put", "patch", "delete"):
+                continue
+            tools.append({
+                "name": operation.get("operationId", f"{method}_{path}"),
+                "description": operation.get("summary", ""),
+                "inputSchema": extract_parameters(operation),
+            })
+    return tools
+```
+
+This bridges existing infrastructure into the MCP world without rewriting it.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Protocol versioning
+
+MCP includes version negotiation during connection initialisation. When the client connects, both sides exchange capability declarations:
+
+```json
+// Client → Server: initialize
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": { "roots": { "listChanged": true } },
+    "clientInfo": { "name": "my-app", "version": "1.0.0" }
+  }
+}
+```
+
+If server and client protocol versions are incompatible, the connection fails at initialisation — not at first tool call. This is better than silent breakage mid-session.
+
+### MCP transports compared
+
+| Transport | Use case | Latency | Deployment |
+|---|---|---|---|
+| **stdio** | Local tools (same machine) | ~1ms | Subprocess; simplest |
+| **HTTP + SSE** | Remote tools, shared services | ~10–100ms | Network service; scalable |
+| **WebSocket** | Real-time bidirectional | ~5–20ms | Long-lived connections |
+
+For production multi-tenant deployments, HTTP+SSE is the norm. stdio is the default for local development and desktop agents.
+
+### MCP vs direct function calling
+
+| Aspect | Direct function calling | MCP |
+|---|---|---|
+| Schema discovery | Hardcoded in app | Dynamic, at connect time |
+| Tool implementation | In-process | Separate process or service |
+| Transport | N/A (in-process) | stdio, HTTP+SSE |
+| Multi-model support | Provider-specific | Provider-agnostic |
+| Versioning | Manual | Protocol-level negotiation |
+
+Use direct function calling when your tools are simple, in-process, and provider-specific. Use MCP when tools need to be shared across multiple models or applications, or when the tool server runs in a separate process or on a different host.
+
+### A2A and AG-UI
+
+Two emerging protocols extend the landscape beyond model-to-tool:
+
+**A2A (Agent-to-Agent)** — standardises how one agent delegates tasks to another. An orchestrator agent sends a task card to a specialist agent; the specialist responds with results or progress events. Useful in multi-agent pipelines where agents from different vendors need to interoperate.
+
+**AG-UI (Agent-UI Protocol)** — standardises the event stream from an agent to a frontend. Defines event types for text deltas, tool call starts, tool call results, and state updates — letting any frontend render any agent's progress without custom integration.
+
+Both are early-stage and vendor-adoption is still forming. Design your architecture so the protocol layer is swappable — the logic of what your tools do should not be coupled to the wire format used to call them.
+
+### Further reading
+
+- [MCP specification](https://modelcontextprotocol.io/specification) — The full MCP protocol spec including all message types, transports, and capability negotiation.
+- [JSON Schema reference](https://json-schema.org/understanding-json-schema/) — Practical guide to JSON Schema types, validation keywords, and composition operators.
+- [OpenAPI specification](https://swagger.io/specification/) — OpenAPI 3.x spec; particularly useful for understanding how to describe REST APIs that you'll wrap as MCP tools.
