@@ -195,7 +195,7 @@ The pattern: use API inference for the real-time tier where latency and availabi
 API inference restricts you to the provider's model catalog. This matters in two scenarios:
 
 1. **Fine-tuned models** — if your use case requires a fine-tuned model, you must host it yourself or use a provider that supports custom model deployment.
-2. **Open-weight models** — Llama, Mistral, and other open-weight models may outperform closed models on your specific task and are only accessible via self-hosted or cloud-managed deployment.
+2. **Open-weight models** — Llama, Mistral, and other open-weight models may outperform closed models on your specific task. Many API providers also serve popular open-weight models, but if you need a specific version, a fine-tuned variant, or a model not in any provider's catalog, self-hosted or cloud-managed deployment is the only option.
 
 The flexibility argument for self-hosted is strongest when you have specific model requirements that no API provider can meet.
 

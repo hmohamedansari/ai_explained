@@ -172,6 +172,9 @@ metadata:
   name: inference-server
 spec:
   replicas: 2
+  # Time a pod must be continuously Ready before Kubernetes considers it available.
+  # Belongs at Deployment spec level, not inside the pod template spec.
+  minReadySeconds: 30
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -197,10 +200,6 @@ spec:
 
       # Allow time for weight loading before forced termination
       terminationGracePeriodSeconds: 300   # 5 minutes
-
-      # Time after pod becomes ready before sending traffic
-      # Gives the model time to warm up
-      minReadySeconds: 30
 
       containers:
         - name: inference-server

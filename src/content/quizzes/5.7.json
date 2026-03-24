@@ -47,15 +47,15 @@
     {
       "id": "5.7-q4",
       "type": "multiple-choice",
-      "question": "A Kubernetes pod for a GPU inference server starts and passes the liveness probe but fails the readiness probe for 8 minutes. Kubernetes kills the pod and starts a new one. This repeats indefinitely. What is the most likely configuration error?",
+      "question": "A GPU inference server pod takes 6 minutes to load model weights. During startup, Kubernetes kills the pod repeatedly before it finishes loading, creating a restart loop. Both the liveness and readiness probes have initialDelaySeconds: 30 and failureThreshold: 3 with periodSeconds: 10. Which probe is causing the restarts, and what is the correct fix?",
       "options": [
-        "The liveness probe interval is too short and is interfering with the readiness probe",
-        "The readiness probe's failureThreshold is too low — Kubernetes marks the pod as failed after failureThreshold consecutive failures; if the model takes 8 minutes to load but failureThreshold × periodSeconds is less than 8 minutes, Kubernetes kills the pod before it can become ready; increase failureThreshold or periodSeconds to allow enough time for weight loading",
-        "The pod is running out of VRAM during weight loading and crashing",
-        "The liveness probe should be disabled during weight loading"
+        "The readiness probe is causing the restarts; remove it so traffic can reach the pod immediately",
+        "The liveness probe is causing the restarts — only liveness probe failures (or container exit) trigger pod kills and restarts; readiness probe failures only remove the pod from service endpoints without restarting it; fix by raising initialDelaySeconds and failureThreshold on the liveness probe, or add a startupProbe to protect the full startup window",
+        "Both probes cause restarts equally; disable both during the startup phase",
+        "The readiness probe is causing the restarts; set failureThreshold to 100 on the readiness probe to stop the cycle"
       ],
       "answer": 1,
-      "explanation": "Kubernetes kills a pod when its liveness probe fails repeatedly (based on failureThreshold). But the described behavior — liveness passes, readiness fails, pod is killed — suggests the liveness probe is triggering the kill, not the readiness probe. However, the most common root cause of this symptom pattern is a readiness probe with too-small a failureThreshold combined with a liveness probe that times out waiting for the port to become healthy. The practical fix: set readiness initialDelaySeconds high (e.g., 180s for a model with a 4-minute startup), set failureThreshold to allow the full startup window (e.g., failureThreshold=20 with periodSeconds=30 allows 10 minutes), and ensure the liveness probe is configured with similar generosity during startup.",
+      "explanation": "Readiness probe failures never restart a pod — they only remove it from the load balancer's endpoint list so no new traffic is routed to it. Liveness probe failures (and container crashes) are what trigger pod kills and restarts. With initialDelaySeconds: 30 and failureThreshold: 3 at periodSeconds: 10, the liveness probe gives up after 60 seconds total — far short of the 6-minute weight loading window. The correct fix is to either raise initialDelaySeconds and failureThreshold on the liveness probe to cover the full startup time, or add a separate startupProbe (introduced in Kubernetes 1.16) with a large failureThreshold during startup, which disables the liveness probe until the startupProbe passes.",
       "personas": ["senior", "sre"]
     },
     {

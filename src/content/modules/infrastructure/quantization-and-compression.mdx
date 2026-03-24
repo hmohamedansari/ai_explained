@@ -18,7 +18,7 @@ draft: false
 
 ## Layer 1 — Surface
 
-Neural network weights are just numbers. By default, those numbers are stored as 16-bit or 32-bit floats. Quantization is the process of storing them in fewer bits — 8 bits or 4 bits instead. A model stored in 4-bit integers uses roughly one-quarter the memory of the same model stored in 16-bit floats. That means a 70B parameter model that would normally require around 140GB of VRAM fits in approximately 35GB — within reach of a pair of consumer-grade A100s instead of eight.
+Neural network weights are just numbers. By default, those numbers are stored as 16-bit or 32-bit floats. Quantization is the process of storing them in fewer bits — 8 bits or 4 bits instead. A model stored in 4-bit integers uses roughly one-quarter the memory of the same model stored in 16-bit floats. That means a 70B parameter model that would normally require around 140GB of VRAM fits in approximately 35GB — within reach of a pair of A100s instead of eight.
 
 The tradeoff: lower precision introduces rounding error. Most of the time this is invisible to a user. Occasionally — especially on tasks that require precise numerical reasoning, structured output, or narrow technical domains — it degrades quality noticeably.
 
