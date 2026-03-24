@@ -207,29 +207,30 @@ async def run_with_lease(task_id: str, goal: str):
     if lease_id is None:
         raise TaskAlreadyRunning(f"Task {task_id} is being executed by another worker")
 
-    async def renew_periodically():
-        while True:
-            await asyncio.sleep(60)
-            if not lease.renew(task_id, lease_id):
-                raise LeaseLost(f"Lost lease on task {task_id}")
-
-    # Keep a reference to the outer task so the renew loop can cancel it directly.
-    # Raising from inside a background task is not enough — asyncio swallows
-    # exceptions from tasks that are never awaited.
+    # Flag lets us distinguish lease-loss cancellation from external cancellation
+    # (e.g. operator shutdown). Without it, a broad `except CancelledError` would
+    # misreport any external cancel as a lease failure.
+    lease_lost = False
     current_task = asyncio.current_task()
 
     async def renew_periodically():
+        nonlocal lease_lost
         while True:
             await asyncio.sleep(60)
             if not lease.renew(task_id, lease_id):
-                current_task.cancel()   # propagate lease loss to the main coroutine
+                # Raising inside a background task is asyncio-swallowed unless the
+                # task is awaited. Cancel the main coroutine directly instead.
+                lease_lost = True
+                current_task.cancel()
                 return
 
     renew_task = asyncio.create_task(renew_periodically())
     try:
         return await run_with_checkpoints(task_id, goal, TOOLS)
     except asyncio.CancelledError:
-        raise LeaseLost(f"Lost lease on task {task_id}")
+        if lease_lost:
+            raise LeaseLost(f"Lost lease on task {task_id}")
+        raise   # external cancellation — propagate as-is
     finally:
         renew_task.cancel()
         lease.release(task_id, lease_id)
