@@ -1,0 +1,284 @@
+---
+moduleId: "5.4"
+title: "Batching & Throughput"
+description: "Throughput and latency are in direct tension in LLM serving — understanding how batching works, why continuous batching is the production default, and how to separate throughput benchmarks from latency benchmarks prevents the common mistake of optimizing one while silently destroying the other."
+track: "infrastructure"
+order: 4
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Optimizing for throughput (large batches) degrades tail latency for individual requests — TTFT spikes under high batch sizes. A benchmark that shows 5,000 tokens/sec throughput may correspond to a p99 TTFT of 8 seconds, which is unusable for interactive workloads. Separate throughput benchmarks from latency benchmarks; never collapse them into one number, and never tune serving configuration against only one dimension."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A GPU is most efficient when doing many things in parallel. When it processes a single LLM request, most of its compute capacity sits idle. Batching is the practice of processing multiple requests together in a single GPU forward pass — the GPU does the same amount of work per pass, but the work covers many requests simultaneously. Throughput goes up.
+
+The catch: batched requests share the forward pass timeline. A short request that finishes in 50 tokens must wait for a 500-token request to complete before the batch step is done. Tail latency for the short request increases.
+
+This tension — throughput up, latency up — is the fundamental tradeoff of batching. Every batching decision is a point on the throughput-latency curve; there is no free lunch.
+
+**The batching strategies in order of sophistication:**
+
+1. **Static batching** — collect N requests, run them all together, return results, start next batch
+2. **Dynamic batching** — admit requests as they arrive up to a max batch size or timeout
+3. **Continuous batching** — individual requests join and leave the batch mid-generation; completed requests free slots immediately
+
+Continuous batching is the production default in modern serving frameworks (vLLM, TGI) because it keeps GPU utilization high without forcing every request to wait for the slowest member.
+
+### Why it matters
+
+At low traffic, batching doesn't matter much — there are few requests to batch. At high traffic, batching determines whether you can serve 10 concurrent users or 200 on the same hardware. Getting batching right is the difference between your GPU running at 20% utilization and 80%.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake is reporting a single "performance" number that combines throughput and latency. A tuning change that increases throughput by 3x while tripling p99 TTFT is not an improvement for interactive workloads — it is a regression. Always report throughput (tokens/sec server-wide) and latency (TTFT, TBT per request) as separate metrics with separate SLAs.
+
+---
+
+## Layer 2 — Guided
+
+### Static vs dynamic vs continuous batching
+
+```python
+from dataclasses import dataclass, field
+from collections import deque
+import time
+
+@dataclass
+class Request:
+    id: str
+    tokens_in: int
+    max_tokens_out: int
+    arrival_time: float = field(default_factory=time.monotonic)
+    start_time: float | None = None
+    finish_time: float | None = None
+
+    def ttft(self) -> float | None:
+        if self.start_time is None:
+            return None
+        return self.start_time - self.arrival_time
+
+    def total_time(self) -> float | None:
+        if self.finish_time is None or self.arrival_time is None:
+            return None
+        return self.finish_time - self.arrival_time
+
+
+class StaticBatchScheduler:
+    """
+    Static batching: collect exactly batch_size requests, then process.
+    Problem: if requests arrive slowly, each request waits for the batch to fill.
+    Short requests wait for long requests in the same batch.
+    """
+    def __init__(self, batch_size: int = 8):
+        self.batch_size = batch_size
+        self.queue: list[Request] = []
+
+    def add(self, req: Request):
+        self.queue.append(req)
+
+    def get_next_batch(self) -> list[Request] | None:
+        if len(self.queue) >= self.batch_size:
+            batch = self.queue[:self.batch_size]
+            self.queue = self.queue[self.batch_size:]
+            return batch
+        return None  # wait for more requests
+
+
+class ContinuousBatchScheduler:
+    """
+    Continuous batching: requests join/leave mid-generation.
+    A slot freed by a completed request is immediately filled by the next waiting request.
+    GPU utilization stays high; short requests don't wait for long ones.
+    """
+    def __init__(self, max_concurrent: int = 32):
+        self.max_concurrent = max_concurrent
+        self.active: dict[str, Request] = {}
+        self.waiting: deque[Request] = deque()
+        self.tokens_generated: dict[str, int] = {}
+
+    def add(self, req: Request):
+        if len(self.active) < self.max_concurrent:
+            self._admit(req)
+        else:
+            self.waiting.append(req)
+
+    def _admit(self, req: Request):
+        req.start_time = time.monotonic()
+        self.active[req.id] = req
+        self.tokens_generated[req.id] = 0
+
+    def step(self) -> list[Request]:
+        """Simulate one decode step. Returns newly completed requests."""
+        completed = []
+        for req_id in list(self.active):
+            self.tokens_generated[req_id] += 1
+            req = self.active[req_id]
+            if self.tokens_generated[req_id] >= req.max_tokens_out:
+                req.finish_time = time.monotonic()
+                completed.append(req)
+                del self.active[req_id]
+                del self.tokens_generated[req_id]
+                # Admit next waiting request immediately
+                if self.waiting:
+                    self._admit(self.waiting.popleft())
+        return completed
+```
+
+### Prefill vs decode: different characteristics
+
+LLM generation has two distinct phases with different compute characteristics:
+
+```python
+@dataclass
+class GenerationPhases:
+    """
+    Prefill phase: process the entire input prompt in parallel.
+    All input tokens are processed in one forward pass (parallelizable).
+    Compute-bound — the GPU is running at high utilization.
+    Duration scales with input length.
+
+    Decode phase: generate output tokens one at a time.
+    Each token requires one forward pass, and each pass depends on the previous.
+    Memory-bandwidth-bound — the bottleneck is reading model weights from VRAM.
+    Duration scales with output length.
+    """
+    prefill_tokens: int     # input length
+    decode_tokens: int      # output length
+    prefill_time_ms: float  # time for prefill phase
+    decode_time_per_token_ms: float  # time per generated token
+
+    def ttft_ms(self) -> float:
+        """Time to first token = prefill time."""
+        return self.prefill_time_ms
+
+    def total_time_ms(self) -> float:
+        """Total generation time."""
+        return self.prefill_time_ms + self.decode_tokens * self.decode_time_per_token_ms
+
+    def throughput_tokens_per_sec(self) -> float:
+        """Server-side throughput for this single request."""
+        total_tokens = self.prefill_tokens + self.decode_tokens
+        return total_tokens / (self.total_time_ms() / 1000)
+```
+
+Why this matters for batching: prefill and decode have different bottlenecks. Chunked prefill (splitting long prompts into chunks processed alongside decode steps) is an optimization that prevents long prompts from blocking the decode phase for other requests.
+
+### The throughput-latency curve
+
+```python
+def model_throughput_latency_curve(
+    batch_sizes: list[int],
+    decode_time_per_token_single_ms: float = 5.0,
+    batch_slowdown_factor: float = 0.2,
+) -> list[dict]:
+    """
+    Simplified model of how throughput and latency scale with batch size.
+    Real numbers depend heavily on hardware and model size.
+
+    batch_slowdown_factor: fractional latency increase per batch size doubling.
+    Larger batches share GPU resources; each request's decode takes slightly longer.
+    """
+    results = []
+    for batch_size in batch_sizes:
+        # Decode time per token increases with batch size (contention for memory bandwidth)
+        latency_factor = 1 + batch_slowdown_factor * (batch_size - 1) ** 0.5
+        decode_time_ms = decode_time_per_token_single_ms * latency_factor
+
+        # Throughput: batch_size tokens generated per decode_time_ms
+        tokens_per_sec = (batch_size / decode_time_ms) * 1000
+
+        results.append({
+            "batch_size": batch_size,
+            "decode_time_per_token_ms": round(decode_time_ms, 2),
+            "tokens_per_sec": round(tokens_per_sec),
+            "ttft_relative": round(latency_factor, 2),
+        })
+    return results
+
+# Show the tradeoff
+for row in model_throughput_latency_curve([1, 4, 8, 16, 32]):
+    print(f"batch={row['batch_size']:>2}: {row['tokens_per_sec']:>5} tok/s, "
+          f"latency {row['ttft_relative']}x baseline")
+
+# Output (illustrative, not empirical):
+# batch= 1:   200 tok/s, latency 1.0x baseline
+# batch= 4:   342 tok/s, latency 1.17x baseline
+# batch= 8:   440 tok/s, latency 1.24x baseline
+# batch=16:   522 tok/s, latency 1.31x baseline
+# batch=32:   582 tok/s, latency 1.37x baseline
+```
+
+The curve flattens: going from batch 1 to batch 8 roughly doubles throughput. Going from batch 8 to batch 32 only adds ~30% throughput while still increasing latency. There is a diminishing returns region where larger batches cost latency without proportional throughput gains.
+
+### Token throughput as the primary server metric
+
+```python
+@dataclass
+class ServerThroughputMetrics:
+    """
+    Track token throughput at the server level, not just per-request latency.
+    These are the metrics that tell you whether your server is efficient.
+    """
+    window_seconds: float
+    requests_completed: int
+    total_input_tokens: int
+    total_output_tokens: int
+
+    def output_tokens_per_second(self) -> float:
+        """The primary throughput metric for LLM servers."""
+        return self.total_output_tokens / self.window_seconds
+
+    def input_tokens_per_second(self) -> float:
+        return self.total_input_tokens / self.window_seconds
+
+    def total_tokens_per_second(self) -> float:
+        return (self.total_input_tokens + self.total_output_tokens) / self.window_seconds
+
+    def requests_per_second(self) -> float:
+        return self.requests_completed / self.window_seconds
+```
+
+Output tokens per second is the most meaningful throughput metric because output generation (the decode phase) is the bottleneck. Input tokens are processed in a single prefill pass; output tokens require one pass each.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Why the decode phase is memory-bandwidth-bound
+
+During the prefill phase, the GPU computes attention across all input tokens simultaneously — this is highly parallelizable and uses GPU cores efficiently. During the decode phase, each new token requires one full forward pass through the model to predict the next token. At batch size 1, this reads all model weights from VRAM but uses only a tiny fraction of GPU compute capacity, because there is no parallelism across a single-token input.
+
+The bottleneck shifts from compute to memory bandwidth. More GPU cores don't help; faster VRAM does. This is why memory bandwidth (GB/s) matters as much as FLOPs for decode throughput, and why larger batches improve utilization — they amortize the weight-reading cost across multiple requests simultaneously.
+
+### Chunked prefill
+
+Standard continuous batching prioritizes decode steps (to maintain low tail latency) but must occasionally process prefill requests. A long prefill (e.g., 8K token context) blocks all decode steps for that duration — a latency spike for all active requests.
+
+Chunked prefill splits long prompts into fixed-size chunks (e.g., 512 tokens) processed interleaved with decode steps. TTFT for the long-context request increases slightly, but other requests don't experience the latency spike. This is the default behavior in recent vLLM versions.
+
+### Scheduling priorities in production
+
+| Request type | Scheduling preference | Reason |
+|---|---|---|
+| Interactive user queries | Low batch size, low TTFT | User is waiting; streaming experience |
+| Background batch jobs | High batch size, high throughput | Latency insensitive; cost matters |
+| Streaming completions | Moderate batch size | TTFT matters for start; TBT matters for feel |
+| Re-ranking / classification | High batch size | Many short requests; prefill-heavy |
+
+Separate queue lanes for interactive and batch workloads, with different scheduling policies per lane, is a common pattern for mixed-workload production deployments.
+
+### Further reading
+
+- [Orca: A Distributed Serving System for Transformer-Based Generative Models](https://www.usenix.org/conference/osdi22/presentation/yu) — Yu et al., OSDI 2022. The paper that introduced iteration-level scheduling (continuous batching); the theoretical basis for how vLLM and TGI schedule decode steps.
+- [Sarathi-Serve: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills](https://arxiv.org/abs/2403.02310) — Agrawal et al., 2024. The chunked prefill paper; explains how interleaving prefill chunks with decode steps reduces tail latency.
+- [vLLM documentation — Engine Arguments](https://docs.vllm.ai/en/latest/serving/engine_args.html) — vLLM project. Reference for the concrete serving configuration parameters discussed in this module.

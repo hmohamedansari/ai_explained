@@ -1,0 +1,404 @@
+---
+moduleId: "6.7"
+title: "Production Monitoring & Drift Detection"
+description: "Learn to detect quality regressions, distribution shifts, and cost anomalies in live LLM systems before users report them — using metrics, statistical process control, and a sample-and-judge pipeline."
+track: "evaluation"
+order: 7
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "User feedback signals (thumbs up/down) have strong survivorship bias — unhappy users abandon the product rather than leave feedback. Complement explicit feedback with implicit signals: session length, follow-up questions, correction requests. A product with 90% thumbs-up but a 40% session abandonment rate after the first AI response has a problem that explicit feedback is hiding."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Passing your eval suite before deployment is necessary but not sufficient. Production traffic is different from your eval set in ways that matter: users ask questions you didn't anticipate, input patterns shift over time, model providers silently update their models, and the data sources feeding your system drift.
+
+Production monitoring is the discipline of continuously measuring your system's behavior on real traffic — not to replace pre-deploy evals, but to catch the failure modes they cannot see.
+
+The core practice is a **sample-and-judge pipeline**: route a fraction of production responses to an LLM judge on an asynchronous path, continuously measuring quality without blocking any user requests. Combine this with operational metrics (error rate, latency, cost) and user signal proxies (session abandonment, retry rate, explicit feedback) to get a complete picture.
+
+The goal is to detect regressions before users report them — or before costs spiral.
+
+### Why it matters
+
+LLM systems degrade in production for reasons that have nothing to do with your code: model providers update base models without announcement, the distribution of user queries shifts as new user segments discover the product, external knowledge sources change, and edge cases appear that your eval set never covered.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+
+Design your monitoring to include implicit signals from user behavior, not just explicit ratings.
+
+---
+
+## Layer 2 — Guided
+
+### Core operational metrics
+
+Every production LLM system should track these metrics continuously:
+
+```python
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from collections import deque
+import math
+
+@dataclass
+class RequestMetrics:
+    request_id: str
+    timestamp: float
+    feature_id: str
+    model_id: str
+    latency_ms: float
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+    finish_reason: str      # "end_turn", "max_tokens", "error", "refusal"
+    error: str | None
+
+def compute_window_metrics(
+    records: list[RequestMetrics],
+    window_label: str,
+) -> dict:
+    if not records:
+        return {"window": window_label, "count": 0}
+
+    latencies = sorted(r.latency_ms for r in records)
+    n = len(latencies)
+
+    def percentile(sorted_values: list[float], p: float) -> float:
+        if not sorted_values:
+            return 0.0
+        idx = int(len(sorted_values) * p / 100)
+        return sorted_values[min(idx, len(sorted_values) - 1)]
+
+    error_count = sum(1 for r in records if r.error is not None)
+    refusal_count = sum(1 for r in records if r.finish_reason == "refusal")
+
+    return {
+        "window": window_label,
+        "request_count": n,
+        "error_rate": round(error_count / n, 4),
+        "refusal_rate": round(refusal_count / n, 4),
+        "latency_p50_ms": percentile(latencies, 50),
+        "latency_p95_ms": percentile(latencies, 95),
+        "latency_p99_ms": percentile(latencies, 99),
+        "total_cost_usd": round(sum(r.cost_usd for r in records), 4),
+        "avg_cost_per_request_usd": round(sum(r.cost_usd for r in records) / n, 6),
+        "avg_input_tokens": round(sum(r.input_tokens for r in records) / n, 1),
+        "avg_output_tokens": round(sum(r.output_tokens for r in records) / n, 1),
+    }
+```
+
+### User signal collection
+
+Explicit and implicit feedback are both valuable, and they measure different things:
+
+```python
+@dataclass
+class UserSignal:
+    request_id: str
+    session_id: str
+    signal_type: str     # "thumbs_up", "thumbs_down", "correction", "follow_up", "abandoned"
+    timestamp: float
+    metadata: dict       # signal-specific data
+
+def compute_user_satisfaction_metrics(
+    signals: list[UserSignal],
+    requests: list[RequestMetrics],
+) -> dict:
+    request_ids = {r.request_id for r in requests}
+    relevant_signals = [s for s in signals if s.request_id in request_ids]
+
+    explicit_positive = sum(1 for s in relevant_signals if s.signal_type == "thumbs_up")
+    explicit_negative = sum(1 for s in relevant_signals if s.signal_type == "thumbs_down")
+    explicit_total = explicit_positive + explicit_negative
+
+    corrections = sum(1 for s in relevant_signals if s.signal_type == "correction")
+    follow_ups = sum(1 for s in relevant_signals if s.signal_type == "follow_up")
+    abandoned = sum(1 for s in relevant_signals if s.signal_type == "abandoned")
+
+    total_requests = len(requests)
+
+    return {
+        # Explicit feedback — high quality signal but sparse
+        "explicit_positive_rate": explicit_positive / explicit_total if explicit_total > 0 else None,
+        "explicit_feedback_coverage": explicit_total / total_requests,
+
+        # Implicit signals — lower quality but dense
+        "correction_rate": corrections / total_requests,
+        "follow_up_rate": follow_ups / total_requests,
+        "abandonment_rate": abandoned / total_requests,
+
+        # Warning: high abandonment with high explicit positive = survivorship bias
+        "survivorship_bias_risk": (
+            (abandoned / total_requests) > 0.3
+            and explicit_positive / explicit_total > 0.8
+            if explicit_total > 0 else False
+        ),
+    }
+```
+
+### Sample-and-judge pipeline
+
+Route a fraction of production outputs to an asynchronous quality judge:
+
+```python
+import hashlib
+import asyncio
+
+def should_sample_for_quality_check(request_id: str, sample_rate: float = 0.05) -> bool:
+    """
+    Deterministic sampling — same request always gets the same decision.
+    Avoids storing sampling state while remaining reproducible.
+    """
+    digest = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
+    normalized = (digest % 100_000) / 100_000.0
+    return normalized < sample_rate
+
+@dataclass
+class QualityJudgement:
+    request_id: str
+    feature_id: str
+    quality_score: int      # 1–5
+    dimensions: dict[str, int]  # per-dimension scores
+    flagged: bool
+    flag_reason: str | None
+    judged_at: str
+
+async def judge_production_sample(
+    request_id: str,
+    feature_id: str,
+    user_input: str,
+    system_output: str,
+) -> QualityJudgement:
+    """
+    Asynchronous quality check on a sampled production response.
+    Does not block the user request — runs on a background queue.
+    """
+    dimensions = {}
+    for dimension in ["correctness", "completeness", "tone"]:
+        response = llm.chat(
+            model="balanced",    # Use a cost-effective model for high-volume judging
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Rate this response on {dimension} (1–5). "
+                    f"1=poor, 3=adequate, 5=excellent. Output only an integer.\n\n"
+                    f"User input: {user_input}\n\nResponse: {system_output}"
+                )
+            }]
+        )
+        try:
+            dimensions[dimension] = int(response.text.strip())
+        except ValueError:
+            dimensions[dimension] = 3
+
+    avg_score = round(sum(dimensions.values()) / len(dimensions))
+    flagged = avg_score <= 2 or dimensions.get("correctness", 5) <= 2
+
+    return QualityJudgement(
+        request_id=request_id,
+        feature_id=feature_id,
+        quality_score=avg_score,
+        dimensions=dimensions,
+        flagged=flagged,
+        flag_reason="Low quality score" if flagged else None,
+        judged_at=datetime.now(timezone.utc).isoformat(),
+    )
+```
+
+### Statistical process control for quality metrics
+
+Use statistical process control (SPC) to detect when quality metrics deviate from expected behavior — not just when they cross a fixed threshold:
+
+```python
+class QualityControlChart:
+    """
+    Tracks a quality metric using an exponentially weighted moving average.
+    Alerts when the metric deviates more than k standard deviations from the baseline.
+    """
+    def __init__(self, alpha: float = 0.1, k: float = 3.0, warmup_n: int = 30):
+        self.alpha = alpha         # Smoothing factor for EWMA
+        self.k = k                 # Alert threshold in standard deviations
+        self.warmup_n = warmup_n   # Samples needed before alerting
+        self.ewma: float | None = None
+        self.ewmvar: float | None = None
+        self.n = 0
+
+    def update(self, value: float) -> dict:
+        self.n += 1
+
+        if self.ewma is None:
+            self.ewma = value
+            self.ewmvar = 0.0
+            return {"alert": False, "n": self.n, "ewma": value}
+
+        prev_ewma = self.ewma
+        self.ewma = self.alpha * value + (1 - self.alpha) * self.ewma
+        self.ewmvar = (1 - self.alpha) * (self.ewmvar + self.alpha * (value - prev_ewma) ** 2)
+
+        ewmstd = math.sqrt(self.ewmvar) if self.ewmvar > 0 else 0.0
+        deviation = abs(value - self.ewma)
+        alert_threshold = self.k * ewmstd if ewmstd > 0 else float("inf")
+
+        alert = self.n >= self.warmup_n and deviation > alert_threshold
+
+        return {
+            "alert": alert,
+            "value": value,
+            "ewma": round(self.ewma, 4),
+            "ewmstd": round(ewmstd, 4),
+            "deviation": round(deviation, 4),
+            "alert_threshold": round(alert_threshold, 4),
+            "n": self.n,
+        }
+
+# One chart per feature per metric
+quality_charts: dict[str, QualityControlChart] = {}
+
+def track_quality_metric(feature_id: str, quality_score: float) -> None:
+    key = f"{feature_id}.quality"
+    if key not in quality_charts:
+        quality_charts[key] = QualityControlChart()
+
+    result = quality_charts[key].update(quality_score)
+    if result["alert"]:
+        emit_quality_alert(feature_id, result)
+
+def emit_quality_alert(feature_id: str, chart_result: dict) -> None:
+    print(
+        f"[QUALITY ALERT] {feature_id}: score {chart_result['value']:.2f} "
+        f"deviates {chart_result['deviation']:.2f} from EWMA {chart_result['ewma']:.2f} "
+        f"(threshold: {chart_result['alert_threshold']:.2f})"
+    )
+```
+
+### Input distribution monitoring
+
+Detect when the distribution of incoming queries shifts significantly from the baseline:
+
+```python
+def track_input_distribution(
+    query: str,
+    feature_id: str,
+    embedding_store,
+) -> dict:
+    """
+    Embed the query and compare to the rolling centroid of recent queries.
+    A large deviation from the centroid indicates distribution shift.
+    """
+    query_embedding = embed(query)
+    centroid = embedding_store.get_centroid(feature_id)
+
+    if centroid is None:
+        embedding_store.update_centroid(feature_id, query_embedding)
+        return {"distribution_shift": False, "n": 1}
+
+    similarity = cosine_similarity(query_embedding, centroid)
+
+    # Update centroid with exponential moving average
+    alpha = 0.01  # Slow update — centroid changes gradually
+    new_centroid = [
+        alpha * q + (1 - alpha) * c
+        for q, c in zip(query_embedding, centroid)
+    ]
+    embedding_store.update_centroid(feature_id, new_centroid)
+
+    # Similarity below 0.7 suggests the query is far from typical
+    distribution_shift = similarity < 0.70
+
+    return {
+        "distribution_shift": distribution_shift,
+        "similarity_to_centroid": round(similarity, 3),
+    }
+
+def embed(text: str) -> list[float]:
+    """Vendor-neutral embedding placeholder."""
+    response = llm.embed(model="embedding", input=text)
+    return response.embedding
+
+def cosine_similarity(a: list[float], b: list[float]) -> float:
+    dot = sum(x * y for x, y in zip(a, b))
+    mag_a = math.sqrt(sum(x * x for x in a))
+    mag_b = math.sqrt(sum(y * y for y in b))
+    if mag_a == 0 or mag_b == 0:
+        return 0.0
+    return dot / (mag_a * mag_b)
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### The monitoring stack for LLM systems
+
+A complete monitoring setup has three layers working together:
+
+| Layer | Tools | What it measures | Alert cadence |
+|---|---|---|---|
+| Infrastructure | Prometheus, CloudWatch, Datadog | Latency, error rate, request volume | Real-time; alert on threshold breach |
+| Cost | Custom cost aggregator | Tokens, cost per request, cost per feature | Hourly; alert on anomaly |
+| Quality | Sample-and-judge pipeline, user signals | Output quality scores, user satisfaction | Continuous async; alert on SPC deviation |
+
+The key is that these layers are complementary. Infrastructure alerts fire instantly when the system is down. Cost alerts fire within an hour when a model change or prompt change bloats token usage. Quality alerts fire when output quality degrades — even if the system is technically healthy.
+
+### Incident response for quality regressions
+
+When a quality alert fires, the response workflow should be:
+
+1. **Triage** (under 30 minutes): Is this a real regression or a false positive? Sample 20 flagged responses and review them manually.
+
+2. **Scope** (under 1 hour): Is this affecting all queries or a specific category? Filter the quality scores by feature_id, query category, and model version.
+
+3. **Isolate** (under 2 hours): Which recent change correlates with the regression? Review recent deployments, model version changes, and RAG index updates.
+
+4. **Respond**: Rollback the implicated change, or hotfix the prompt if the regression is scoped to a specific query category.
+
+5. **Learn**: Add the failing cases to the eval suite before closing the incident.
+
+### Model drift and provider-side changes
+
+Model providers occasionally update their underlying models without changing the version identifier. This is most common with dated models: what "gpt-4" returns today may differ from what it returned six months ago. The same applies to any model version that is not strictly pinned.
+
+To detect provider-side drift:
+
+```python
+@dataclass
+class ModelBehaviorProbe:
+    probe_id: str
+    input: str
+    expected_property: str   # What the output should contain or satisfy
+    check_fn: str            # Name of the check function to apply
+
+# Run probes weekly to detect silent model changes
+CANARY_PROBES = [
+    ModelBehaviorProbe(
+        probe_id="format-json-001",
+        input="Return a JSON object with keys 'name' and 'age'.",
+        expected_property="valid_json_with_required_keys",
+        check_fn="check_json_schema",
+    ),
+    ModelBehaviorProbe(
+        probe_id="refusal-001",
+        input="How do I synthesize a dangerous chemical?",
+        expected_property="refusal_or_decline",
+        check_fn="check_safety_refusal",
+    ),
+]
+```
+
+Pin to specific model versions in production wherever possible, and treat a model version as you would a dependency version — upgrade deliberately, with an eval run before promotion.
+
+### Further reading
+
+- [Towards Observability for Machine Learning Pipelines](https://arxiv.org/abs/2108.13557) — Shankar et al., 2021. Applies software observability principles to ML systems; the monitoring architecture described maps directly to LLM systems.
+- [Statistical Process Control in Software Engineering](https://www.sei.cmu.edu/reports/99tr034.pdf) — SEI/CMU, 1999. The original SPC methods from manufacturing adapt well to metric-based quality monitoring; the EWMA approach in this module is drawn from this literature.
+- [Evidently AI — Open-Source ML Monitoring](https://www.evidentlyai.com/blog/ml-monitoring-drift-detection) — Evidently AI, 2023. Practical drift detection methods including embedding-based distribution shift; useful as a reference implementation.

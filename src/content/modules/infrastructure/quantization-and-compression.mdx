@@ -1,0 +1,258 @@
+---
+moduleId: "5.2"
+title: "Quantization & Compression"
+description: "Quantization reduces the memory and compute cost of running a model by storing its weights in lower precision — understanding the tradeoffs between FP16, INT8, and INT4 and the methods used to get there lets you serve larger models on smaller hardware without silently breaking quality."
+track: "infrastructure"
+order: 2
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "INT4 quantization can look fine on general benchmarks while meaningfully degrading on domain-specific tasks — always evaluate on YOUR task, not just perplexity. A model that scores well on general knowledge questions may fail on code generation, structured output, or narrow technical domains after aggressive quantization. Measure on a task-representative eval set before deploying a quantized model to production."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Neural network weights are just numbers. By default, those numbers are stored as 16-bit or 32-bit floats. Quantization is the process of storing them in fewer bits — 8 bits or 4 bits instead. A model stored in 4-bit integers uses roughly one-quarter the memory of the same model stored in 16-bit floats. That means a 70B parameter model that would normally require around 140GB of VRAM fits in approximately 35GB — within reach of a pair of consumer-grade A100s instead of eight.
+
+The tradeoff: lower precision introduces rounding error. Most of the time this is invisible to a user. Occasionally — especially on tasks that require precise numerical reasoning, structured output, or narrow technical domains — it degrades quality noticeably.
+
+**The three compression approaches:**
+- **Quantization** — reduce weight precision (bits per number)
+- **Pruning** — remove weights entirely (set them to zero)
+- **Distillation** — train a smaller student model to mimic a larger teacher
+
+This module focuses on quantization because it is the most commonly applied and the most directly relevant to inference serving.
+
+### Why it matters
+
+Quantization is what makes it practical to run large models on hardware you can actually buy. Without it, a 13B model requires around 26GB of VRAM in FP16 — over the limit of most single GPUs. With INT8 quantization, it fits in around 13GB. With INT4, around 6.5GB. That difference determines which GPU tier you need, and by extension, what serving costs.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> General benchmarks like perplexity measure how surprised the model is by typical text. They do not measure whether the model can follow a specific JSON schema, reproduce exact code syntax, or maintain precision in a narrow technical domain. INT4 quantization compresses weights uniformly — some heads and layers matter more for your specific task than others, and the quality loss is uneven.
+
+---
+
+## Layer 2 — Guided
+
+### Precision formats and memory impact
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class QuantizationConfig:
+    name: str
+    bits: int
+    bytes_per_param: float
+    typical_quality_loss: str
+    notes: str
+
+PRECISION_FORMATS = [
+    QuantizationConfig("FP32", 32, 4.0, "none (baseline)", "Training default; rarely used for inference"),
+    QuantizationConfig("FP16 / BF16", 16, 2.0, "negligible", "Standard inference baseline; BF16 preferred for stability"),
+    QuantizationConfig("INT8", 8, 1.0, "minimal on most tasks", "Safe default for production quantization"),
+    QuantizationConfig("INT4", 4, 0.5, "varies by task", "Significant memory savings; evaluate carefully"),
+    QuantizationConfig("INT2/INT3", 2, 0.25, "often severe", "Experimental; not recommended for production"),
+]
+
+def estimate_vram_gb(param_count_billions: float, bytes_per_param: float, kv_cache_overhead: float = 0.15) -> float:
+    """
+    Estimate VRAM required for a model.
+    kv_cache_overhead: fraction added for KV cache at moderate load (default 15%).
+    Does not account for batch size or very long contexts.
+    """
+    base_gb = param_count_billions * 1e9 * bytes_per_param / (1024 ** 3)
+    return base_gb * (1 + kv_cache_overhead)
+
+# Common model estimates
+examples = [
+    (7, 2.0, "7B FP16"),
+    (7, 0.5, "7B INT4"),
+    (13, 1.0, "13B INT8"),
+    (70, 0.5, "70B INT4"),
+    (70, 2.0, "70B FP16"),
+]
+for params, bpp, label in examples:
+    gb = estimate_vram_gb(params, bpp)
+    print(f"{label}: ~{gb:.1f} GB VRAM")
+
+# Output:
+# 7B FP16:  ~16.1 GB VRAM
+# 7B INT4:  ~4.0 GB VRAM
+# 13B INT8: ~14.9 GB VRAM
+# 70B INT4: ~40.2 GB VRAM  (with 15% KV cache headroom)
+# 70B FP16: ~160.8 GB VRAM
+```
+
+### Post-Training Quantization vs Quantization-Aware Training
+
+**Post-Training Quantization (PTQ)** applies quantization to an already-trained model. No retraining required. This is what GPTQ, AWQ, and llama.cpp's GGUF use. Fast to apply, but the model was never trained with the lower precision, so rounding errors accumulate.
+
+**Quantization-Aware Training (QAT)** incorporates quantization into the training process itself. The model learns to work within the lower precision constraints. Higher quality than PTQ at the same bit width, but requires access to the training pipeline and significant compute. Used internally by model providers when they release quantized variants.
+
+For practical purposes: if you are consuming open-weight models, you will be using PTQ formats. QAT is for teams training their own models.
+
+### GGUF, GPTQ, and AWQ compared
+
+```python
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class QuantFormat:
+    name: str
+    method: str
+    calibration_data: bool
+    quality_vs_gptq: str
+    primary_ecosystem: str
+    best_for: str
+
+FORMATS = [
+    QuantFormat(
+        name="GGUF",
+        method="PTQ; per-layer or per-block quantization with various bit mixes",
+        calibration_data=False,
+        quality_vs_gptq="comparable at same bit width",
+        primary_ecosystem="llama.cpp, Ollama",
+        best_for="CPU inference, edge devices, easy local deployment",
+    ),
+    QuantFormat(
+        name="GPTQ",
+        method="PTQ; uses a small calibration dataset; minimizes layer-wise reconstruction error",
+        calibration_data=True,
+        quality_vs_gptq="baseline",
+        primary_ecosystem="Transformers, AutoGPTQ, vLLM",
+        best_for="GPU serving where you want GPU-optimized kernels",
+    ),
+    QuantFormat(
+        name="AWQ",
+        method="PTQ; identifies and protects salient weights before quantization",
+        calibration_data=True,
+        quality_vs_gptq="typically better at INT4",
+        primary_ecosystem="vLLM, AutoAWQ, TGI",
+        best_for="INT4 serving where quality matters; generally preferred over GPTQ at INT4",
+    ),
+]
+
+for fmt in FORMATS:
+    print(f"{fmt.name}: {fmt.best_for}")
+```
+
+**The practical choice:** For GPU serving, AWQ at INT4 currently offers the best quality-per-bit among PTQ methods. For CPU or edge deployment, GGUF is the de facto standard. GPTQ remains well-supported but AWQ has generally superseded it for INT4 use cases.
+
+### Evaluating quantization quality
+
+Never deploy a quantized model without evaluating it on your specific task:
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class QuantEvalResult:
+    model_id: str
+    precision: str
+    task_name: str
+    score: float
+    score_baseline: float   # FP16 baseline score
+    degradation_pct: float = field(init=False)
+
+    def __post_init__(self):
+        self.degradation_pct = (self.score_baseline - self.score) / self.score_baseline * 100
+
+def evaluate_quantization_impact(
+    task_eval_fn,           # function(model_id) -> float score
+    baseline_model_id: str,
+    quantized_model_id: str,
+    task_name: str,
+    degradation_threshold_pct: float = 5.0,
+) -> dict:
+    """
+    Compare a quantized model against its FP16 baseline on a specific task.
+    Returns a recommendation based on acceptable degradation threshold.
+    """
+    baseline_score = task_eval_fn(baseline_model_id)
+    quantized_score = task_eval_fn(quantized_model_id)
+
+    result = QuantEvalResult(
+        model_id=quantized_model_id,
+        precision="quantized",
+        task_name=task_name,
+        score=quantized_score,
+        score_baseline=baseline_score,
+    )
+
+    return {
+        "baseline_score": baseline_score,
+        "quantized_score": quantized_score,
+        "degradation_pct": result.degradation_pct,
+        "acceptable": result.degradation_pct <= degradation_threshold_pct,
+        "recommendation": (
+            "deploy" if result.degradation_pct <= degradation_threshold_pct
+            else f"investigate — {result.degradation_pct:.1f}% degradation exceeds {degradation_threshold_pct}% threshold"
+        ),
+    }
+```
+
+What to evaluate on: your actual task distribution — not a generic benchmark. If your application generates SQL, test SQL generation accuracy. If it extracts structured data, test structured output correctness. General perplexity scores poorly predict task-specific degradation.
+
+### Pruning and distillation (brief)
+
+**Pruning** removes individual weights or entire heads/layers by setting them to zero or deleting them. Unstructured pruning (individual weights) is hard to accelerate on GPU hardware because sparse matrices are not faster on dense GPU cores without specialized kernels. Structured pruning (entire attention heads or layers) is more hardware-friendly but requires careful evaluation to avoid degrading quality. Pruning is less commonly applied to LLMs than quantization.
+
+**Distillation** trains a smaller model (the student) to reproduce the output distribution of a larger model (the teacher). The result is a genuinely smaller model — fewer parameters — not a compressed representation of the original. Distillation achieves better quality per parameter than a same-size model trained from scratch, because the student learns from soft probability distributions rather than hard labels. It requires significant compute and access to the teacher model's outputs. Examples: DistilBERT (BERT distillation), Phi-series models (partially distillation-influenced).
+
+---
+
+## Layer 3 — Deep Dive
+
+### Quality degradation patterns by task type
+
+Not all tasks are equally sensitive to quantization:
+
+| Task | INT8 sensitivity | INT4 sensitivity | Notes |
+|---|---|---|---|
+| General Q&A / summarization | Low | Low–Medium | Large models tolerate INT4 well on these tasks |
+| Code generation | Low | Medium–High | Syntax precision matters; evaluate carefully |
+| Structured output (JSON/schema) | Low | Medium | Schema adherence can degrade; test with your schema |
+| Mathematical reasoning | Medium | High | Numerical precision compounds in chain-of-thought |
+| Long-context tasks | Medium | High | Quantization errors can accumulate over long context |
+| Narrow domain (medical, legal) | Medium | High | Domain-specific terminology may be in the tail of the distribution |
+
+The pattern: tasks that require precision, strict formatting, or narrow domain knowledge are most sensitive. Generative tasks with flexible success criteria tolerate quantization better.
+
+### The importance of calibration data for PTQ
+
+GPTQ and AWQ both use a small calibration dataset to minimize reconstruction error during quantization. The calibration set matters:
+
+```python
+CALIBRATION_GUIDELINES = {
+    "size": "128–512 samples is typical; more samples give diminishing returns",
+    "distribution": "should match your deployment distribution, not generic text",
+    "language": "if your model will be used in French, calibrate on French text",
+    "domain": "if your model is a code assistant, include code in calibration data",
+    "danger": "calibrating on data unlike your production distribution can optimize the wrong weights",
+}
+```
+
+Most public GGUF and GPTQ releases use WikiText or a similar general corpus for calibration. If your use case is substantially different (code, multilingual, domain-specific), re-quantizing with task-appropriate calibration data may improve quality.
+
+### Mixed-precision quantization
+
+Some formats (including GGUF and some AWQ variants) support mixing precision within a single model — keeping the most sensitive layers at higher precision while quantizing others more aggressively. For example, the first and last transformer layers and the embedding layer are often kept at higher precision because they have outsized impact on output quality.
+
+This is why GGUF files are labeled Q4_K_M (4-bit quantization with medium key/value matrices kept at higher precision) or similar — the suffix describes the per-layer precision strategy.
+
+### Further reading
+
+- [GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers](https://arxiv.org/abs/2210.17323) — Frantar et al., 2022. The GPTQ paper; explains the layer-wise quantization approach and reconstruction objective.
+- [AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration](https://arxiv.org/abs/2306.00978) — Lin et al., 2023. The AWQ paper; explains why protecting salient weights improves INT4 quality.
+- [llama.cpp — GGUF format documentation](https://github.com/ggerganov/llama.cpp/blob/master/docs/gguf.md) — The GGUF file format specification; useful reference for understanding the quantization variants and their naming.

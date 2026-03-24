@@ -1,0 +1,349 @@
+---
+moduleId: "5.7"
+title: "Containerization & Deployment"
+description: "Containerizing an LLM inference server is fundamentally different from containerizing a web service — GPU passthrough, multi-stage weight management, and slow pod startup require different patterns for health checks, rolling deployments, and Kubernetes configuration that most teams learn by breaking production first."
+track: "infrastructure"
+order: 7
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Rolling deployments for LLM containers are slow — a new pod may take 2–5 minutes to load weights before it is ready. Without correct readiness probes, the load balancer routes traffic to the new pod before the model is loaded, returning errors to users. Set readiness probes to check actual model responsiveness, not just process liveness, and set minReadySeconds and terminationGracePeriodSeconds long enough to allow a full weight load."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Putting an LLM inference server in a Docker container and deploying it to Kubernetes involves several problems that do not appear in typical web service containerization:
+
+- **GPU passthrough** — the container needs access to the host's NVIDIA GPU, which requires NVIDIA container runtime and specific Kubernetes resource requests.
+- **Model weights** — a 70B model in INT4 is roughly 35GB. Baking that into the Docker image makes the image impractical to distribute. Mounting it from a volume means the pod must download or mount the weights before it can serve traffic.
+- **Slow startup** — a pod that needs 3 minutes to load weights before it is ready will confuse health checks configured for fast-starting services, causing the pod to be killed and restarted in a loop.
+- **Rolling deployments** — replacing pods one by one works fine for stateless web services. For LLM containers, each new pod takes minutes to become ready, meaning the rollout is much slower than expected — and the old pod termination must be delayed until the new one is actually ready.
+
+Understanding these differences makes the difference between a deployment that works the first time and one that requires debugging for a day.
+
+### Why it matters
+
+LLM serving is increasingly Kubernetes-deployed because Kubernetes provides the autoscaling, health checking, and deployment tooling that production requires. But the default assumptions in Kubernetes — fast startup, stateless pods, CPU/memory resource limits — all need adjustment for GPU-accelerated LLM workloads.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The trap: readiness probes copied from a web service template check if port 8080 is open. LLM servers open their port almost immediately, then spend 2–4 minutes loading weights into VRAM. During this window, the probe says "ready" but the server returns errors. Use a probe that calls a real inference endpoint — even with a one-token prompt — to verify the model is loaded and responding.
+
+---
+
+## Layer 2 — Guided
+
+### Multi-stage Docker image
+
+```dockerfile
+# Stage 1: Build dependencies
+FROM nvidia/cuda:12.4.0-base-ubuntu22.04 AS base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python serving dependencies (no model weights here)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Stage 2: Application image (no model weights baked in)
+FROM base AS serve
+
+WORKDIR /app
+COPY src/ /app/src/
+COPY entrypoint.sh /app/
+
+# Model weights are NOT copied here — they come from a mounted volume.
+# COPY model_weights/ /app/model_weights/   ← DO NOT DO THIS for large models
+
+# The model path is provided at runtime via environment variable
+ENV MODEL_PATH=/models
+ENV MAX_BATCH_SIZE=32
+ENV MAX_MODEL_LEN=4096
+
+EXPOSE 8000
+
+# Entrypoint loads weights and starts serving
+ENTRYPOINT ["/app/entrypoint.sh"]
+```
+
+```bash
+#!/bin/bash
+# entrypoint.sh
+set -e
+
+echo "Starting inference server, loading model from ${MODEL_PATH}..."
+
+# This command starts the server; it will not respond until weights are loaded.
+# vLLM example (vendor-neutral pattern — adapt to your serving framework):
+python3 -m your_inference_server \
+    --model "${MODEL_PATH}" \
+    --max-batch-size "${MAX_BATCH_SIZE}" \
+    --max-model-len "${MAX_MODEL_LEN}" \
+    --port 8000
+```
+
+### Health check design
+
+```python
+from fastapi import FastAPI, HTTPException
+import httpx
+import time
+
+app = FastAPI()
+
+# Track model load state
+model_loaded = False
+model_load_start = time.monotonic()
+
+@app.on_event("startup")
+async def load_model():
+    global model_loaded
+    # This is where actual model loading happens in your serving framework.
+    # The framework typically handles this; this shows the pattern.
+    await load_weights_from_path(MODEL_PATH)
+    model_loaded = True
+
+
+@app.get("/health/live")
+async def liveness():
+    """
+    Liveness probe: is the process alive?
+    Returns 200 as soon as the process starts.
+    Kubernetes kills and restarts the pod if this fails.
+    Do NOT check model load state here — the pod needs time to load.
+    """
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+async def readiness():
+    """
+    Readiness probe: is the model loaded and responding?
+    Returns 200 only when the model can serve real requests.
+    Kubernetes removes the pod from the load balancer until this passes.
+    This is the critical probe for LLM containers.
+    """
+    if not model_loaded:
+        raise HTTPException(status_code=503, detail="Model loading in progress")
+
+    # Verify with a real (cheap) inference call
+    try:
+        response = await run_inference_check()
+        if not response:
+            raise HTTPException(status_code=503, detail="Model health check failed")
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Model not responding: {e}")
+
+    return {"status": "ready"}
+
+
+async def run_inference_check() -> bool:
+    """Run a minimal inference call to confirm the model is responding."""
+    try:
+        result = await inference_engine.generate(
+            prompt="test",
+            max_tokens=1,
+            timeout=5.0,
+        )
+        return result is not None
+    except Exception:
+        return False
+```
+
+### Kubernetes configuration for GPU pods
+
+```yaml
+# gpu-inference-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-server
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1          # Allow 1 extra pod during rollout
+      maxUnavailable: 0    # Never reduce below desired replicas
+  selector:
+    matchLabels:
+      app: inference-server
+  template:
+    metadata:
+      labels:
+        app: inference-server
+    spec:
+      # Schedule only on GPU nodes
+      nodeSelector:
+        accelerator: nvidia-a10g
+
+      # Tolerate the GPU taint (GPU nodes are typically tainted to prevent non-GPU pods)
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+
+      # Allow time for weight loading before forced termination
+      terminationGracePeriodSeconds: 300   # 5 minutes
+
+      # Time after pod becomes ready before sending traffic
+      # Gives the model time to warm up
+      minReadySeconds: 30
+
+      containers:
+        - name: inference-server
+          image: your-registry/inference-server:v1.2.3
+          env:
+            - name: MODEL_PATH
+              value: /models/llama3-8b-int4
+            - name: MAX_BATCH_SIZE
+              value: "32"
+
+          # GPU resource request — required for NVIDIA device plugin
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+            requests:
+              nvidia.com/gpu: "1"
+              memory: "32Gi"     # RAM for process overhead
+              cpu: "4"
+
+          ports:
+            - containerPort: 8000
+
+          # Liveness: is the process alive? Checked from startup.
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 30    # Wait 30s before first check
+            periodSeconds: 30
+            failureThreshold: 3
+
+          # Readiness: is the model responding? Start checking later.
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 120   # Wait 2 minutes before first readiness check
+            periodSeconds: 15
+            failureThreshold: 10       # Allow up to 10 failures before marking not-ready
+
+          # Model weights from a persistent volume (not baked into image)
+          volumeMounts:
+            - name: model-weights
+              mountPath: /models
+              readOnly: true
+
+      volumes:
+        - name: model-weights
+          persistentVolumeClaim:
+            claimName: model-weights-pvc
+```
+
+### Model weight storage: baked vs mounted
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class WeightStorageOption:
+    strategy: str
+    image_size: str
+    startup_time: str
+    version_management: str
+    pros: list[str]
+    cons: list[str]
+
+OPTIONS = [
+    WeightStorageOption(
+        strategy="Baked into image",
+        image_size="35+ GB for 70B INT4",
+        startup_time="Fast (weights already in filesystem layer)",
+        version_management="New image per model version",
+        pros=["Reproducible", "Simple deployment", "No separate storage system"],
+        cons=["Image pull is slow (35GB+)", "Registry storage cost", "Layer caching often fails for large layers"],
+    ),
+    WeightStorageOption(
+        strategy="Mounted from volume (PVC / NFS / S3-backed)",
+        image_size="Minimal (code only)",
+        startup_time="Slower (weights must be copied to pod-local storage or streamed)",
+        version_management="Update volume content; pods reload on restart",
+        pros=["Small image size", "Shared across pods", "Easy weight updates"],
+        cons=["Additional storage system to manage", "Startup time depends on network/storage speed"],
+    ),
+    WeightStorageOption(
+        strategy="Downloaded at startup from object storage (S3/GCS)",
+        image_size="Minimal",
+        startup_time="Slowest — download adds to startup time",
+        version_management="Update object storage path via env var",
+        pros=["No persistent volume required", "Easy model updates"],
+        cons=["Download adds 1–5+ minutes to startup", "Requires storage credentials in pod"],
+    ),
+]
+```
+
+For production Kubernetes deployments, mounting from a pre-provisioned PVC is generally preferred: it avoids large image sizes while keeping startup times predictable and not requiring network downloads at pod start.
+
+---
+
+## Layer 3 — Deep Dive
+
+### NVIDIA container runtime and device plugin
+
+Two components are required for GPU access in containers:
+
+1. **NVIDIA Container Toolkit** (installed on the node) — intercepts `docker run --gpus` or Kubernetes device requests and makes GPU devices available inside the container with the right drivers. Without this, containers cannot access the GPU.
+
+2. **NVIDIA Device Plugin** (deployed as a DaemonSet in Kubernetes) — advertises GPU resources to the Kubernetes scheduler and manages GPU allocation to pods. This is what makes `nvidia.com/gpu: 1` in resource requests work.
+
+Both must be installed and configured before GPU pods can be scheduled. Standard Kubernetes clusters do not have these by default — they must be installed by the cluster operator or selected as an option in managed Kubernetes services (EKS, GKE, AKS all have managed GPU node pool options).
+
+### Rolling deployment timing
+
+For a deployment with 4 pods, each taking 3 minutes to load weights, a rolling update with `maxUnavailable: 0` and `maxSurge: 1` proceeds:
+
+1. Pod 5 (new) starts: t=0
+2. Pod 5 readiness probe starts checking: t=2m (initialDelaySeconds=120)
+3. Pod 5 passes readiness: t=3m (weight load completes)
+4. Pod 1 (old) terminated: t=3m
+5. Pod 6 (new) starts: t=3m
+6. Pod 6 passes readiness: t=6m
+7. Total rollout time for 4 pods: approximately 9–12 minutes
+
+Plan for this in deployment runbooks. If your CI/CD pipeline has a 5-minute timeout, it will incorrectly report a failed deployment for a deployment that is actually succeeding slowly.
+
+### Node affinity and GPU topology
+
+For multi-GPU tensor parallel deployments, all GPUs for a single model shard must communicate with high bandwidth:
+
+```yaml
+affinity:
+  podAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app: inference-server
+            shard-group: model-a  # co-locate pods in the same tensor parallel group
+        topologyKey: kubernetes.io/hostname  # same node = NVLink available
+```
+
+Pods in the same tensor parallel group must be scheduled on the same node to use NVLink. Cross-node tensor parallelism over PCIe or Ethernet is significantly slower and often not practical for real-time serving.
+
+### Further reading
+
+- [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) — Official installation and configuration documentation for GPU containers.
+- [Kubernetes — GPU scheduling](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/) — Official documentation for scheduling GPU pods; covers device plugin installation and resource requests.
+- [vLLM — Kubernetes deployment examples](https://docs.vllm.ai/en/latest/serving/deploying-with-k8s.html) — Production Kubernetes configurations for vLLM; concrete examples of the patterns described in this module.

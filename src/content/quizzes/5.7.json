@@ -1,0 +1,76 @@
+{
+  "title": "Containerization & Deployment — Check your understanding",
+  "moduleId": "5.7",
+  "questions": [
+    {
+      "id": "5.7-q1",
+      "type": "multiple-choice",
+      "question": "A team copies their readiness probe configuration from an existing web service: the probe checks that port 8000 is open and returns 200. They deploy a new LLM inference container. Within 2 minutes, Kubernetes shows the pod as 'Ready' and the load balancer routes traffic to it. Users receive errors for the next 3 minutes. What went wrong?",
+      "options": [
+        "The readiness probe interval is too short — it should check less frequently",
+        "The readiness probe checks only port availability, not model readiness; the LLM server opens its port almost immediately but spends 2–5 minutes loading model weights into VRAM; during this window the probe says 'ready' but the server cannot actually handle inference requests; the probe should call a real inference endpoint to confirm the model is loaded and responding",
+        "The initialDelaySeconds is too long — the probe should start checking earlier",
+        "Kubernetes readiness probes are not reliable for GPU pods"
+      ],
+      "answer": 1,
+      "explanation": "Standard web service readiness probes check port availability or a lightweight /health endpoint that responds as soon as the process starts. LLM inference servers behave differently: the HTTP port opens within seconds, but the model is not usable until weights are fully loaded into VRAM — which takes 2–5 minutes for large models. A probe that only checks port availability will declare the pod ready long before it can serve inference requests. The correct probe calls a real (minimal) inference endpoint — even a one-token generation — to verify the model is loaded and responding. The initialDelaySeconds should also be set high enough to allow weight loading before the first probe attempt.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.7-q2",
+      "type": "multiple-choice",
+      "question": "A team bakes a 35GB 70B INT4 model into their Docker image. They push it to their container registry. What problem will they encounter in their Kubernetes deployment?",
+      "options": [
+        "Docker does not support files larger than 10GB in a single image layer",
+        "Image pull will be extremely slow (35GB per pod startup), registry storage costs are high, layer caching often fails for large layers, and new pod startup time is dominated by image pull rather than weight loading — baking large model weights into images is impractical for production deployments",
+        "Kubernetes pods cannot mount Docker images larger than 20GB",
+        "The NVIDIA container runtime requires model weights to be stored separately from the container image"
+      ],
+      "answer": 1,
+      "explanation": "Baking large model weights into Docker images creates several compounding problems. A 35GB image pull per pod startup is extremely slow — potentially 10–30 minutes depending on network bandwidth — and defeats the purpose of fast pod scaling. Registry storage at $0.02–0.10/GB means 35GB costs meaningful money even for a few image versions. Layer caching (which normally makes repeated pulls fast) often fails for large single-layer files because the cache key depends on the layer hash. The recommended pattern for production is to mount weights from a persistent volume (PVC) or download from object storage at startup — keeping the image small (code only) and pulling weights from high-bandwidth storage.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.7-q3",
+      "type": "multiple-choice",
+      "question": "A Kubernetes deployment has 4 GPU pods, each taking 4 minutes to load model weights. The team configures: maxSurge=1, maxUnavailable=0, initialDelaySeconds=30 for the readiness probe. They trigger a rolling update. What happens, and approximately how long does the full rollout take?",
+      "options": [
+        "All 4 pods are replaced simultaneously; rollout completes in 4 minutes",
+        "Pods are replaced one at a time: each new pod starts, takes 4 minutes to load weights and pass readiness, then the corresponding old pod is terminated; with maxSurge=1 and maxUnavailable=0, the rollout runs sequentially for each pod; total time is approximately 4 pods × 4 minutes = 16 minutes, assuming the readiness probe's initialDelaySeconds is long enough",
+        "Pods are replaced two at a time; rollout completes in 8 minutes",
+        "The rollout fails because initialDelaySeconds=30 is less than the 4-minute startup time"
+      ],
+      "answer": 1,
+      "explanation": "With maxSurge=1 (only 1 extra pod at a time) and maxUnavailable=0 (never reduce below desired), the rolling update proceeds serially: one new pod starts, must become Ready before the next old pod is terminated, then the next new pod starts. Each new pod takes 4 minutes to load weights. The readiness probe's initialDelaySeconds=30 is too short — the probe will start checking at 30 seconds, fail for the next 3.5 minutes, and then pass when the model finishes loading (assuming failureThreshold is high enough). The total rollout is approximately 16 minutes. Teams must account for this in deployment runbooks and CI/CD timeout configurations.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.7-q4",
+      "type": "multiple-choice",
+      "question": "A Kubernetes pod for a GPU inference server starts and passes the liveness probe but fails the readiness probe for 8 minutes. Kubernetes kills the pod and starts a new one. This repeats indefinitely. What is the most likely configuration error?",
+      "options": [
+        "The liveness probe interval is too short and is interfering with the readiness probe",
+        "The readiness probe's failureThreshold is too low — Kubernetes marks the pod as failed after failureThreshold consecutive failures; if the model takes 8 minutes to load but failureThreshold × periodSeconds is less than 8 minutes, Kubernetes kills the pod before it can become ready; increase failureThreshold or periodSeconds to allow enough time for weight loading",
+        "The pod is running out of VRAM during weight loading and crashing",
+        "The liveness probe should be disabled during weight loading"
+      ],
+      "answer": 1,
+      "explanation": "Kubernetes kills a pod when its liveness probe fails repeatedly (based on failureThreshold). But the described behavior — liveness passes, readiness fails, pod is killed — suggests the liveness probe is triggering the kill, not the readiness probe. However, the most common root cause of this symptom pattern is a readiness probe with too-small a failureThreshold combined with a liveness probe that times out waiting for the port to become healthy. The practical fix: set readiness initialDelaySeconds high (e.g., 180s for a model with a 4-minute startup), set failureThreshold to allow the full startup window (e.g., failureThreshold=20 with periodSeconds=30 allows 10 minutes), and ensure the liveness probe is configured with similar generosity during startup.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.7-q5",
+      "type": "multiple-choice",
+      "question": "A team is deploying a tensor-parallel model that splits across 2 GPUs (2 pods needed on the same node). They schedule the pods with a standard Deployment and observe the pods are sometimes scheduled on different nodes, causing failures. What Kubernetes configuration fixes this?",
+      "options": [
+        "Use a StatefulSet instead of a Deployment — StatefulSets co-locate pods by default",
+        "Use pod affinity rules with topologyKey: kubernetes.io/hostname to require co-location on the same node, and request 2 GPUs per pod or use a custom scheduling approach that ensures the paired pods land on the same node with NVLink",
+        "Use a DaemonSet — it automatically schedules one pod per node",
+        "Increase the GPU resource request — Kubernetes automatically co-locates pods with the same resource requirements"
+      ],
+      "answer": 1,
+      "explanation": "Tensor parallelism requires all GPUs in the parallel group to be connected via NVLink (for acceptable performance) — which means they must be on the same node. Without explicit affinity configuration, the Kubernetes scheduler can place pods on any node with available GPU resources, potentially splitting a 2-pod tensor-parallel group across nodes. Pod affinity with topologyKey: kubernetes.io/hostname ensures that pods with a matching label (e.g., the same model shard group) are co-located on the same node. StatefulSets (option A) provide stable network identities, not co-location. DaemonSets (option C) schedule one pod per node by design, which is the opposite of co-location.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

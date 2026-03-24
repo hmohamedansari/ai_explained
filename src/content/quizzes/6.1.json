@@ -1,0 +1,76 @@
+{
+  "title": "What Makes LLM Evaluation Hard — Check your understanding",
+  "moduleId": "6.1",
+  "questions": [
+    {
+      "id": "6.1-q1",
+      "type": "multiple-choice",
+      "question": "A team builds an LLM-powered support chatbot and reports 95% accuracy on their eval set. A product manager asks for a breakdown by query type. The team discovers that account closure queries — which represent 4% of volume but are the highest-stakes category — score only 18% correct. What does this reveal about the reported 95% accuracy?",
+      "options": [
+        "The 95% accuracy is reliable because it covers 96% of query volume",
+        "The aggregate accuracy is misleading — it hides a critical category failure that could not be detected without segmented evaluation; the system is effectively broken for its most consequential use case despite a high headline number",
+        "The eval set needs more account closure cases to raise the score",
+        "The 18% on account closure is acceptable because that category is low-volume"
+      ],
+      "answer": 1,
+      "explanation": "Aggregate metrics hide distributional failures. A 95% aggregate with 18% on the most critical category is not a 95% system — it is a system that fails catastrophically for the users who need it most. The production gotcha for this module describes exactly this pattern: always segment eval results by query type, user segment, or input length before reporting a headline number. The low volume of account closure queries (4%) makes the aggregate look good while masking an unacceptable failure rate in that category.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.1-q2",
+      "type": "multiple-choice",
+      "question": "A team is evaluating whether to use exact match, LLM-as-judge, or semantic similarity for their new FAQ chatbot. The chatbot answers open-ended customer questions in natural language. Which method is most appropriate for measuring correctness?",
+      "options": [
+        "Exact match — it is the most objective and reproducible method",
+        "LLM-as-judge with a correctness rubric — because there are multiple valid phrasings of a correct answer, exact match will penalize correct paraphrases, and semantic similarity cannot detect factual errors that preserve surface meaning",
+        "Semantic similarity — it captures meaning without requiring a judge model",
+        "BLEU score — it is the standard for measuring text generation quality"
+      ],
+      "answer": 1,
+      "explanation": "For open-ended natural language answers, exact match is too strict (penalizes correct paraphrases) and semantic similarity is too permissive (cannot catch factual errors that happen to be phrased similarly to the reference). LLM-as-judge with a correctness rubric is the right choice because it can evaluate both factual accuracy and coverage while being robust to paraphrase variation. BLEU was designed for machine translation, not conversational QA, and its correlation with human judgment is poor for open-ended generation.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.1-q3",
+      "type": "multiple-choice",
+      "question": "A team runs their offline eval suite before every deploy. They notice that failures in production often involve query types not present in the eval set. What structural property of LLM evaluation does this illustrate?",
+      "options": [
+        "The eval suite needs more cases — 100 cases is not enough",
+        "The eval coverage problem — the space of possible inputs and failure modes is unbounded and cannot be fully enumerated before deployment; offline evals catch known failure modes while production monitoring is required to discover novel ones",
+        "The eval suite should use LLM-as-judge instead of exact match to cover more cases implicitly",
+        "The team should switch to reference-free evaluation to avoid being constrained by labeled examples"
+      ],
+      "answer": 1,
+      "explanation": "The eval coverage problem is a structural property of LLM systems, not a symptom of insufficient effort. The space of possible inputs is effectively infinite, and real user behavior surfaces query patterns that development testing never anticipates. The correct architecture is to combine offline evals (which catch known failure modes and regressions) with production monitoring and a sample-and-judge pipeline (which discovers novel failures). Switching eval methods does not solve the coverage gap — only production data can surface what the pre-launch dataset cannot.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.1-q4",
+      "type": "multiple-choice",
+      "question": "A team needs to evaluate their LLM-based code generation feature. The model is supposed to produce Python functions that pass a given set of test cases. Which eval method is most appropriate?",
+      "options": [
+        "LLM-as-judge — a judge model can assess code quality holistically",
+        "Programmatic check via code execution — running the generated code against the test cases is the ground truth; a function either passes or fails, and no judge model's assessment is more accurate than the actual execution result",
+        "Semantic similarity — compare the generated code embedding to a reference implementation",
+        "BLEU score — it measures token overlap with a reference implementation"
+      ],
+      "answer": 1,
+      "explanation": "For code generation, execution is the gold standard. Running the generated code against the provided test cases gives a binary, unambiguous correctness signal. LLM-as-judge can assess style or readability but cannot reliably verify functional correctness — it might rate broken code as correct because it looks plausible. Semantic similarity captures superficial similarities in code structure, not functional equivalence. BLEU measures surface-form overlap with a specific reference implementation, which penalizes all valid alternative implementations.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.1-q5",
+      "type": "multiple-choice",
+      "question": "Which two eval types are complementary rather than substitutes — neither alone is sufficient for a production system?",
+      "options": [
+        "Unit evals and integration evals — they cover the same failure modes at different granularities",
+        "Offline pre-deploy evals and online production monitoring — offline evals catch regressions before deployment but cannot cover the real query distribution; online monitoring discovers novel failures but provides no regression gate for changes",
+        "LLM-as-judge and human annotation — they produce correlated scores and can replace each other once calibrated",
+        "A/B evals and regression evals — both compare two versions, so one implies the other"
+      ],
+      "answer": 1,
+      "explanation": "Offline and online evaluation are complementary because they cover different failure modes. Offline evals run on a fixed dataset before deployment — they are fast, reproducible, and catch regressions, but the dataset cannot cover the full distribution of production queries. Online monitoring runs on live traffic — it catches distribution shifts, novel failure modes, and long-tail inputs, but provides no regression gate for changes. A system with only offline evals ships regressions that the eval set doesn't cover. A system with only online monitoring has no gate before deployment. Both are required.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

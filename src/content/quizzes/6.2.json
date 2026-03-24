@@ -1,0 +1,76 @@
+{
+  "title": "Building an Eval Dataset — Check your understanding",
+  "moduleId": "6.2",
+  "questions": [
+    {
+      "id": "6.2-q1",
+      "type": "multiple-choice",
+      "question": "A team launches their LLM product, builds a 200-case eval set from inputs they used during development, and achieves 93% accuracy. Two weeks post-launch, users report that a common query pattern is failing consistently. The team checks their eval set and finds no cases covering this pattern. What caused the gap?",
+      "options": [
+        "The eval set is too small — 200 cases is below the recommended minimum",
+        "The eval set was built from development inputs rather than production traffic; development inputs systematically underrepresent the long tail of real user queries; the fix is to sample production queries and add them to the eval set on a regular cadence",
+        "The eval set needs more adversarial cases to improve coverage",
+        "The team should have used LLM-generated cases to increase coverage before launch"
+      ],
+      "answer": 1,
+      "explanation": "The root cause is using development inputs as the sole seed for the eval set. Engineers writing eval cases anticipate the inputs they expect — which is a biased sample of real user behavior. Production users ask questions in ways that developers don't anticipate: different terminology, different languages, different framing. The solution is to sample production queries on a regular cadence and add novel failure modes to the eval set. This is the core message of the production gotcha: eval datasets become stale within weeks unless actively refreshed with real traffic.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.2-q2",
+      "type": "multiple-choice",
+      "question": "A team wants to use an LLM to generate reference answers for their eval dataset at scale. They plan to use these LLM-generated answers directly as ground truth without human review. What is the risk?",
+      "options": [
+        "The cost of running the generation LLM will make the dataset too expensive",
+        "LLM-generated reference answers can contain subtle factual errors or biases that get embedded into the ground truth — evaluating the system against incorrect ground truth produces inflated scores that hide real failures; human review is required before LLM-generated answers become ground truth",
+        "LLM-generated answers will be too verbose to use as ground truth",
+        "The same model cannot be used for both generation and evaluation"
+      ],
+      "answer": 1,
+      "explanation": "LLM-generated reference answers are a useful tool for scaling dataset construction, but they are not safe to use as unreviewed ground truth. The generating model can confidently produce plausible but incorrect answers, especially for questions about recent events, specific numbers, or niche domains. If these errors are embedded into the ground truth, the eval suite will reward the system for reproducing the same errors — and penalize it when it gives the actually correct answer. Human review of LLM-generated reference answers is mandatory before they become ground truth.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.2-q3",
+      "type": "multiple-choice",
+      "question": "A team's eval set has 200 cases distributed evenly across 10 categories (20 per category). Their production query distribution is 60% simple lookups, 15% comparisons, and 25% distributed across 8 other categories. An engineer proposes keeping the even distribution because it gives 'fair' coverage of all categories. What is the problem with this reasoning?",
+      "options": [
+        "Even distribution is correct — it ensures no category is under-represented in absolute terms",
+        "An eval set with even distribution across categories will not accurately predict production performance because it over-weights rare categories and under-weights dominant ones — reported accuracy will not correlate with what users actually experience; the distribution should reflect production query frequencies",
+        "The total number of cases (200) is too small for any distribution to be meaningful",
+        "The eval set should weight adversarial cases more heavily than naturalistic ones"
+      ],
+      "answer": 1,
+      "explanation": "Eval sets should mirror production distribution to accurately predict production performance. A system that is 70% accurate on simple lookups (60% of production) and 90% accurate on rare categories will score well on an evenly-distributed eval set but will fail frequently for real users whose queries are mostly simple lookups. The practical approach is to weight categories proportionally to their production frequency while ensuring an absolute minimum per category (to maintain coverage of all categories). Even distribution is only appropriate when you intentionally want to weight rare but high-stakes categories.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.2-q4",
+      "type": "multiple-choice",
+      "question": "A team iteratively improves their system prompt until it passes 95% of their eval cases. They then promote to production and observe poor quality on real traffic. What anti-pattern does this describe?",
+      "options": [
+        "Overfitting the system to the eval set — when the same examples are used for development and evaluation, the system can be optimized for those exact inputs without generalizing; a held-out test partition that is never used during development would have revealed the gap",
+        "The eval set is too small to provide reliable signal",
+        "The team should have used a stronger model to evaluate with",
+        "The system prompt was over-engineered and needs to be simplified"
+      ],
+      "answer": 1,
+      "explanation": "This is the eval overfitting anti-pattern: using the eval set as a development tool and then trusting its scores as ground truth. When you iterate on the system until it passes the eval cases, you have essentially used those cases as training examples. The system learns the specific patterns in the eval set without necessarily generalizing. The fix is to maintain a strict separation: a dev partition for iteration, and a held-out test partition that is only used for final evaluation before release and never used during development.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.2-q5",
+      "type": "multiple-choice",
+      "question": "A production LLM system has been running for 6 months. The team has been regularly adding production query samples to their eval set. A new engineer suggests removing old hand-crafted cases that haven't failed in 6 months to keep the eval set lean. Should they remove these cases?",
+      "options": [
+        "Yes — cases that never fail provide no value and waste compute",
+        "No — cases that consistently pass are doing exactly their job: acting as regression guards. Removing them creates gaps that allow future regressions to go undetected; a case that has never failed in 6 months is not useless — it is insurance against re-introducing a fixed failure",
+        "Yes — but only if the production query samples cover the same inputs",
+        "Yes — the eval set should not exceed 200 cases for CI performance reasons"
+      ],
+      "answer": 1,
+      "explanation": "Consistently passing eval cases are regression guards, not dead weight. Their value is precisely that they have not failed — they would catch it if a future change re-introduced a failure mode. Removing a case because it hasn't failed recently creates a gap that could allow a regression to ship undetected. The cases that are worth reconsidering for removal are cases whose inputs no longer represent realistic queries (because user behavior has shifted), not cases that pass consistently. Keeping the eval set lean is a valid concern, but the solution is to be selective about what you add, not to remove guards that are working.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "title": "Automated Evaluation Methods — Check your understanding",
+  "moduleId": "6.3",
+  "questions": [
+    {
+      "id": "6.3-q1",
+      "type": "multiple-choice",
+      "question": "A team uses BLEU scores to evaluate their LLM-powered meeting summarizer. Their reference summaries use the phrase 'quarterly revenue declined'. The model produces summaries that say 'Q3 earnings fell'. BLEU scores this near zero despite both phrases conveying the same information. What does this reveal about BLEU for this use case?",
+      "options": [
+        "BLEU is appropriate but the team needs a larger reference set to reduce noise",
+        "BLEU measures surface-form token overlap, not semantic meaning — valid paraphrases score near zero because they share no tokens with the reference; for open-ended summarization tasks, BLEU is a poor quality signal and should be replaced with semantic similarity or LLM-as-judge with a correctness rubric",
+        "The reference summaries should be updated to match the model's phrasing",
+        "BLEU is correct to penalize different phrasing because consistency with the reference matters for downstream tasks"
+      ],
+      "answer": 1,
+      "explanation": "BLEU was designed for machine translation, where surface-form overlap correlates with translation quality. For open-ended generation like summarization, valid paraphrases can score near zero because they share no tokens with the reference. 'Quarterly revenue declined' and 'Q3 earnings fell' convey the same fact but produce near-zero BLEU overlap. Using BLEU for this task penalizes the model for using different but equally valid phrasing. Semantic similarity (embedding cosine distance) captures meaning regardless of surface form; LLM-as-judge can evaluate factual accuracy directly.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.3-q2",
+      "type": "multiple-choice",
+      "question": "An LLM judge is used to compare two responses in a pairwise evaluation. Analysis reveals that the judge consistently favors whichever response appears first in the prompt, regardless of actual quality. What is this failure mode called, and how is it mitigated?",
+      "options": [
+        "Context overflow — the judge is ignoring the second response because the prompt is too long",
+        "Position bias — the judge has learned to favor earlier text in its context window; mitigate by randomizing which response appears first across evaluation runs and averaging the results; cases where swapping the order changes the winner indicate unreliable judgements",
+        "Self-preference bias — the judge favors responses that match its own generation style",
+        "Verbosity bias — the first response tends to be longer and the judge rates longer responses higher"
+      ],
+      "answer": 1,
+      "explanation": "Position bias is a documented failure mode of LLM-as-judge evaluation where the model systematically favors responses in a particular position in the prompt — typically the first. This is distinct from verbosity bias (favoring longer responses) or self-preference (favoring responses from the same model family). The mitigation is randomized order: for each evaluation pair, randomly assign which response appears first and which appears second, then aggregate scores across multiple trials. If the judge's winner changes based on order, the judgement is unreliable for that pair and should be flagged for human review.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.3-q3",
+      "type": "multiple-choice",
+      "question": "A team calibrates their LLM judge against 50 human-scored examples and finds the judge's scores have a Pearson correlation of 0.45 with human judgements. They plan to use this judge for automated quality monitoring at scale. Is this appropriate?",
+      "options": [
+        "Yes — 0.45 correlation means the judge and humans agree roughly half the time, which is acceptable for automated monitoring",
+        "No — a correlation of 0.45 is below the recommended threshold of 0.70; at this calibration level, the judge's scores are weakly correlated with human quality judgement, meaning it will frequently flag good responses and pass poor ones; the rubric should be revised or a different judge model should be tried before using it at scale",
+        "Yes — calibration is only needed when comparing different system versions, not for absolute quality monitoring",
+        "No — but only because 50 calibration cases is too small; repeat with 200 cases before deciding"
+      ],
+      "answer": 1,
+      "explanation": "A calibration correlation of 0.45 is insufficient for production use. The recommended threshold is Pearson r above 0.70 with human judgements. At 0.45, the judge's scores are weakly predictive of human quality assessment — it will produce many false positives (flagging good responses) and false negatives (missing poor ones). Using a poorly calibrated judge at scale produces quality metrics that do not reflect reality and may mask real regressions. The fix is to revise the rubric to be more concrete and specific, try a different judge model, or invest in more human annotation to understand where the judge diverges.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.3-q4",
+      "type": "multiple-choice",
+      "question": "A team collapses correctness, completeness, tone, and safety into a single aggregate quality score (average of four 1–5 ratings) and reports the aggregate. A response scores 5/5 on correctness, completeness, and tone but 1/5 on safety. The aggregate is 4.0, which passes the threshold of 3.5. What is the problem with this approach?",
+      "options": [
+        "The aggregate is a valid summary; the safety score is an outlier that can be handled by the human review process",
+        "Aggregating across dimensions allows a critical failure on one dimension (safety) to be hidden by strong scores on others — a response that is correct and well-toned but unsafe should fail unconditionally, not be averaged through; safety must be gated separately with its own threshold, not averaged into a composite score",
+        "The threshold of 3.5 is too low; raising it to 4.5 would catch this case",
+        "The scoring scale should be binary (pass/fail) rather than 1–5 to avoid this problem"
+      ],
+      "answer": 1,
+      "explanation": "Dimension aggregation is dangerous when dimensions have different severity profiles. Safety failures are not commensurate with tone or completeness failures — a safe but incomplete response is acceptable in many contexts; an unsafe but complete response is not. Averaging them allows a perfect score on four benign dimensions to mathematically cancel out a safety failure. The correct architecture is to evaluate safety as a hard gate (pass/fail, independent of other dimensions) while using aggregate scores only for the quality dimensions where tradeoffs are acceptable.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "6.3-q5",
+      "type": "multiple-choice",
+      "question": "A team is evaluating a customer support chatbot. They use semantic similarity (cosine distance between embeddings) to score responses against reference answers. The model produces a response that is semantically similar to the reference but contains a subtle factual error — it states the wrong return policy deadline. The semantic similarity score is 0.92. What does this reveal about semantic similarity for this use case?",
+      "options": [
+        "Semantic similarity is appropriate here; a score of 0.92 confirms the response is equivalent to the reference",
+        "Semantic similarity cannot detect factual errors that preserve semantic meaning — a response can be 0.92 similar to a reference while being factually wrong on key details; for tasks where factual accuracy matters, semantic similarity must be supplemented with an LLM judge that evaluates correctness explicitly",
+        "The reference answer needs to be updated to match the model's output",
+        "The embedding model is not suited for customer support text and should be replaced"
+      ],
+      "answer": 1,
+      "explanation": "Semantic similarity measures how similar the meanings of two texts are, but it cannot detect specific factual errors that are embedded within otherwise semantically similar content. A response about return policies that states the wrong deadline will embed in a very similar region of the embedding space as the correct response because the overall topic and framing are the same. For tasks where factual accuracy on specific details matters, semantic similarity is a necessary but insufficient signal. An LLM judge with an explicit correctness rubric is required to catch the factual error that semantic similarity misses.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}

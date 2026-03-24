@@ -1,0 +1,206 @@
+---
+moduleId: "5.1"
+title: "Hosting Options"
+description: "Choosing where to run your model determines your cost structure, latency floor, and operational burden — understanding the tradeoffs between API inference, self-hosted, and cloud-managed endpoints lets you pick the right option for each workload rather than defaulting to whatever is easiest to start."
+track: "infrastructure"
+order: 1
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "API inference costs look cheap per call but become expensive at scale before self-hosted amortizes. The crossover point depends on request volume and model size — most teams hit it later than expected and over-engineer too early. Run the math at your actual projected volume before committing to self-hosted infrastructure; the operational overhead of running GPU instances 24/7 is real and often underestimated."
+draft: false
+---
+
+## Layer 1 — Surface
+
+There are three fundamentally different ways to run an LLM in production: pay a provider per token (API inference), run the model on your own hardware (self-hosted), or use a cloud service that manages the infrastructure but lets you bring your own model (cloud-managed endpoints like AWS SageMaker or Google Vertex AI — these are examples of the category, not the only options).
+
+**What each actually means:**
+
+- **API inference** — you send requests to a hosted endpoint (OpenAI, Anthropic, Cohere, etc.) and pay per token. Zero infrastructure to manage. The provider handles availability, scaling, and model updates.
+- **Self-hosted** — you run the model on GPU instances you control. You pay for compute regardless of utilization and own every failure. In exchange, you get full control over the model, its weights, and the serving configuration.
+- **Cloud-managed endpoints** — a hybrid. The cloud provider manages the compute layer (GPU provisioning, auto-scaling, health checks) while you supply the model weights and serving container. More control than API inference, less operational burden than pure self-hosted.
+
+### Why it matters
+
+The wrong choice doesn't show up immediately — it shows up at scale. Teams that start with API inference sometimes stay there too long and overpay by 10x. Teams that jump to self-hosted before they have the volume to justify it waste engineering effort managing infrastructure that adds no product value. The decision changes as your workload grows.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake is modeling cost at current volume, not projected volume. A team processing 100K requests/day may see self-hosted break even at 500K requests/day — which sounds close. But getting from 100K to 500K takes longer than expected, and in the meantime the self-hosted infrastructure needs to be built, operated, and maintained. Most teams should stay on API inference longer than feels comfortable.
+
+---
+
+## Layer 2 — Guided
+
+### Decision matrix
+
+The five variables that drive the hosting decision:
+
+| Factor | API Inference | Self-Hosted | Cloud-Managed |
+|---|---|---|---|
+| **Latency SLA** | Provider-controlled; typically 100–500ms TTFT for frontier models | You control serving config; can be sub-50ms for smaller models | Provider manages infra; latency similar to self-hosted |
+| **Data residency** | Data leaves your perimeter; provider processes it | Data stays on your hardware; full control | Data stays in your cloud account; check provider's data handling |
+| **Cost at scale** | Linear with tokens; expensive at high volume | Fixed GPU costs; cheap per-token at high utilization | Fixed + managed overhead; typically 20–40% more than raw self-hosted |
+| **Operational burden** | Near zero; provider handles all infrastructure | High; you own availability, scaling, updates, driver management |  Moderate; provider handles compute, you handle model/container |
+| **Model flexibility** | Limited to provider's model catalog | Any model with available weights | Any model you can containerize |
+
+### When each makes sense
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class WorkloadProfile:
+    daily_requests: int
+    avg_tokens_per_request: int   # input + output combined
+    latency_sla_ms: int           # max acceptable TTFT
+    data_sensitivity: str         # "public", "internal", "regulated"
+    team_ml_ops_capacity: str     # "none", "limited", "dedicated"
+
+def recommend_hosting(profile: WorkloadProfile) -> str:
+    """
+    Rough decision logic — real decisions require cost modeling at your specific prices.
+    """
+    # Hard constraints first
+    if profile.data_sensitivity == "regulated":
+        # HIPAA, FedRAMP, etc. — data cannot leave your boundary
+        if profile.team_ml_ops_capacity == "none":
+            return "cloud-managed"  # need the control without the ops burden
+        return "self-hosted"
+
+    # Volume-based cost crossover (rough heuristic)
+    monthly_tokens = profile.daily_requests * profile.avg_tokens_per_request * 30
+
+    if monthly_tokens < 500_000_000:  # under ~500M tokens/month
+        return "api-inference"        # ops savings outweigh cost premium
+
+    if monthly_tokens > 5_000_000_000:  # over ~5B tokens/month
+        if profile.team_ml_ops_capacity == "dedicated":
+            return "self-hosted"      # volume justifies ops investment
+        return "cloud-managed"        # volume justifies it, but need managed ops
+
+    # Mid-range: depends on ops capacity
+    if profile.team_ml_ops_capacity == "dedicated":
+        return "self-hosted"
+    return "api-inference"            # default: avoid ops complexity until forced
+
+# Example: early-stage product
+startup_profile = WorkloadProfile(
+    daily_requests=10_000,
+    avg_tokens_per_request=2_000,
+    latency_sla_ms=500,
+    data_sensitivity="internal",
+    team_ml_ops_capacity="limited",
+)
+print(recommend_hosting(startup_profile))  # "api-inference"
+
+# Example: high-volume internal tool, sensitive data
+enterprise_profile = WorkloadProfile(
+    daily_requests=500_000,
+    avg_tokens_per_request=3_000,
+    latency_sla_ms=200,
+    data_sensitivity="regulated",
+    team_ml_ops_capacity="dedicated",
+)
+print(recommend_hosting(enterprise_profile))  # "self-hosted"
+```
+
+### Cost modeling: the crossover calculation
+
+Before committing to self-hosted, model the actual crossover:
+
+```python
+def calculate_crossover_volume(
+    api_price_per_mtok: float,          # e.g., 0.15 (input) to 0.60 (output) $/M tokens
+    self_hosted_gpu_cost_per_hour: float,  # e.g., $2.50/hr for an A10G
+    tokens_per_hour_per_gpu: int,       # throughput you can achieve
+    num_gpus: int,                      # minimum cluster size for your model
+) -> dict:
+    """
+    Find the monthly token volume where self-hosted becomes cheaper than API inference.
+    """
+    monthly_gpu_cost = self_hosted_gpu_cost_per_hour * 24 * 30 * num_gpus
+    cost_per_mtok_self_hosted = (monthly_gpu_cost / (tokens_per_hour_per_gpu * 24 * 30 * num_gpus)) * 1_000_000
+
+    # Crossover: monthly_tokens * api_price_per_mtok == monthly_gpu_cost
+    crossover_mtok = monthly_gpu_cost / api_price_per_mtok
+    crossover_monthly_tokens = crossover_mtok * 1_000_000
+
+    return {
+        "monthly_gpu_cost_usd": monthly_gpu_cost,
+        "self_hosted_cost_per_mtok": round(cost_per_mtok_self_hosted, 4),
+        "api_cost_per_mtok": api_price_per_mtok,
+        "crossover_monthly_tokens": int(crossover_monthly_tokens),
+        "crossover_daily_tokens": int(crossover_monthly_tokens / 30),
+    }
+
+# Example: 7B model, single A10G
+result = calculate_crossover_volume(
+    api_price_per_mtok=0.30,
+    self_hosted_gpu_cost_per_hour=2.50,
+    tokens_per_hour_per_gpu=4_000_000,
+    num_gpus=1,
+)
+# crossover at ~1.5B tokens/month; ~50M tokens/day
+```
+
+### Data residency and compliance
+
+For regulated workloads (healthcare, finance, government), data residency is not a tradeoff — it is a hard constraint. API inference means your data transits a third-party provider's infrastructure. Even with a DPA (Data Processing Agreement) and SOC 2 certification, some regulatory frameworks require data to remain under your direct control.
+
+Cloud-managed endpoints (your model, deployed in your cloud account) often satisfy these requirements while avoiding the full operational burden of self-hosted. Check your specific regulatory requirements — "cloud" does not automatically mean non-compliant, but it requires due diligence.
+
+---
+
+## Layer 3 — Deep Dive
+
+### The hidden costs of self-hosted
+
+The GPU cost is visible. These costs often are not:
+
+| Hidden cost | Typical impact |
+|---|---|
+| **Engineering time** | Model serving, autoscaling, monitoring: typically 1–2 engineer-months to get right |
+| **GPU idle time** | A cluster that sits at 20% utilization overnight still pays full GPU-hour rates |
+| **Driver and CUDA maintenance** | NVIDIA driver updates can break serving stacks; requires validation before rolling out |
+| **Model update overhead** | Switching to a new model version requires re-testing serving config, quantization, and performance |
+| **On-call burden** | GPU instance failures, OOM crashes, serving process hangs — someone has to respond |
+
+For teams without dedicated MLOps capacity, these costs frequently exceed the savings from lower per-token prices.
+
+### Hybrid architectures
+
+Most production systems at scale end up with a hybrid:
+
+| Workload type | Recommended hosting |
+|---|---|
+| Interactive user-facing queries (latency-sensitive) | API inference or cloud-managed |
+| High-volume batch processing (cost-sensitive) | Self-hosted with spot instances |
+| Regulated data processing | Self-hosted or cloud-managed in compliant region |
+| Experimental / fine-tuned models | Self-hosted (model not available via API) |
+| Fallback / overflow capacity | API inference (no minimum commitment) |
+
+The pattern: use API inference for the real-time tier where latency and availability matter most, and self-hosted spot instances for background batch jobs where cost matters more than tail latency.
+
+### Model selection flexibility tradeoff
+
+API inference restricts you to the provider's model catalog. This matters in two scenarios:
+
+1. **Fine-tuned models** — if your use case requires a fine-tuned model, you must host it yourself or use a provider that supports custom model deployment.
+2. **Open-weight models** — Llama, Mistral, and other open-weight models may outperform closed models on your specific task and are only accessible via self-hosted or cloud-managed deployment.
+
+The flexibility argument for self-hosted is strongest when you have specific model requirements that no API provider can meet.
+
+### Further reading
+
+- [Andreessen Horowitz — The Emerging Architectures for LLM Applications](https://a16z.com/emerging-architectures-for-llm-applications/) — Overview of the stack options; the infrastructure section covers hosting tradeoffs well.
+- [AWS — Choosing the Right Amazon SageMaker Endpoint Type](https://docs.aws.amazon.com/sagemaker/latest/dg/deploy-model.html) — Concrete documentation on cloud-managed endpoint options; useful reference for the cloud-managed category.
+- [Hugging Face — Text Generation Inference deployment guide](https://huggingface.co/docs/text-generation-inference/index) — Reference for self-hosted inference serving with a managed container.

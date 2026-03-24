@@ -1,0 +1,269 @@
+---
+moduleId: "5.5"
+title: "Latency Optimization"
+description: "LLM latency has three distinct components — TTFT, TBT, and E2E — and different use cases require optimizing different ones; knowing which techniques reduce which component, and when prompt caching defeats itself, prevents wasted effort and avoids the most common serving regressions."
+track: "infrastructure"
+order: 5
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Prompt caching is cache-invalidated by any change to the cached prefix — a timestamp or session ID at the start of the system prompt defeats the cache entirely. Put all static content first in the prompt (system instructions, tool definitions, documents) and all variable content last (user message, session context). Any dynamic value in the cached prefix means every request is a cache miss."
+draft: false
+---
+
+## Layer 1 — Surface
+
+LLM latency is not a single number. It has three components that matter in different ways:
+
+- **TTFT (Time to First Token)** — how long before the user sees any response. Determined by the prefill phase: how long it takes to process the input. This is what makes a chat interface feel snappy or sluggish.
+- **TBT (Time Between Tokens)** — how quickly tokens arrive after the first one. Determined by the decode phase throughput. This is what makes streaming text feel smooth or choppy.
+- **E2E (End-to-End time)** — total time from request to complete response. Relevant for batch processing and non-streaming applications.
+
+For a streaming chat interface, TTFT dominates the user experience — users will wait 2 seconds before the first word but tolerate slower subsequent tokens. For a batch pipeline that processes thousands of documents, E2E matters and TTFT is irrelevant. Knowing which component you are optimizing changes which techniques you reach for.
+
+**The main levers:**
+
+| Technique | Reduces | How |
+|---|---|---|
+| Prompt caching | TTFT | Skip reprocessing a shared prompt prefix |
+| Speculative decoding | TBT, E2E | Generate multiple tokens per target model pass |
+| KV cache reuse | TTFT | Share computed KV state across requests with same prefix |
+| Flash Attention | TTFT, TBT | Reduce attention computation memory overhead |
+| Smaller models | All | Less compute per token |
+
+### Why it matters
+
+Latency is user experience. An application that responds in under 500ms with streaming feels qualitatively different from one that takes 3 seconds before anything appears. Beyond UX, latency determines the cost of real-time applications — lower latency means fewer idle connections, fewer timeouts, and smaller infrastructure needed to meet SLAs.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> This mistake is extremely common. Teams add prompt caching to their system prompt for performance, then find a session ID, request timestamp, or personalization token in the cached portion, and every request becomes a cache miss. The rule is structural: sort your prompt by stability. System instructions first. Tool definitions second. Retrieved documents third. User message last.
+
+---
+
+## Layer 2 — Guided
+
+### Measuring the three latency components
+
+```python
+import time
+from dataclasses import dataclass
+
+@dataclass
+class LatencyMeasurement:
+    request_id: str
+    request_start: float
+    first_token_time: float | None = None
+    last_token_time: float | None = None
+    token_timestamps: list[float] = None
+
+    def __post_init__(self):
+        self.token_timestamps = self.token_timestamps or []
+
+    def record_token(self):
+        now = time.monotonic()
+        if self.first_token_time is None:
+            self.first_token_time = now
+        self.last_token_time = now
+        self.token_timestamps.append(now)
+
+    def ttft_ms(self) -> float | None:
+        if self.first_token_time is None:
+            return None
+        return (self.first_token_time - self.request_start) * 1000
+
+    def tbt_p50_ms(self) -> float | None:
+        """Median time between tokens (decode throughput indicator)."""
+        if len(self.token_timestamps) < 2:
+            return None
+        gaps = [
+            (self.token_timestamps[i+1] - self.token_timestamps[i]) * 1000
+            for i in range(len(self.token_timestamps) - 1)
+        ]
+        gaps.sort()
+        return gaps[len(gaps) // 2]
+
+    def e2e_ms(self) -> float | None:
+        if self.last_token_time is None:
+            return None
+        return (self.last_token_time - self.request_start) * 1000
+
+    def tokens_per_second(self) -> float | None:
+        if len(self.token_timestamps) < 2 or self.last_token_time is None:
+            return None
+        duration = self.last_token_time - self.first_token_time
+        return len(self.token_timestamps) / duration if duration > 0 else None
+
+
+def instrument_streaming_request(stream_fn, prompt: str) -> LatencyMeasurement:
+    """Wrap a streaming inference call to capture all three latency components."""
+    measurement = LatencyMeasurement(
+        request_id=str(time.monotonic()),
+        request_start=time.monotonic(),
+    )
+    for token in stream_fn(prompt):
+        measurement.record_token()
+    return measurement
+```
+
+### Prompt caching: structure your prompts correctly
+
+Prompt caching (supported by Anthropic, OpenAI, and most production serving frameworks) works by hashing the prefix of a prompt and checking if the KV state for that prefix is already computed. On a cache hit, the server skips the prefill computation for the cached portion.
+
+The requirement: the cached portion must be a prefix — it must start at the beginning of the prompt and extend to some fixed point. Any change to content before that point is a cache miss.
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class PromptStructure:
+    """
+    Correct prompt structure for maximum cache hit rate.
+    Static content first. Variable content last.
+    Cache boundary can be placed after any static section.
+    """
+    system_instructions: str        # STATIC: cached — same for all requests
+    tool_definitions: list[dict]    # STATIC: cached — same for all requests
+    retrieved_documents: str        # SEMI-STATIC: cached per document set
+    conversation_history: list[dict] # VARIABLE: not cached (grows each turn)
+    user_message: str               # VARIABLE: never cached (unique per request)
+
+# Anti-patterns that defeat caching:
+BAD_SYSTEM_PROMPT = """
+Current time: {timestamp}         ← cache miss on every request
+Session ID: {session_id}          ← cache miss on every request
+User name: {user_name}            ← cache miss on every request
+You are a helpful assistant...    ← this useful static content never gets cached
+"""
+
+GOOD_SYSTEM_PROMPT = """
+You are a helpful assistant.      ← static; cached
+You must respond in JSON format.  ← static; cached
+Current time: {timestamp}         ← variable; OK here because it comes AFTER static content
+                                    But better to move timestamp to user message.
+"""
+
+def build_cache_friendly_prompt(
+    system: str,
+    tools: list[dict],
+    documents: list[str],
+    history: list[dict],
+    user_message: str,
+) -> list[dict]:
+    """
+    Build a message list with cache-friendly ordering.
+    The system prompt and tools are static; they form the cacheable prefix.
+    """
+    # Build the static context block — this is what gets cached
+    static_context = system
+    if documents:
+        static_context += "\n\n## Reference Documents\n" + "\n\n".join(documents)
+
+    messages = [
+        {"role": "system", "content": static_context},
+    ]
+    # Conversation history and user message are dynamic — they come after the cached prefix
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
+    return messages
+```
+
+### Speculative decoding: when to use it
+
+Speculative decoding uses a small, fast draft model to generate candidate tokens, then verifies them in a single forward pass of the large target model. Tokens that match what the target would have generated are accepted; the first mismatch causes a rollback.
+
+```python
+@dataclass
+class SpeculativeDecodingConfig:
+    draft_model: str            # small, fast model
+    target_model: str           # large, accurate model
+    num_draft_tokens: int = 5   # tokens to speculate per step
+    acceptance_rate: float = 0.0  # measured at runtime
+
+    def expected_speedup(self) -> float:
+        """
+        Theoretical speedup from speculative decoding.
+        At acceptance_rate=0.8 and 5 draft tokens, each target pass
+        accepts on average ~4 tokens instead of 1.
+        Speedup saturates around 3–4x for typical workloads.
+        """
+        expected_accepted = self.num_draft_tokens * self.acceptance_rate
+        # At minimum we always accept 1 token (the final rollback position)
+        tokens_per_target_pass = max(1.0, expected_accepted)
+        return tokens_per_target_pass
+
+SPECULATIVE_DECODING_WORKS_WELL = [
+    "Code generation — predictable syntax patterns → high acceptance rate",
+    "Structured output (JSON/XML) — constrained token space → high acceptance rate",
+    "Repetitive or formulaic text",
+    "When a good smaller model exists for the same domain",
+]
+
+SPECULATIVE_DECODING_WORKS_POORLY = [
+    "Creative writing — high entropy output → low acceptance rate",
+    "Short responses — overhead of draft model not worth it",
+    "When no smaller model is available for the domain",
+    "When VRAM is already tight — draft model consumes additional memory",
+]
+```
+
+### KV cache reuse and prefix sharing
+
+For applications that send many requests with the same prefix (e.g., same system prompt, same document), prefix caching at the serving layer avoids recomputing KV state for that prefix on every request. This is distinct from prompt caching at the API layer — at the serving layer, the KV tensors themselves are stored and reused.
+
+vLLM implements automatic prefix caching: if a new request begins with a prefix that matches a recently processed request, the existing KV blocks are reused rather than recomputed. This can eliminate TTFT almost entirely for requests that share a long common prefix (e.g., a 2K-token system prompt that all requests share).
+
+---
+
+## Layer 3 — Deep Dive
+
+### TTFT vs TBT SLA table by use case
+
+| Use case | TTFT SLA | TBT SLA | E2E SLA | Primary optimization |
+|---|---|---|---|---|
+| Interactive chat (streaming) | under 500ms | under 50ms | not applicable | TTFT: prompt caching, fast prefill |
+| Copilot / autocomplete | under 200ms | under 30ms | not applicable | TTFT: small model + speculative decoding |
+| Document summarization | 1–3s acceptable | not critical | under 30s | E2E: batch + high throughput |
+| Background batch pipeline | not applicable | not applicable | hours acceptable | E2E: maximum throughput, spot instances |
+| Real-time classification | under 100ms | not applicable | under 200ms | Short output: minimize decode phase |
+
+### Flash Attention latency impact
+
+Flash Attention's primary benefit is memory bandwidth reduction, which translates to latency in two ways:
+
+1. **TTFT reduction for long contexts** — standard attention on a 32K token context materializes a 32K × 32K attention matrix in HBM; Flash Attention tiles this computation to avoid the full matrix read/write, reducing prefill time significantly for long contexts.
+2. **Enabling longer contexts** — without Flash Attention, very long contexts either OOM or require chunked computation with high overhead. Flash Attention makes 100K+ token contexts practical.
+
+For typical short-to-medium context requests (under 4K tokens), Flash Attention's latency improvement is modest. For long-context applications, it can reduce TTFT by 50% or more.
+
+### Request coalescing and prefix grouping
+
+For batch workloads where you control request submission, coalescing requests with the same prefix allows the serving layer to compute the prefix KV once and share it:
+
+```python
+def group_by_common_prefix(requests: list[dict], prefix: str) -> dict:
+    """
+    Group requests by whether they share a common prefix.
+    Serving frameworks with prefix caching will benefit automatically,
+    but explicit grouping maximizes cache hit rate by submitting prefix-sharing
+    requests close together in time (before cached KV is evicted).
+    """
+    matching = [r for r in requests if r["prompt"].startswith(prefix)]
+    non_matching = [r for r in requests if not r["prompt"].startswith(prefix)]
+    return {"cached_prefix_group": matching, "other": non_matching}
+```
+
+Submit the grouped requests together to maximize the window during which the cached KV blocks are still resident. Spreading prefix-sharing requests across a long time window risks KV eviction between requests.
+
+### Further reading
+
+- [Anthropic — Prompt Caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — Official documentation on prompt caching with Claude; explains the cache breakpoint mechanism and billing.
+- [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — Leviathan et al., 2023. The original speculative decoding paper; the mathematical analysis of acceptance rate and expected speedup is the foundation for all subsequent variants.
+- [Preble: Efficient Distributed Prompt Scheduling for LLM Serving](https://arxiv.org/abs/2407.00023) — Shi et al., 2024. Describes prefix-aware scheduling for distributed LLM serving; explains prefix sharing in detail.

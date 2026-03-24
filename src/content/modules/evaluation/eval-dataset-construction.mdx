@@ -1,0 +1,365 @@
+---
+moduleId: "6.2"
+title: "Building an Eval Dataset"
+description: "Learn to treat eval datasets as engineering artifacts — how to seed them, label them, version them, and keep them representative of real production traffic."
+track: "evaluation"
+order: 2
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Eval datasets built before launch become stale within weeks — production queries diverge from anticipated inputs faster than expected. Allocate 10% of eval maintenance time to refreshing the dataset with production query samples on a regular cadence. A dataset that accurately represented your users six months ago may now be systematically missing the query types that are causing the most failures today."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An eval dataset is not a list of examples you write once and forget. It is an engineering artifact that requires the same care as production code: versioning, review, drift management, and regular maintenance.
+
+Most teams discover this the hard way. They build an eval set from the inputs they used to develop the system, ship to production, and find that users ask questions their eval set never anticipated. The eval passes at 94%; the real system fails 30% of real user queries. The eval set lied to them.
+
+The problem is not that the team was careless. It is that they treated eval dataset construction as an afterthought rather than a first-class engineering task. Getting this right requires deliberate choices about where examples come from, how they are labeled, what categories they cover, and how the dataset evolves over time.
+
+### Why it matters
+
+Your eval dataset is the ground truth your system is measured against. A bad eval set gives false confidence. It can mask critical failures, mis-prioritize engineering work, and let regressions ship to production undetected. The cost of a poor eval set is paid by your users.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+
+The root cause is treating the eval set as a one-time artifact. The fix is a documented refresh process that runs on a schedule — not just when something breaks.
+
+---
+
+## Layer 2 — Guided
+
+### Seed strategies
+
+```python
+from dataclasses import dataclass, field
+from enum import Enum
+
+class SeedStrategy(Enum):
+    HAND_CRAFTED = "hand_crafted"         # Written by engineers/domain experts
+    PRODUCTION_SAMPLE = "production"      # Sampled from real user traffic
+    ADVERSARIAL = "adversarial"           # Designed to probe boundaries
+    LLM_GENERATED = "llm_generated"      # AI-generated, human-reviewed
+
+@dataclass
+class EvalCase:
+    id: str
+    input: str
+    expected: str | None      # None for reference-free cases
+    category: str             # query taxonomy category
+    seed_strategy: SeedStrategy
+    reviewer: str | None      # human who reviewed/approved this case
+    created_at: str
+    tags: list[str] = field(default_factory=list)
+    notes: str = ""
+```
+
+**Hand-crafted cases** are the starting point. Domain experts write representative inputs covering the system's intended use cases. These are the cases you know the system should handle. They are fast to create and easy to label, but they systematically miss the long tail.
+
+**Production samples** are the most valuable source once the system is live. Sample 1–5% of real traffic, review for PII, and add cases that reveal new failure modes or represent high-traffic patterns.
+
+**Adversarial cases** probe boundaries: empty inputs, extremely long inputs, inputs in unexpected languages, injection attempts, edge cases near the boundary of the specification. These require deliberate construction — they will not appear naturally.
+
+**LLM-generated cases** can accelerate volume, especially for paraphrase generation. Generate variations on seed cases, then have a human reviewer verify correctness before adding them to the dataset.
+
+```python
+def generate_paraphrases(seed_case: EvalCase, n: int = 5) -> list[str]:
+    """Generate paraphrase variations of a seed input for data augmentation."""
+    response = llm.chat(
+        model="balanced",
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Generate {n} paraphrased versions of this input that preserve "
+                f"the intent but vary the phrasing, formality, and structure.\n\n"
+                f"Input: {seed_case.input}\n\n"
+                f"Output a JSON array of {n} strings."
+            )
+        }]
+    )
+    import json
+    try:
+        return json.loads(response.text)
+    except Exception:
+        return []
+
+# Always review LLM-generated cases before adding to the dataset
+def review_generated_cases(generated: list[str], seed: EvalCase) -> list[EvalCase]:
+    """Human review step — returns only cases approved for the dataset."""
+    approved = []
+    for i, text in enumerate(generated):
+        # In a real pipeline, this routes to a review UI
+        print(f"  [{i+1}/{len(generated)}] {text}")
+        decision = input("    Add to dataset? (y/n): ").strip().lower()
+        if decision == "y":
+            approved.append(EvalCase(
+                id=f"{seed.id}-gen{i+1}",
+                input=text,
+                expected=seed.expected,  # inherit expected from seed
+                category=seed.category,
+                seed_strategy=SeedStrategy.LLM_GENERATED,
+                reviewer="human",
+                created_at="2026-03-24",
+                tags=seed.tags + ["generated"],
+            ))
+    return approved
+```
+
+### Coverage requirements
+
+Before writing a single case, map your input space:
+
+```python
+# Coverage taxonomy — define this before writing cases
+COVERAGE_REQUIREMENTS = {
+    "categories": [
+        # Each category should have at least 10–20 cases
+        "simple_lookup",          # direct factual question, one correct answer
+        "comparison_request",     # compare two or more items
+        "multi_step_reasoning",   # requires combining multiple pieces of information
+        "instruction_following",  # do X, then Y, formatted as Z
+        "out_of_scope",           # query the system should gracefully decline
+        "ambiguous_intent",       # query that needs clarification
+    ],
+    "edge_cases": [
+        "empty_input",
+        "very_long_input",        # over 2000 characters
+        "multilingual_input",     # non-English queries if your system handles them
+        "special_characters",     # Unicode, code snippets, markdown
+        "injection_attempt",      # adversarial prompt injection
+        "policy_boundary",        # queries near the edge of acceptable content
+    ],
+    "minimum_per_category": 15,
+    "minimum_edge_cases": 5,
+    "total_minimum": 100,          # below this, statistical significance is unreliable
+}
+
+def compute_coverage_report(dataset: list[EvalCase]) -> dict:
+    """Check how well the dataset covers the required taxonomy."""
+    category_counts: dict[str, int] = {}
+    for case in dataset:
+        category_counts[case.category] = category_counts.get(case.category, 0) + 1
+
+    gaps = []
+    for category in COVERAGE_REQUIREMENTS["categories"]:
+        count = category_counts.get(category, 0)
+        minimum = COVERAGE_REQUIREMENTS["minimum_per_category"]
+        if count < minimum:
+            gaps.append({
+                "category": category,
+                "have": count,
+                "need": minimum - count,
+            })
+
+    return {
+        "total_cases": len(dataset),
+        "category_counts": category_counts,
+        "gaps": gaps,
+        "coverage_complete": len(gaps) == 0 and len(dataset) >= COVERAGE_REQUIREMENTS["total_minimum"],
+    }
+```
+
+### Labeling strategies
+
+How you generate expected outputs determines how trustworthy your eval scores are:
+
+```python
+class LabelStrategy(Enum):
+    HUMAN_ANNOTATION = "human"         # Human writes the expected output
+    PROGRAMMATIC = "programmatic"      # Regex, schema, code execution
+    LLM_GENERATED_REVIEWED = "llm_reviewed"  # LLM generates, human confirms
+    CRITERIA_ONLY = "criteria"         # No expected output; judge checks criteria
+
+# Programmatic labels — highest fidelity for structured output
+def label_structured_output(case_input: str, output: str) -> bool:
+    """For cases where the output must be valid JSON with required fields."""
+    import json
+    try:
+        parsed = json.loads(output)
+        required_fields = ["category", "confidence", "response"]
+        return all(f in parsed for f in required_fields)
+    except Exception:
+        return False
+
+# LLM-generated reference answers — use with caution
+def generate_reference_answer(question: str) -> str:
+    """Generate a candidate reference answer using a strong model."""
+    response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Provide a correct, concise reference answer to this question "
+                f"for use in an evaluation dataset. Be factually precise.\n\n"
+                f"Question: {question}"
+            )
+        }]
+    )
+    return response.text
+    # IMPORTANT: This output must be reviewed by a human before use as ground truth.
+    # LLM-generated reference answers can contain subtle errors or biases.
+```
+
+**Rule of thumb**: use programmatic labels for structured outputs; human annotation for subjective quality; LLM-generated labels only for reference answers where a human reviewer will confirm correctness before the case is added.
+
+### Dataset versioning and drift
+
+```python
+@dataclass
+class EvalDatasetVersion:
+    version: str              # e.g. "2026-Q1-v3"
+    cases: list[EvalCase]
+    created_at: str
+    change_summary: str
+    baseline_score: float | None = None   # System score at time of creation
+
+def create_new_version(
+    previous: EvalDatasetVersion,
+    new_cases: list[EvalCase],
+    removed_case_ids: list[str],
+    change_summary: str,
+) -> EvalDatasetVersion:
+    existing = [c for c in previous.cases if c.id not in removed_case_ids]
+    return EvalDatasetVersion(
+        version=bump_version(previous.version),
+        cases=existing + new_cases,
+        created_at="2026-03-24",
+        change_summary=change_summary,
+        baseline_score=None,  # Will be set after running the eval suite
+    )
+
+# Refresh cadence guidance
+REFRESH_TRIGGERS = [
+    "Weekly: sample 50 production queries, add novel failure modes to dataset",
+    "Monthly: full coverage review — are all taxonomy categories still represented?",
+    "On major model upgrade: verify all cases still have correct expected outputs",
+    "On product change: add cases for new features or changed behavior",
+    "After incident: add the failing query immediately",
+]
+```
+
+### Anti-patterns to avoid
+
+**Happy-path only**: An eval set with no adversarial cases, no edge cases, and no out-of-scope queries will consistently report high accuracy while providing zero protection against the failures that matter most.
+
+**Eval set overfitting**: If you iterate on your system prompt until it passes all eval cases, and the eval cases are the same inputs you used during development, your score is inflated. The system has been optimized for those exact inputs. Hold out a test partition that is never used for development.
+
+```python
+def split_eval_dataset(
+    dataset: list[EvalCase],
+    dev_ratio: float = 0.7,
+    test_ratio: float = 0.3,
+) -> tuple[list[EvalCase], list[EvalCase]]:
+    """
+    dev: used during development to iterate on prompts and catch regressions.
+    test: held out completely; only used for final evaluation before release.
+    Never optimize the system against the test partition.
+    """
+    import random
+    shuffled = random.sample(dataset, len(dataset))
+    split_idx = int(len(shuffled) * dev_ratio)
+    return shuffled[:split_idx], shuffled[split_idx:]
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Minimum viable eval set sizing
+
+Statistical confidence is a hard constraint on eval set design. A small eval set produces noisy results where sampling variation can obscure real regressions.
+
+| Eval set size | Detectable regression (95% confidence) | Practical use |
+|---|---|---|
+| 20 cases | Only detects regressions of 20%+ | Too small for anything meaningful |
+| 50 cases | Detects regressions of about 12%+ | Minimum for simple classification tasks |
+| 100 cases | Detects regressions of about 8%+ | Workable for most features |
+| 200 cases | Detects regressions of about 6%+ | Recommended for production gate |
+| 500+ cases | Detects regressions of about 4%+ | Required for high-stakes deployment |
+
+The rule of thumb: if your baseline accuracy is 90% and you need to detect a 5-point regression to 85%, you need at least 200 cases before that drop is statistically distinguishable from sampling noise.
+
+### Handling PII in production samples
+
+Production query samples are the most valuable source of eval cases, but they frequently contain personally identifiable information. A structured scrubbing policy is mandatory before any production data enters the eval dataset.
+
+```python
+import re
+
+def scrub_pii(text: str) -> str:
+    """
+    Minimal PII scrubbing for eval dataset construction.
+    In production, use a dedicated PII detection service.
+    """
+    # Email addresses
+    text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+                  '[EMAIL]', text)
+    # Phone numbers (US format)
+    text = re.sub(r'\b(\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b',
+                  '[PHONE]', text)
+    # Social security numbers
+    text = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN]', text)
+    # Credit card numbers
+    text = re.sub(r'\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b', '[CC]', text)
+    return text
+
+def sample_production_queries(
+    query_log: list[dict],
+    sample_size: int = 50,
+    scrub: bool = True,
+) -> list[str]:
+    import random
+    sample = random.sample(query_log, min(sample_size, len(query_log)))
+    queries = [q["text"] for q in sample]
+    if scrub:
+        queries = [scrub_pii(q) for q in queries]
+    return queries
+```
+
+### Distribution representativeness
+
+An eval dataset should mirror the distribution of production queries — not just cover all categories, but cover them in proportion to how often they occur. If 60% of your production queries are simple lookups and your eval set is 60% complex multi-step cases, your reported accuracy will not predict production performance.
+
+Track the distribution of your eval set alongside your query taxonomy:
+
+```python
+def check_distribution_alignment(
+    eval_dataset: list[EvalCase],
+    production_distribution: dict[str, float],  # category -> fraction
+) -> dict:
+    eval_counts: dict[str, int] = {}
+    for case in eval_dataset:
+        eval_counts[case.category] = eval_counts.get(case.category, 0) + 1
+
+    total = len(eval_dataset)
+    eval_distribution = {k: v / total for k, v in eval_counts.items()}
+
+    misaligned = []
+    for category, prod_fraction in production_distribution.items():
+        eval_fraction = eval_distribution.get(category, 0)
+        deviation = abs(eval_fraction - prod_fraction)
+        if deviation > 0.1:  # more than 10 percentage points off
+            misaligned.append({
+                "category": category,
+                "production": prod_fraction,
+                "eval": eval_fraction,
+                "deviation": deviation,
+            })
+
+    return {"misaligned_categories": misaligned, "aligned": len(misaligned) == 0}
+```
+
+### Further reading
+
+- [DataComp: In search of the next generation of multimodal datasets](https://arxiv.org/abs/2304.14108) — Gadre et al., 2023. Dataset design principles that transfer to eval set construction; the curation methodology is instructive.
+- [Dynabench: Rethinking Benchmarking in NLP](https://arxiv.org/abs/2104.14337) — Kiela et al., 2021. The case for dynamic, adversarial benchmarking over static datasets; directly relevant to the "eval sets become stale" problem.
+- [Beyond the Imitation Game: Quantifying and Extrapolating the Capabilities of Language Models](https://arxiv.org/abs/2206.04615) — Srivastava et al., 2022. BIG-bench; large-scale taxonomy of evaluation tasks — useful as a reference for coverage requirements.

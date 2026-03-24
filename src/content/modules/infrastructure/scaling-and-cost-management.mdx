@@ -1,0 +1,398 @@
+---
+moduleId: "5.8"
+title: "Scaling & Cost Management"
+description: "LLM serving costs accumulate differently from typical web services — GPU-hours are expensive, autoscaling on CPU metrics is wrong, and scale-to-zero creates cold-start latency that makes it unsuitable for interactive workloads; knowing the right signals to scale on and how to build the cost math keeps infrastructure expenses from becoming a surprise."
+track: "infrastructure"
+order: 8
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Scale-to-zero is tempting for cost but creates cold-start latency of 2–5 minutes for large models; for latency-sensitive workloads, keep a minimum of 1 replica running and accept the idle cost. For a 7B model on an A10G at $0.80/hr, the idle cost is under $580/month — far less than the engineering cost of debugging cold-start complaints, and less than the revenue risk of users bouncing when the first request takes 3 minutes."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Scaling an LLM workload is not the same as scaling a web API. The signals are different, the economics are different, and the tradeoffs are different.
+
+**Wrong signals for autoscaling:**
+- CPU utilization — the inference process may peg one CPU core while the GPU sits at 20% utilization; CPU metrics tell you almost nothing about serving capacity.
+- Memory usage — VRAM is the constraint, not RAM; RAM is often ample while VRAM is saturated.
+
+**Right signals for autoscaling:**
+- GPU utilization — directly indicates whether the serving process has headroom.
+- Request queue depth — how many requests are waiting for a slot; the most reliable signal that you need more capacity.
+- TTFT percentiles — latency degradation is a leading indicator of saturation before OOM occurs.
+
+**The cost components of LLM serving:**
+1. **Compute** — GPU-hours (the large one)
+2. **Storage** — model weight storage and serving (smaller but ongoing)
+3. **Network** — data transfer costs for API-based inference or output streaming
+
+Understanding these components, building the cost math, and right-sizing models to tasks keeps LLM infrastructure from becoming the largest line item in your cloud bill.
+
+### Why it matters
+
+GPU compute is expensive. An H100 on-demand runs around $3–4/hr; a cluster of 8 runs over $25/hr. At those rates, inefficient scaling or over-provisioning becomes a significant cost quickly. But under-provisioning causes user-facing degradation and SLA violations. Getting the economics right — which signals to scale on, what minimum replicas to maintain, and which model size to use for which task — directly affects both cost and product quality.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The math: one A10G at $0.80/hr, 24/7, is $576/month. For a product with real users, that is a modest infrastructure cost to guarantee sub-second responses. Scale-to-zero saves the $576 but guarantees that the first request after an idle period takes 2–5 minutes — unacceptable for any interactive product. Scale-to-zero is appropriate for batch workloads, not for real-time serving.
+
+---
+
+## Layer 2 — Guided
+
+### Autoscaling: the right metrics
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ScalingSignal:
+    metric: str
+    source: str
+    scale_up_threshold: str
+    scale_down_threshold: str
+    appropriate_for: str
+    why: str
+
+CORRECT_SCALING_SIGNALS = [
+    ScalingSignal(
+        metric="Request queue depth",
+        source="Inference server metrics (vLLM: prometheus endpoint)",
+        scale_up_threshold="Queue depth > 10 for 60s",
+        scale_down_threshold="Queue depth < 2 for 300s",
+        appropriate_for="Real-time serving with concurrency limits",
+        why="Direct measure of unmet demand; scaling up immediately relieves queue pressure",
+    ),
+    ScalingSignal(
+        metric="GPU utilization",
+        source="NVIDIA DCGM exporter → Prometheus",
+        scale_up_threshold="GPU utilization > 80% for 120s",
+        scale_down_threshold="GPU utilization < 20% for 600s",
+        appropriate_for="General LLM serving",
+        why="GPU is the actual bottleneck; CPU/memory metrics are misleading proxies",
+    ),
+    ScalingSignal(
+        metric="TTFT p95",
+        source="Inference server response metrics",
+        scale_up_threshold="TTFT p95 > 2x SLA threshold for 60s",
+        scale_down_threshold="TTFT p95 < 0.5x SLA threshold for 300s",
+        appropriate_for="Latency-sensitive serving",
+        why="Latency degradation is an early warning of saturation before OOM",
+    ),
+]
+
+WRONG_SCALING_SIGNALS = [
+    "CPU utilization — GPU-bound workloads don't saturate CPU",
+    "RAM utilization — VRAM is the constraint, not system RAM",
+    "Request count alone — doesn't capture variation in token length or complexity",
+]
+```
+
+### Cost math: building the model
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ServingCostModel:
+    """
+    Build the cost model for a self-hosted LLM serving deployment.
+    All figures are approximate and vary by cloud provider and region.
+    """
+    gpu_cost_per_hour: float           # e.g., 0.80 for A10G on-demand
+    num_gpus: int                      # GPUs in the serving cluster
+    model_weight_storage_gb: float     # e.g., 14 for 7B FP16
+    storage_cost_per_gb_month: float   # e.g., 0.023 for S3 standard
+    avg_output_tokens_per_request: int
+    requests_per_day: int
+
+    def monthly_compute_usd(self) -> float:
+        return self.gpu_cost_per_hour * self.num_gpus * 24 * 30
+
+    def monthly_storage_usd(self) -> float:
+        return self.model_weight_storage_gb * self.storage_cost_per_gb_month
+
+    def monthly_total_usd(self) -> float:
+        return self.monthly_compute_usd() + self.monthly_storage_usd()
+
+    def monthly_output_tokens(self) -> int:
+        return self.avg_output_tokens_per_request * self.requests_per_day * 30
+
+    def cost_per_million_output_tokens(self) -> float:
+        mtok = self.monthly_output_tokens() / 1_000_000
+        if mtok == 0:
+            return float("inf")
+        return self.monthly_total_usd() / mtok
+
+    def break_even_daily_requests_vs_api(
+        self,
+        api_cost_per_output_mtok: float,
+    ) -> int:
+        """
+        Find the daily request volume where self-hosted becomes cheaper than API inference.
+        Solves: monthly_total = (api_cost_per_mtok / 1M) * avg_output_tokens * requests_per_day * 30
+        """
+        api_cost_per_token = api_cost_per_output_mtok / 1_000_000
+        monthly_fixed = self.monthly_compute_usd() + self.monthly_storage_usd()
+        daily_requests = monthly_fixed / (api_cost_per_token * self.avg_output_tokens_per_request * 30)
+        return int(daily_requests)
+
+
+# Example: 7B model on A10G
+serving_7b = ServingCostModel(
+    gpu_cost_per_hour=0.80,
+    num_gpus=1,
+    model_weight_storage_gb=14.0,
+    storage_cost_per_gb_month=0.023,
+    avg_output_tokens_per_request=500,
+    requests_per_day=10_000,
+)
+
+print(f"Monthly compute:        ${serving_7b.monthly_compute_usd():.2f}")
+print(f"Monthly storage:        ${serving_7b.monthly_storage_usd():.2f}")
+print(f"Monthly total:          ${serving_7b.monthly_total_usd():.2f}")
+print(f"Cost per M output tok:  ${serving_7b.cost_per_million_output_tokens():.2f}")
+print(f"Break-even vs $0.60/M:  {serving_7b.break_even_daily_requests_vs_api(0.60):,} req/day")
+
+# Output:
+# Monthly compute:        $576.00
+# Monthly storage:        $0.32
+# Monthly total:          $576.32
+# Cost per M output tok:  $3.84   (at 10K req/day, 500 tok/req = 150M tok/month)
+# Break-even vs $0.60/M:  64,000 req/day  (need 64K requests/day to beat $0.60/M API)
+```
+
+### Right-sizing: match model to task
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ModelTier:
+    label: str
+    examples: list[str]
+    cost_relative: float   # relative to frontier (1.0)
+    best_tasks: list[str]
+    not_for: list[str]
+
+MODEL_TIERS = [
+    ModelTier(
+        label="Fast / cheap (7B–13B)",
+        examples=["Llama-3.1 8B", "Mistral 7B"],
+        cost_relative=0.05,
+        best_tasks=[
+            "Classification and intent detection",
+            "Short-form extraction",
+            "Simple Q&A with clear answers",
+            "Routing and triage decisions",
+        ],
+        not_for=["Complex reasoning", "Long-form generation", "Ambiguous instructions"],
+    ),
+    ModelTier(
+        label="Balanced (30B–70B)",
+        examples=["Llama-3.1 70B", "Mixtral 8x7B"],
+        cost_relative=0.30,
+        best_tasks=[
+            "Summarization",
+            "Code generation (moderate complexity)",
+            "Multi-step instruction following",
+            "Customer support",
+        ],
+        not_for=["Cutting-edge reasoning benchmarks", "State-of-the-art code generation"],
+    ),
+    ModelTier(
+        label="Frontier",
+        examples=["Claude Sonnet", "GPT-4", "Gemini Pro"],
+        cost_relative=1.0,
+        best_tasks=[
+            "Complex reasoning and analysis",
+            "High-stakes content requiring judgment",
+            "Novel problem solving",
+            "Tasks requiring broad world knowledge",
+        ],
+        not_for=["High-volume simple tasks — cost is prohibitive at scale"],
+    ),
+]
+
+
+def route_to_model(
+    task_type: str,
+    complexity_score: float,    # 0.0 = trivial, 1.0 = highly complex
+    error_budget: float = 0.05, # acceptable error rate
+) -> str:
+    """
+    Route a request to the appropriate model tier.
+    This pattern — use cheap model by default, escalate on confidence — is called
+    model cascading or LLM routing.
+    """
+    if task_type == "classification" or complexity_score < 0.3:
+        return "fast"       # simple tasks: cheap model first
+    elif complexity_score < 0.7 and error_budget > 0.02:
+        return "balanced"   # moderate tasks
+    else:
+        return "frontier"   # complex tasks or strict accuracy requirements
+```
+
+### Budget alerts and hard spending caps
+
+```python
+import os
+from datetime import datetime, timedelta
+
+@dataclass
+class SpendingTracker:
+    """
+    Track daily and monthly spend against budgets.
+    For API inference: track token consumption.
+    For self-hosted: track GPU-hours consumed.
+    """
+    daily_budget_usd: float
+    monthly_budget_usd: float
+    alert_threshold_pct: float = 0.80   # alert at 80% of budget
+
+    def __init__(self, daily_budget_usd: float, monthly_budget_usd: float):
+        self.daily_budget_usd = daily_budget_usd
+        self.monthly_budget_usd = monthly_budget_usd
+        self.daily_spend: dict[str, float] = {}   # date_str -> usd
+        self.monthly_spend: dict[str, float] = {}  # month_str -> usd
+
+    def record_spend(self, amount_usd: float):
+        today = datetime.utcnow().date().isoformat()
+        month = datetime.utcnow().strftime("%Y-%m")
+        self.daily_spend[today] = self.daily_spend.get(today, 0) + amount_usd
+        self.monthly_spend[month] = self.monthly_spend.get(month, 0) + amount_usd
+
+    def check_budgets(self) -> list[dict]:
+        today = datetime.utcnow().date().isoformat()
+        month = datetime.utcnow().strftime("%Y-%m")
+        alerts = []
+
+        daily = self.daily_spend.get(today, 0)
+        if daily >= self.daily_budget_usd:
+            alerts.append({"severity": "hard_cap", "type": "daily", "spend": daily, "budget": self.daily_budget_usd})
+        elif daily >= self.daily_budget_usd * self.alert_threshold_pct:
+            alerts.append({"severity": "warning", "type": "daily", "spend": daily, "budget": self.daily_budget_usd})
+
+        monthly = self.monthly_spend.get(month, 0)
+        if monthly >= self.monthly_budget_usd:
+            alerts.append({"severity": "hard_cap", "type": "monthly", "spend": monthly, "budget": self.monthly_budget_usd})
+        elif monthly >= self.monthly_budget_usd * self.alert_threshold_pct:
+            alerts.append({"severity": "warning", "type": "monthly", "spend": monthly, "budget": self.monthly_budget_usd})
+
+        return alerts
+
+    def is_hard_capped(self) -> bool:
+        return any(a["severity"] == "hard_cap" for a in self.check_budgets())
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Scale-to-zero economics by workload type
+
+| Workload | Scale-to-zero appropriate? | Minimum replicas | Reasoning |
+|---|---|---|---|
+| Interactive chat | No | 1–2 | Cold start unacceptable; idle cost justified by latency SLA |
+| Background summarization | Yes | 0 | Latency-insensitive; hours to process is acceptable |
+| Batch nightly job | Yes | 0 | Only runs at night; scale to 0 during the day |
+| Webhook-triggered processing | Partial | 0 with warm-up | Pre-warm on webhook receipt if acceptable to queue for 3–5 min |
+| Scheduled inference job | Yes | 0 | Scale up on schedule, down after job completes |
+
+For interactive workloads, the cost of maintaining 1 minimum replica is the price of acceptable user experience. For a 7B model on an A10G, that is roughly $576/month — typically far less than the product risk of degraded user experience.
+
+### Multi-model routing in production
+
+The model cascading pattern routes requests to progressively more capable (and expensive) models based on complexity:
+
+```python
+@dataclass
+class CascadeResult:
+    model_used: str
+    confidence: float
+    result: str
+    escalated: bool = False
+
+def cascade_inference(
+    prompt: str,
+    fast_model_fn,
+    balanced_model_fn,
+    confidence_threshold: float = 0.85,
+) -> CascadeResult:
+    """
+    Try fast model first. If confidence is low, escalate to balanced model.
+    Confidence can be measured via log-probabilities, self-consistency sampling,
+    or a lightweight classifier on the output.
+    """
+    fast_result = fast_model_fn(prompt)
+
+    if fast_result.confidence >= confidence_threshold:
+        return CascadeResult(
+            model_used="fast",
+            confidence=fast_result.confidence,
+            result=fast_result.text,
+        )
+
+    # Escalate to balanced model
+    balanced_result = balanced_model_fn(prompt)
+    return CascadeResult(
+        model_used="balanced",
+        confidence=balanced_result.confidence,
+        result=balanced_result.text,
+        escalated=True,
+    )
+```
+
+Measure escalation rate in production — it tells you whether your fast model is right-sized for your actual query distribution. An escalation rate above 30–40% may indicate the task complexity requires a higher-tier default.
+
+### Cost attribution and per-feature accounting
+
+Track costs at the feature level, not just the system level:
+
+```python
+@dataclass
+class FeatureCostRecord:
+    feature_name: str   # e.g., "document_summary", "intent_detection"
+    model_used: str
+    input_tokens: int
+    output_tokens: int
+    cost_usd: float
+
+def attribute_cost(
+    feature: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    input_price_per_mtok: float,
+    output_price_per_mtok: float,
+) -> FeatureCostRecord:
+    cost = (
+        input_tokens / 1_000_000 * input_price_per_mtok
+        + output_tokens / 1_000_000 * output_price_per_mtok
+    )
+    return FeatureCostRecord(
+        feature_name=feature,
+        model_used=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        cost_usd=cost,
+    )
+```
+
+Per-feature cost tracking reveals which features are expensive to serve and guides prioritization of optimization work. A feature consuming 40% of token cost but delivering 5% of user value is a right-sizing candidate.
+
+### Further reading
+
+- [KEDA — Kubernetes Event-Driven Autoscaling](https://keda.sh/) — The standard tool for scaling Kubernetes deployments on custom metrics (including queue depth and GPU utilization); the practical implementation of queue-based autoscaling described in this module.
+- [NVIDIA DCGM Exporter](https://github.com/NVIDIA/dcgm-exporter) — Exposes GPU metrics (utilization, memory, temperature) to Prometheus; required for GPU-based autoscaling in Kubernetes.
+- [Martin Fowler — Cost Management in Cloud Computing](https://martinfowler.com/articles/is-tdd-dead/) — The general principles of cost attribution and FinOps apply directly to LLM infrastructure; per-feature cost tracking and budget governance follow from standard cloud cost management practices.

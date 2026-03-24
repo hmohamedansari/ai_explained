@@ -1,0 +1,430 @@
+---
+moduleId: "6.6"
+title: "CI/CD Eval Gates"
+description: "Learn to build automated eval gates that block deployments when prompt changes, model upgrades, or RAG index updates regress quality — before they reach users."
+track: "evaluation"
+order: 6
+personas: ["junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Relative regression thresholds ('no more than 2% drop') let baselines drift downward over time if each PR shaves a little off — the baseline updates to the new lower value. Anchor a subset of the eval suite to an absolute threshold that never degrades, and use relative thresholds only for secondary metrics. Without an absolute floor, a system that degrades 2% per quarter for a year is considered acceptable at every step."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A prompt is code. A model version is a dependency. A RAG index is a data artifact. All three can change, and any of them can silently break your system's output quality without triggering a unit test failure or a syntax error.
+
+CI/CD eval gates are the mechanism that prevents quality regressions from reaching production. Before a merge is allowed, the eval suite runs against the changed system and compares results to a baseline. If the system has regressed, the merge is blocked.
+
+This sounds simple but requires careful design. The gate must complete in minutes, not hours — or engineers will disable it. The thresholds must be well-calibrated — too strict and every PR fails on noise; too loose and regressions slip through. The baseline management must prevent silent drift — if the baseline is always updated to match the current system, thresholds protect nothing.
+
+### Why it matters
+
+Without eval gates, every system change ships to users before quality is verified. The only feedback loop is user complaints — which is slow, indirect, and leaves failures visible to users before you know about them.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+
+Maintain a set of "golden cases" with absolute thresholds that are never updated. These represent the minimum acceptable behavior of the system.
+
+---
+
+## Layer 2 — Guided
+
+### The gate pipeline
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+import json
+
+class GateDecision(Enum):
+    PASS = "pass"
+    FAIL = "fail"
+    WARN = "warn"     # Degraded but within relative threshold; human review recommended
+
+@dataclass
+class GateThreshold:
+    metric: str
+    absolute_floor: float | None    # System must score above this, always
+    max_relative_drop: float | None # System must not drop more than this fraction from baseline
+    is_blocking: bool = True        # If False, only warns — does not block merge
+
+@dataclass
+class EvalGateResult:
+    gate_id: str
+    decision: GateDecision
+    metrics: dict[str, float]
+    baseline_metrics: dict[str, float]
+    failures: list[str]
+    warnings: list[str]
+
+GATE_THRESHOLDS = [
+    # Absolute thresholds — never update these baselines
+    GateThreshold(metric="golden_suite_pass_rate",  absolute_floor=0.90, max_relative_drop=None, is_blocking=True),
+    GateThreshold(metric="safety_pass_rate",        absolute_floor=0.99, max_relative_drop=None, is_blocking=True),
+
+    # Relative thresholds — compare to rolling baseline
+    GateThreshold(metric="overall_pass_rate",       absolute_floor=None, max_relative_drop=0.03, is_blocking=True),
+    GateThreshold(metric="avg_quality_score",       absolute_floor=None, max_relative_drop=0.05, is_blocking=False),
+]
+
+def run_eval_gate(
+    current_metrics: dict[str, float],
+    baseline_metrics: dict[str, float],
+    thresholds: list[GateThreshold],
+    gate_id: str,
+) -> EvalGateResult:
+    failures = []
+    warnings = []
+
+    for threshold in thresholds:
+        metric = threshold.metric
+        current = current_metrics.get(metric)
+        baseline = baseline_metrics.get(metric)
+
+        if current is None:
+            warnings.append(f"Metric '{metric}' not found in eval results")
+            continue
+
+        # Check absolute floor
+        if threshold.absolute_floor is not None:
+            if current < threshold.absolute_floor:
+                msg = (
+                    f"{metric}: {current:.3f} below absolute floor {threshold.absolute_floor:.3f}"
+                )
+                if threshold.is_blocking:
+                    failures.append(msg)
+                else:
+                    warnings.append(msg)
+
+        # Check relative regression
+        if threshold.max_relative_drop is not None and baseline is not None:
+            allowed_minimum = baseline * (1.0 - threshold.max_relative_drop)
+            if current < allowed_minimum:
+                msg = (
+                    f"{metric}: {current:.3f} regressed from baseline {baseline:.3f} "
+                    f"(drop: {(baseline - current) / baseline:.1%}, "
+                    f"allowed: {threshold.max_relative_drop:.1%})"
+                )
+                if threshold.is_blocking:
+                    failures.append(msg)
+                else:
+                    warnings.append(msg)
+
+    if failures:
+        decision = GateDecision.FAIL
+    elif warnings:
+        decision = GateDecision.WARN
+    else:
+        decision = GateDecision.PASS
+
+    return EvalGateResult(
+        gate_id=gate_id,
+        decision=decision,
+        metrics=current_metrics,
+        baseline_metrics=baseline_metrics,
+        failures=failures,
+        warnings=warnings,
+    )
+```
+
+### What triggers an eval run
+
+Not every commit needs a full eval run. Over-triggering wastes compute and slows CI. Under-triggering misses regressions. The right triggers:
+
+```python
+import subprocess
+
+def detect_eval_triggers(diff_files: list[str]) -> list[str]:
+    """
+    Inspect changed files to determine which eval suites to run.
+    Returns a list of suite names to execute.
+    """
+    triggers = set()
+
+    for filepath in diff_files:
+        # System prompt changes affect output quality directly
+        if "prompts/" in filepath or filepath.endswith(".txt") and "prompt" in filepath:
+            triggers.add("quality_suite")
+            triggers.add("safety_suite")
+            triggers.add("golden_suite")
+
+        # Model version bumps require full regression
+        if "requirements.txt" in filepath or "pyproject.toml" in filepath:
+            triggers.add("golden_suite")
+            triggers.add("quality_suite")
+
+        # RAG index or retrieval config changes
+        if "retrieval/" in filepath or "index/" in filepath or "embeddings/" in filepath:
+            triggers.add("quality_suite")
+            triggers.add("retrieval_suite")
+
+        # Tool schema changes
+        if "tools/" in filepath or "tool_schemas/" in filepath:
+            triggers.add("tool_suite")
+            triggers.add("integration_suite")
+
+        # Core application logic
+        if filepath.endswith(".py") and "src/" in filepath:
+            triggers.add("integration_suite")
+
+    # Always run the golden suite — it is fast by design
+    triggers.add("golden_suite")
+
+    return sorted(triggers)
+```
+
+### Keeping CI gates fast
+
+The eval gate must complete in minutes. Strategies:
+
+```python
+import concurrent.futures
+from typing import Callable
+
+@dataclass
+class EvalSuite:
+    name: str
+    cases: list            # List of eval cases
+    is_golden: bool = False
+    max_cases_for_ci: int = 50    # Subsample for fast CI; use full set for nightly
+
+def run_suite_parallel(
+    suite: EvalSuite,
+    system_fn: Callable[[str], str],
+    max_workers: int = 10,
+) -> dict[str, dict]:
+    """
+    Run eval cases in parallel to reduce wall-clock time.
+    10 workers typically gives 8-9x speedup over sequential execution.
+    """
+    cases = suite.cases
+    if not suite.is_golden and len(cases) > suite.max_cases_for_ci:
+        # Subsample non-golden cases for CI speed
+        import random
+        cases = random.sample(cases, suite.max_cases_for_ci)
+
+    results = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_case = {
+            executor.submit(run_single_eval_case, case, system_fn): case
+            for case in cases
+        }
+        for future in concurrent.futures.as_completed(future_to_case):
+            case = future_to_case[future]
+            try:
+                results[case.id] = future.result()
+            except Exception as exc:
+                results[case.id] = {"passed": False, "error": str(exc)}
+
+    return results
+
+def run_single_eval_case(case, system_fn: Callable[[str], str]) -> dict:
+    output = system_fn(case.input)
+    return {
+        "passed": check_output(output, case.expected, case.method),
+        "output": output,
+    }
+
+def check_output(output: str, expected: str | None, method: str) -> bool:
+    if method == "exact_match" and expected:
+        return output.strip().lower() == expected.strip().lower()
+    if method == "contains" and expected:
+        return expected.lower() in output.lower()
+    return True  # Reference-free cases pass unless they error
+```
+
+### Baseline management
+
+The baseline must be updated deliberately, not automatically:
+
+```python
+@dataclass
+class Baseline:
+    suite_name: str
+    metrics: dict[str, float]
+    created_at: str
+    commit_sha: str
+    updated_by: str
+    update_reason: str
+
+def load_baseline(suite_name: str, baseline_store: str) -> Baseline | None:
+    """Load the current baseline for a suite from the store."""
+    try:
+        with open(f"{baseline_store}/{suite_name}.json") as f:
+            data = json.load(f)
+            return Baseline(**data)
+    except FileNotFoundError:
+        return None
+
+def update_baseline(
+    suite_name: str,
+    new_metrics: dict[str, float],
+    commit_sha: str,
+    updated_by: str,
+    update_reason: str,
+    baseline_store: str,
+) -> Baseline:
+    """
+    Update the baseline for a suite. This should require a deliberate
+    human decision — not happen automatically on every green build.
+    """
+    from datetime import datetime, timezone
+    baseline = Baseline(
+        suite_name=suite_name,
+        metrics=new_metrics,
+        created_at=datetime.now(timezone.utc).isoformat(),
+        commit_sha=commit_sha,
+        updated_by=updated_by,
+        update_reason=update_reason,
+    )
+    with open(f"{baseline_store}/{suite_name}.json", "w") as f:
+        json.dump(baseline.__dict__, f, indent=2)
+    return baseline
+
+# POLICY: Baselines for golden suites with absolute thresholds are NEVER updated.
+# Baselines for relative-threshold suites may be updated only by a senior engineer
+# with an explicit justification recorded in the update_reason field.
+```
+
+### Integration with git workflows
+
+```bash
+# .github/workflows/eval-gate.yml (GitHub Actions example)
+# name: LLM Eval Gate
+# on: [pull_request]
+# jobs:
+#   eval:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Run eval gate
+#         run: python scripts/run_eval_gate.py --threshold-file eval/thresholds.json
+#       - name: Upload eval results
+#         if: always()
+#         uses: actions/upload-artifact@v4
+#         with:
+#           name: eval-results
+#           path: eval/results/*.json
+```
+
+```python
+import sys
+
+def main(threshold_file: str, changed_files: list[str]) -> int:
+    """Entry point for CI gate — returns 0 for pass, 1 for fail."""
+    with open(threshold_file) as f:
+        config = json.load(f)
+
+    suites_to_run = detect_eval_triggers(changed_files)
+    all_passed = True
+
+    for suite_name in suites_to_run:
+        suite = load_suite(suite_name)
+        baseline = load_baseline(suite_name, config["baseline_store"])
+
+        if baseline is None:
+            print(f"[WARN] No baseline for {suite_name} — creating initial baseline")
+            # First run: no comparison possible, just collect metrics
+            continue
+
+        results = run_suite_parallel(suite, build_system_fn(config))
+        current_metrics = compute_suite_metrics(results)
+
+        gate_result = run_eval_gate(
+            current_metrics=current_metrics,
+            baseline_metrics=baseline.metrics,
+            thresholds=GATE_THRESHOLDS,
+            gate_id=suite_name,
+        )
+
+        if gate_result.decision == GateDecision.FAIL:
+            print(f"[FAIL] {suite_name}: {gate_result.failures}")
+            all_passed = False
+        elif gate_result.decision == GateDecision.WARN:
+            print(f"[WARN] {suite_name}: {gate_result.warnings}")
+        else:
+            print(f"[PASS] {suite_name}: all thresholds met")
+
+    return 0 if all_passed else 1
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Anatomy of a golden suite
+
+The golden suite is the eval gate's absolute backstop. It is small (20–50 cases), fast to run (under 2 minutes), and anchored to absolute thresholds that are never relaxed.
+
+Golden cases should represent:
+
+| Category | What it covers | Why it is golden |
+|---|---|---|
+| Core value proposition | The primary task the product was built to do | Must always work; any failure is P0 |
+| Known past regressions | Cases that failed in production previously | If it broke once, guard it forever |
+| Safety boundaries | Inputs that must be refused | Safety must not regress under any circumstances |
+| Structured output contracts | Cases where output format is required by downstream systems | Format regressions break integrations |
+
+A golden case should never be removed from the golden suite. If a system change causes a golden case to fail, the change is wrong — the case is not.
+
+### Threshold calibration
+
+Calibrating thresholds requires understanding your eval set's statistical noise:
+
+```python
+def estimate_threshold_noise(
+    suite: EvalSuite,
+    system_fn,
+    n_runs: int = 5,
+) -> dict:
+    """
+    Run the same eval suite multiple times without any system changes.
+    The variation tells you the minimum meaningful signal threshold.
+    """
+    scores = []
+    for _ in range(n_runs):
+        results = run_suite_parallel(suite, system_fn)
+        metrics = compute_suite_metrics(results)
+        scores.append(metrics["overall_pass_rate"])
+
+    import math
+    mean = sum(scores) / len(scores)
+    variance = sum((s - mean) ** 2 for s in scores) / len(scores)
+    stddev = math.sqrt(variance)
+
+    return {
+        "scores": scores,
+        "mean": round(mean, 4),
+        "stddev": round(stddev, 4),
+        "noise_floor": round(stddev * 2, 4),  # 2-sigma noise floor
+        "recommendation": f"Set relative threshold above {stddev * 2:.1%} to avoid false failures",
+    }
+```
+
+If your eval suite shows 1.5% variation between identical runs (due to model non-determinism), then a 2% relative threshold will produce false failures roughly 30% of the time. The relative threshold should be at least 2–3x the noise floor.
+
+### The prompt-as-code mindset
+
+The practices in this module require treating prompts as first-class engineering artifacts:
+
+- **Version-controlled**: prompts live in the repo, not in a database
+- **Reviewed**: prompt changes go through code review with eval results attached
+- **Tested**: every prompt change runs the eval gate before merge
+- **Deployed**: prompt changes deploy through the same pipeline as code changes
+
+This mindset shift is organizational as much as technical. Teams that treat prompts as "settings" to be changed in a UI bypass all of these protections.
+
+### Further reading
+
+- [Continuous Delivery — Jez Humble, David Farley](https://continuousdelivery.com/) — Humble & Farley, 2010. The foundational text on deployment pipelines; the gate and threshold concepts here are a direct application of CD principles to LLM systems.
+- [Evals — OpenAI](https://github.com/openai/evals) — OpenAI, 2023. Open-source eval framework; the runner and dataset format are a good reference for implementing the CI eval pipeline.
+- [Weights & Biases — Evaluations](https://docs.wandb.ai/guides/evaluate/) — Weights & Biases, 2024. A commercial implementation of the eval gate pattern; useful as a reference for what a mature eval infrastructure looks like.

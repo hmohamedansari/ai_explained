@@ -1,0 +1,255 @@
+---
+moduleId: "5.3"
+title: "Inference Serving"
+description: "Inference servers are not just web servers that happen to call a model — they implement specific memory management and scheduling algorithms that determine whether your GPU serves 5 requests per second or 50; understanding KV cache, PagedAttention, and continuous batching separates the teams who can scale from the teams who can't."
+track: "infrastructure"
+order: 3
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "KV cache memory is the dominant VRAM consumer at inference time — a 70B model may fit in VRAM for single requests but OOM under concurrent load because KV cache for 50 simultaneous requests doesn't fit. VRAM usage scales with batch size times sequence length times model depth. Always load-test your serving configuration with realistic concurrency and context lengths before going to production."
+draft: false
+---
+
+## Layer 1 — Surface
+
+When a language model generates a response, it does not compute each token from scratch. It keeps a running record of all the attention computations it has already done — called the KV cache (key-value cache) — and reuses them for each new token. Without this cache, generating a 500-token response would require 500 separate full forward passes through the entire model. With it, each new token only requires one pass.
+
+The KV cache is what makes autoregressive generation practical. It is also what consumes most of your VRAM under production load.
+
+**The inference serving stack from bottom to top:**
+
+1. **Attention kernels** — the math: Flash Attention computes attention in tiled blocks that stay in fast SRAM rather than reading from slow HBM, reducing memory bandwidth pressure.
+2. **KV cache management** — where to store those intermediate computations: PagedAttention (introduced by vLLM) manages KV cache in pages, like OS virtual memory, so VRAM is used efficiently across requests of different lengths.
+3. **Batching** — how to schedule multiple requests together: continuous batching processes requests as they arrive rather than waiting for a full batch to form.
+4. **Serving layer** — the HTTP interface that receives requests, routes them to the right worker, and streams responses back.
+
+### Why it matters
+
+The difference between a naive inference server and a production one (vLLM, TGI, llama.cpp) is primarily these algorithms. A naive implementation serving a 13B model might handle 2–5 concurrent requests before OOMing. A well-configured production server serving the same model can handle dozens of concurrent requests with higher throughput and lower latency.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake is testing with single requests and assuming linear scaling. KV cache grows with batch size: serving 50 concurrent requests with 2K token contexts requires roughly 50x the KV cache VRAM of serving one. For a 70B model, this can be hundreds of gigabytes — far more than the model weights themselves. Always benchmark at realistic concurrency.
+
+---
+
+## Layer 2 — Guided
+
+### KV cache: what it is and why it matters
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class KVCacheEstimate:
+    """
+    Estimate KV cache memory for a given model and workload.
+    Formula: 2 * num_layers * num_kv_heads * head_dim * seq_len * batch_size * bytes_per_element
+    The factor 2 accounts for both keys and values.
+    """
+    num_layers: int       # transformer layers (depth)
+    num_kv_heads: int     # key/value heads (may differ from query heads with GQA)
+    head_dim: int         # dimension per head
+    seq_len: int          # max sequence length (input + output)
+    batch_size: int       # concurrent requests
+    bytes_per_element: float = 2.0  # FP16 = 2 bytes
+
+    def total_gb(self) -> float:
+        total_bytes = (
+            2 * self.num_layers * self.num_kv_heads * self.head_dim
+            * self.seq_len * self.batch_size * self.bytes_per_element
+        )
+        return total_bytes / (1024 ** 3)
+
+# Llama-3 70B approximate parameters
+kv_single = KVCacheEstimate(
+    num_layers=80,
+    num_kv_heads=8,     # Grouped Query Attention (GQA) reduces kv heads
+    head_dim=128,
+    seq_len=4096,
+    batch_size=1,
+)
+kv_concurrent = KVCacheEstimate(
+    num_layers=80,
+    num_kv_heads=8,
+    head_dim=128,
+    seq_len=4096,
+    batch_size=50,
+)
+
+print(f"Single request KV cache: ~{kv_single.total_gb():.1f} GB")
+print(f"50 concurrent requests:  ~{kv_concurrent.total_gb():.1f} GB")
+# Single request KV cache: ~0.7 GB
+# 50 concurrent requests:  ~35.0 GB
+```
+
+Grouped Query Attention (GQA), used in Llama-3 and other recent models, reduces the number of KV heads (here 8 heads vs 64 query heads), which directly reduces KV cache size. This is why newer architectures are more efficient to serve at scale.
+
+### PagedAttention: paged memory for KV cache
+
+Before PagedAttention (introduced in the vLLM paper, 2023), inference servers pre-allocated a contiguous VRAM block for each request's maximum possible KV cache. Most requests use far less than the maximum, but the memory was reserved regardless — wasted.
+
+PagedAttention manages KV cache in fixed-size pages, similar to how an OS manages virtual memory. Pages are allocated only as needed and freed when the request completes. Non-contiguous pages are fine because the system tracks the mapping.
+
+The result: VRAM fragmentation is eliminated, and the server can serve significantly more concurrent requests with the same VRAM budget.
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class PagedKVCache:
+    """
+    Conceptual model of paged KV cache allocation.
+    In vLLM, pages are called 'blocks' and the block size is configurable.
+    """
+    page_size_tokens: int = 16      # tokens per page
+    total_pages: int = 1000         # total pages available
+    allocated_pages: dict = field(default_factory=dict)  # request_id -> list[page_id]
+    free_pages: set = field(default_factory=set)
+
+    def __post_init__(self):
+        self.free_pages = set(range(self.total_pages))
+
+    def allocate(self, request_id: str, num_tokens: int) -> bool:
+        """Allocate pages for a new request. Returns True if successful."""
+        pages_needed = (num_tokens + self.page_size_tokens - 1) // self.page_size_tokens
+        if len(self.free_pages) < pages_needed:
+            return False    # OOM — cannot serve this request now
+
+        allocated = set(list(self.free_pages)[:pages_needed])
+        self.free_pages -= allocated
+        self.allocated_pages[request_id] = list(allocated)
+        return True
+
+    def extend(self, request_id: str) -> bool:
+        """Extend allocation by one page as generation continues."""
+        if not self.free_pages:
+            return False
+        page = next(iter(self.free_pages))
+        self.free_pages.discard(page)
+        self.allocated_pages[request_id].append(page)
+        return True
+
+    def free(self, request_id: str):
+        """Release all pages when a request completes."""
+        pages = self.allocated_pages.pop(request_id, [])
+        self.free_pages.update(pages)
+        return len(pages)   # pages returned to pool
+```
+
+### Continuous batching
+
+Static batching: collect N requests, run them all together, return results, collect next N. This means early-finishing requests wait for the slowest request in the batch.
+
+Continuous batching: new requests join the batch as soon as a slot opens. A request that finishes after 50 tokens frees its slot immediately; a new request fills it before the rest of the batch finishes.
+
+```python
+from dataclasses import dataclass, field
+from collections import deque
+
+@dataclass
+class ContinuousBatchScheduler:
+    """
+    Simplified continuous batching scheduler.
+    Real implementations (vLLM, TGI) are significantly more complex.
+    """
+    max_batch_size: int = 32
+    active_requests: dict = field(default_factory=dict)   # id -> state
+    waiting_queue: deque = field(default_factory=deque)
+
+    def add_request(self, request_id: str, prompt_tokens: int):
+        if len(self.active_requests) < self.max_batch_size:
+            self._start_request(request_id, prompt_tokens)
+        else:
+            self.waiting_queue.append((request_id, prompt_tokens))
+
+    def _start_request(self, request_id: str, prompt_tokens: int):
+        self.active_requests[request_id] = {
+            "tokens_generated": 0,
+            "prompt_tokens": prompt_tokens,
+        }
+
+    def step(self) -> dict:
+        """
+        Run one decode step for all active requests.
+        After each step, completed requests are removed and waiting requests are admitted.
+        """
+        completed = []
+        for req_id, state in list(self.active_requests.items()):
+            state["tokens_generated"] += 1
+            if self._is_done(req_id, state):
+                completed.append(req_id)
+
+        for req_id in completed:
+            del self.active_requests[req_id]
+            # Immediately admit next request from queue
+            if self.waiting_queue:
+                next_id, next_prompt_tokens = self.waiting_queue.popleft()
+                self._start_request(next_id, next_prompt_tokens)
+
+        return {"active": len(self.active_requests), "completed_this_step": len(completed)}
+
+    def _is_done(self, req_id: str, state: dict) -> bool:
+        # Placeholder: real logic checks for EOS token or max_tokens
+        return state["tokens_generated"] >= 200
+```
+
+### Inference server comparison
+
+| Server | Primary use case | Strengths | Weaknesses |
+|---|---|---|---|
+| **vLLM** | High-throughput GPU serving | PagedAttention, continuous batching, broad model support, active development | Heavyweight; higher memory overhead than llama.cpp |
+| **TGI** (Text Generation Inference) | Production GPU serving (Hugging Face) | Strong HF model integration, quantization support, good tooling | Slightly less throughput than vLLM in some benchmarks |
+| **llama.cpp** | CPU inference, edge, development | Runs on CPU and Apple Silicon, GGUF format, low memory footprint | Lower GPU throughput than vLLM/TGI |
+| **Ollama** | Local development | Easy setup, model management, API compatible with OpenAI client | Not designed for production multi-user serving |
+
+For production GPU serving, vLLM and TGI are the primary choices. llama.cpp and Ollama are excellent for development and edge deployments.
+
+### Speculative decoding (brief)
+
+Speculative decoding uses a fast small "draft" model to generate candidate tokens, which the large "target" model then verifies in parallel. If the target model accepts the draft tokens (they match what it would have generated), you get multiple tokens per forward pass of the target model.
+
+The speedup depends on the draft model's acceptance rate for your specific workload — typically 1.5–3x throughput improvement when the acceptance rate is high. It is most effective for tasks with predictable output (code generation, structured responses) and less effective for creative or unpredictable generation.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Flash Attention and memory bandwidth
+
+Standard attention requires materializing the full attention matrix (sequence length × sequence length) in HBM (high-bandwidth memory). For long contexts, this matrix is large and reading/writing it repeatedly is the bottleneck — not the FLOPs.
+
+Flash Attention (Dao et al., 2022) computes attention in tiles that fit in SRAM (the fast on-chip cache), fusing the operations to avoid repeated HBM reads. The arithmetic intensity increases dramatically, and memory bandwidth pressure drops. Flash Attention 2 and 3 continue this direction with better parallelism.
+
+In practical terms: Flash Attention enables longer context lengths at the same memory budget, and reduces the latency of attention computation — particularly for long sequences.
+
+### Serving configuration knobs
+
+Real serving decisions involve tuning several parameters:
+
+| Parameter | Effect | Tradeoff |
+|---|---|---|
+| `max_batch_size` | Maximum concurrent requests | Higher throughput vs higher TTFT |
+| `max_model_len` (vLLM) | Maximum context length | Longer context vs more KV cache VRAM |
+| `gpu_memory_utilization` (vLLM) | Fraction of VRAM reserved for KV cache | More concurrent requests vs less buffer for other uses |
+| `tensor_parallel_size` | Number of GPUs to split the model across | Needed for models that don't fit on one GPU; adds inter-GPU communication overhead |
+
+### Grouped Query Attention and KV cache size
+
+Modern models increasingly use Grouped Query Attention (GQA) or Multi-Query Attention (MQA) to reduce KV cache size. In standard Multi-Head Attention (MHA), each query head has its own key and value heads — the KV cache scales with `num_heads`. In GQA, multiple query heads share key/value heads. In MQA, all query heads share a single key/value head.
+
+The impact on serving is significant: a model with 64 query heads but only 8 KV heads (like Llama-3 70B) has 8x smaller KV cache than the equivalent MHA model, enabling proportionally higher batch sizes at the same VRAM budget.
+
+### Further reading
+
+- [Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) — Kwon et al., 2023. The vLLM paper; the core reference for paged KV cache management and continuous batching implementation.
+- [FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness](https://arxiv.org/abs/2205.14135) — Dao et al., 2022. The Flash Attention paper; explains the tiled computation approach and its memory bandwidth analysis.
+- [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — Leviathan et al., 2023. The speculative decoding paper; explains the draft-verify mechanism and conditions for speedup.

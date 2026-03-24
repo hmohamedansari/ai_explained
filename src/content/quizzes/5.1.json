@@ -1,0 +1,76 @@
+{
+  "title": "Hosting Options — Check your understanding",
+  "moduleId": "5.1",
+  "questions": [
+    {
+      "id": "5.1-q1",
+      "type": "multiple-choice",
+      "question": "A team is processing 200,000 requests per day with an average of 1,500 tokens per request. Their current API inference bill is growing rapidly. An engineer proposes switching to self-hosted on a 2-GPU cluster. What is the most important calculation to run before committing?",
+      "options": [
+        "Benchmark latency on self-hosted vs API inference to confirm the SLA will be met",
+        "Model the monthly cost crossover point: compare GPU-hour costs at 24/7 utilization against the API per-token price at current volume, then determine whether current or projected volume actually justifies the operational investment",
+        "Check whether the model they need is available as an open-weight model that can be self-hosted",
+        "Calculate how many GPUs are needed to handle peak concurrency"
+      ],
+      "answer": 1,
+      "explanation": "The crossover calculation is the decision gate. Many teams switch to self-hosted before they reach the volume where it actually saves money, because the per-token API price looks expensive without accounting for fixed GPU-hour costs and operational burden. At 200K requests/day with 1,500 tokens, that is roughly 300M tokens/day — large, but a 2-GPU cluster running 24/7 must be cost-modeled against the actual API price at that volume. Latency and model availability matter, but neither justifies self-hosting if the economics don't work.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.1-q2",
+      "type": "multiple-choice",
+      "question": "A healthcare company wants to use an LLM to process patient records. Their compliance team says patient data cannot leave their infrastructure. Which hosting option should they evaluate first?",
+      "options": [
+        "API inference with a provider that has a HIPAA BAA — this satisfies most regulatory requirements",
+        "Self-hosted or cloud-managed endpoints in their own cloud account — data residency is a hard constraint that eliminates API inference unless the regulatory framework explicitly allows it with the right agreements",
+        "API inference with request/response encryption — encryption satisfies data residency requirements",
+        "API inference is fine as long as prompts are anonymized before sending"
+      ],
+      "answer": 1,
+      "explanation": "Data residency requirements for regulated industries (HIPAA, FedRAMP, etc.) are hard constraints, not preferences. Even with a HIPAA BAA, patient data transiting a third-party provider's infrastructure may not satisfy specific regulatory requirements — the answer depends on the regulation, not on the provider's certifications. The safe path is to start with self-hosted or cloud-managed (within their own cloud account) and work backward from compliance requirements. API inference is worth evaluating only after the compliance team has confirmed it can be made compliant.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.1-q3",
+      "type": "multiple-choice",
+      "question": "A team is building a new internal tool. They have one ML engineer part-time. They estimate 20,000 requests per day initially, scaling to 100,000 in 6 months. They want the fastest time to production. What is the most appropriate starting point?",
+      "options": [
+        "Self-hosted with a single A10G to keep costs low and maintain flexibility",
+        "API inference — low operational burden enables fast launch; revisit the hosting decision at 100K+ requests/day when volume justifies the infrastructure investment",
+        "Cloud-managed endpoints (e.g., SageMaker) — balances control with operational ease",
+        "API inference now, but immediately begin building self-hosted infrastructure in parallel"
+      ],
+      "answer": 1,
+      "explanation": "API inference is the right starting point for this profile: limited ML ops capacity, moderate volume, and a need for fast time-to-production. At 20–100K requests/day, the per-token API cost is almost certainly lower than the combination of GPU-hour costs and the engineering time of one part-time ML engineer managing infrastructure. The instruction 'revisit at 100K+ requests/day' is correct — at that volume, with a better-established product, the crossover calculation may favor self-hosted. Building self-hosted infrastructure in parallel (option D) wastes the ML engineer's limited time before the volume justifies it.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.1-q4",
+      "type": "multiple-choice",
+      "question": "A team runs a nightly batch pipeline (latency-insensitive) and a real-time chat product (latency-sensitive). Their budget is constrained. Which hosting pattern best serves both workloads?",
+      "options": [
+        "Self-hosted for both — consistent infrastructure is easier to manage",
+        "API inference for the real-time chat (availability and latency SLA); self-hosted spot instances for the nightly batch pipeline (spot discounts offset fixed GPU costs for latency-insensitive work)",
+        "API inference for both — avoid infrastructure complexity",
+        "Self-hosted for the batch pipeline only; route chat through the same self-hosted cluster"
+      ],
+      "answer": 1,
+      "explanation": "This is a hybrid pattern: different workloads have different requirements and should be matched to different infrastructure. The real-time chat workload requires consistent availability and latency — spot instance interruptions are unacceptable. API inference handles this without operational burden. The nightly batch pipeline is latency-insensitive, runs during a predictable window, and can tolerate spot interruptions (jobs can be retried). Spot discounts of 60–80% make self-hosted batch processing cost-effective at scale. Running the chat through the batch cluster (option D) risks interference between workloads and creates serving complexity.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.1-q5",
+      "type": "multiple-choice",
+      "question": "A team reports that switching from API inference to self-hosted cut their per-token cost by 70%. However, three months later, their total monthly AI infrastructure spend is actually higher than before. What most likely explains this?",
+      "options": [
+        "Their GPU provider increased prices",
+        "Hidden costs — GPU idle time, engineer hours managing the infrastructure, driver maintenance, and on-call burden accumulated to more than the per-token savings; the 70% per-token reduction only materializes when GPUs run at high utilization",
+        "The self-hosted model has lower quality, requiring more tokens per request to achieve the same output",
+        "They over-provisioned GPUs to meet peak demand, running mostly idle"
+      ],
+      "answer": 1,
+      "explanation": "Per-token cost reduction is only meaningful when GPU utilization is high. A GPU running at 20% utilization pays 100% of the GPU-hour cost. Beyond utilization, self-hosted incurs operational costs that API inference does not: engineer time for infrastructure management, CUDA driver maintenance, model update testing, and on-call burden. These costs do not appear in the per-token calculation but are real and often substantial. Option D (over-provisioning) is a contributor but is part of the broader pattern described in option B — the full picture includes all hidden operational costs, not just idle GPU time.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

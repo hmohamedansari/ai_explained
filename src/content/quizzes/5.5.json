@@ -1,0 +1,76 @@
+{
+  "title": "Latency Optimization — Check your understanding",
+  "moduleId": "5.5",
+  "questions": [
+    {
+      "id": "5.5-q1",
+      "type": "multiple-choice",
+      "question": "A team implements prompt caching on their system prompt, which contains: 'Session ID: {session_id}\\nCurrent time: {timestamp}\\nYou are a helpful assistant. Always respond in JSON format.' After deploying, they observe a 0% cache hit rate. What is causing this?",
+      "options": [
+        "Their serving framework does not support prompt caching",
+        "The dynamic values (session_id and timestamp) appear before the static content in the prompt — any change to the cached prefix invalidates the entire cache; since every request has a unique session_id and timestamp at the start, every request is a cache miss",
+        "Prompt caching requires a minimum prompt length to activate",
+        "JSON format instructions cannot be cached because the model processes them differently"
+      ],
+      "answer": 1,
+      "explanation": "Prompt caching works by matching a request's prefix against cached KV state. The prefix must be byte-for-byte identical to the cached version. If the first token in the prompt changes between requests — which it does when session_id or timestamp appears at the start — the cache lookup fails immediately and the entire prefix must be recomputed. The fix is structural: put all static content first (the assistant instructions and format requirements), followed by any dynamic content. This allows the static portion to be cached even though the dynamic portion differs per request.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.5-q2",
+      "type": "multiple-choice",
+      "question": "A streaming chat application wants to minimize the latency until users see the first word of the response. Which latency component should they optimize, and what technique most directly reduces it?",
+      "options": [
+        "TBT (time between tokens) — speculative decoding reduces the gap between tokens",
+        "TTFT (time to first token) — TTFT equals the prefill time; techniques that reduce prefill time (prompt caching for repeated prefixes, shorter prompts, Flash Attention for long contexts) directly reduce TTFT; TBT and E2E matter less than TTFT for streaming UX",
+        "E2E (end-to-end time) — the total time determines when the full response is available for streaming",
+        "TBT and TTFT equally — both determine how the streaming experience feels to users"
+      ],
+      "answer": 1,
+      "explanation": "For streaming interfaces, TTFT is the dominant UX metric — users experience the delay before the first word as 'waiting,' while subsequent tokens streaming in feel fast even at moderate TBT. TTFT is determined entirely by the prefill phase: how long it takes to process the input prompt. Reducing TTFT means reducing prefill time — via prompt caching (skip reprocessing a shared prefix), shorter prompts (less to process), or Flash Attention (faster attention computation for long contexts). TBT matters for streaming smoothness once the response has started, but TTFT determines whether users feel the application is responsive.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.5-q3",
+      "type": "multiple-choice",
+      "question": "A team implements speculative decoding with a 1B draft model and a 70B target model. They set num_draft_tokens=5. After deployment, they observe the speedup is close to 1x (no improvement) for their creative writing use case. Why?",
+      "options": [
+        "The draft model is too small — a larger draft model is needed",
+        "Creative writing has high output entropy — the next token is difficult to predict, so the draft model's guesses are frequently wrong and the target model rejects them; low acceptance rate means few tokens are accepted per target model pass, eliminating the speedup that speculative decoding provides",
+        "Speculative decoding requires both models to be the same architecture",
+        "The target model verification is slower than the draft model generation for 70B models"
+      ],
+      "answer": 1,
+      "explanation": "Speculative decoding's speedup depends entirely on the acceptance rate — the fraction of draft tokens the target model accepts. For creative writing, the output distribution is high-entropy: many tokens are plausible next tokens, the model is exploring the possibility space, and small models' guesses frequently diverge from what the large model would choose. With a low acceptance rate, each 'speculation cycle' produces only 1–2 accepted tokens per target model pass instead of the theoretical 5, reducing or eliminating the speedup. Speculative decoding works best for low-entropy, predictable outputs: code generation, structured responses, formulaic text.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.5-q4",
+      "type": "multiple-choice",
+      "question": "An application sends thousands of requests per minute, all with the same 3,000-token system prompt followed by different user messages. A new engineer suggests enabling prefix caching in vLLM and also spreading requests across multiple geographically distributed vLLM instances for lower latency. What conflict exists in this proposal?",
+      "options": [
+        "Prefix caching requires all requests to use the same model; distributed instances may run different models",
+        "Prefix caching relies on the cached KV blocks being resident in the same instance's VRAM — distributing requests across multiple instances means each instance builds its own cache independently, potentially at low hit rates per instance; geographic distribution dilutes the cache population that each instance sees, reducing hit rates and potentially eliminating the cache benefit",
+        "vLLM does not support prefix caching on instances with less than 80GB VRAM",
+        "Prefix caching and geographic distribution are fully compatible; there is no conflict"
+      ],
+      "answer": 1,
+      "explanation": "Prefix caching is a local optimization — KV blocks are cached in the memory of the specific serving instance that processed the request. If requests are distributed across 10 instances, each instance only receives 1/10 of the traffic and builds its own cache independently. A new instance that has never processed the shared prefix has no cached KV blocks; it must compute the prefill for that prefix on its first request. At low per-instance traffic, the cache may never warm up fully. Maximizing prefix cache hit rate requires routing requests with the same prefix to the same instance (prefix-aware routing), which conflicts with geographic distribution for latency.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.5-q5",
+      "type": "multiple-choice",
+      "question": "A team builds a document Q&A system. Each request attaches a 10,000-token document to the prompt. They enable prompt caching. Most documents are unique per request. After a week, they observe almost no reduction in TTFT. Why, and what should they try instead?",
+      "options": [
+        "Prompt caching doesn't work for documents longer than 4,096 tokens",
+        "Prompt caching requires the cached prefix to be reused across multiple requests — since each document is unique, there is no shared prefix to cache; the right optimization is to pre-index the documents (e.g., via RAG) so shorter, relevant excerpts are sent instead of the full document, directly reducing prefill time",
+        "Prompt caching requires a minimum of 100 identical requests before the cache warms up",
+        "The documents change the system prompt prefix, causing cache invalidation"
+      ],
+      "answer": 1,
+      "explanation": "Prompt caching saves time by reusing KV state from previous requests with the same prefix. It only helps when that prefix is shared across many requests. If each request attaches a different 10,000-token document, there is nothing to cache — every request has a unique prefix, every request is a cache miss, and TTFT reflects full 10K-token prefill every time. The correct optimization is to reduce the amount of text in the prompt, not to cache it. Retrieval-augmented generation (RAG) retrieves only the relevant excerpts from the document — perhaps 500–1,000 tokens instead of 10,000 — directly reducing TTFT by 10–20x independent of caching.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

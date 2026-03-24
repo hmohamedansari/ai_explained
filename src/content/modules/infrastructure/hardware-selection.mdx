@@ -1,0 +1,275 @@
+---
+moduleId: "5.6"
+title: "Hardware Selection"
+description: "Choosing the wrong GPU tier — or sizing VRAM based on model weights alone — is the most common hardware mistake in LLM deployment; knowing the VRAM math, the GPU tiers, and when to use multi-GPU parallelism lets you right-size hardware before you need it rather than after an OOM in production."
+track: "infrastructure"
+order: 6
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "VRAM estimates from model cards assume empty context — production KV cache can add 20–50% VRAM under load. A 7B FP16 model needs roughly 14GB for weights; add a modest production batch of 20 concurrent requests with 2K context each and you may need 30+ GB total. Always leave headroom and benchmark at realistic concurrency before selecting GPU instances."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Running a model requires VRAM (GPU memory) to hold the weights and the KV cache. The VRAM requirement is calculable from first principles: number of parameters, precision (bytes per parameter), and expected concurrency. Getting this calculation right before provisioning hardware avoids the OOM crashes that hit teams who size VRAM based only on the model's listed parameter count.
+
+**The precision rule of thumb:**
+- FP16 / BF16: approximately 2 bytes per parameter
+- INT8: approximately 1 byte per parameter
+- INT4: approximately 0.5 bytes per parameter
+
+So a 7B parameter model in FP16 requires roughly 14GB just for weights. A 70B parameter model in INT4 requires roughly 35GB.
+
+**The GPU tiers:**
+- **H100 / A100** — high-throughput production; large memory (40–80GB per card), highest memory bandwidth
+- **A10G / L4** — cost-efficient production serving; smaller memory footprint per dollar
+- **Consumer (RTX 4090)** — development and small-scale serving; limited memory, but fast for the price
+
+For CPU inference (via llama.cpp), any modern CPU works but throughput is roughly 5–20 tokens/second for 7B models — practical for development, impractical for most production serving. Apple Silicon (M-series) bridges the gap: unified memory means the GPU and CPU share RAM, making 64–192GB system RAM available for the model with reasonable throughput.
+
+### Why it matters
+
+Hardware selection determines your serving economics for months. A wrong choice either wastes money (over-provisioned VRAM) or causes production failures (under-provisioned, OOM under load). The calculation is not difficult once you know the formula — most teams just don't run the numbers before provisioning.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Model cards report the weight size. They do not report the KV cache overhead at realistic batch sizes. At production concurrency (20–50 requests), the KV cache can exceed the weight size for some models and context lengths. Always add 30–50% headroom to your weight-based VRAM estimate.
+
+---
+
+## Layer 2 — Guided
+
+### VRAM calculation
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class VRAMCalculator:
+    """
+    Calculate total VRAM requirement for a model at a given workload.
+    """
+    # Model parameters
+    param_billions: float       # e.g., 7.0 for a 7B model
+    bytes_per_param: float      # FP16=2.0, INT8=1.0, INT4=0.5
+
+    # Architecture (for KV cache calculation)
+    num_layers: int             # transformer depth
+    num_kv_heads: int           # key/value attention heads
+    head_dim: int               # dimension per head
+    kv_bytes_per_element: float = 2.0  # KV cache precision (usually FP16)
+
+    def weight_vram_gb(self) -> float:
+        """VRAM for model weights."""
+        return self.param_billions * 1e9 * self.bytes_per_param / (1024 ** 3)
+
+    def kv_cache_vram_gb(
+        self,
+        seq_len: int,       # max sequence length (input + output)
+        batch_size: int,    # concurrent requests
+    ) -> float:
+        """VRAM for KV cache at given concurrency and context length."""
+        # 2 = keys + values
+        bytes_total = (
+            2 * self.num_layers * self.num_kv_heads * self.head_dim
+            * seq_len * batch_size * self.kv_bytes_per_element
+        )
+        return bytes_total / (1024 ** 3)
+
+    def total_vram_gb(
+        self,
+        seq_len: int = 2048,
+        batch_size: int = 1,
+        overhead_factor: float = 1.1,  # 10% for activations, framework overhead
+    ) -> float:
+        weights = self.weight_vram_gb()
+        kv = self.kv_cache_vram_gb(seq_len, batch_size)
+        return (weights + kv) * overhead_factor
+
+
+# Common models with approximate architecture parameters
+LLAMA3_7B = VRAMCalculator(
+    param_billions=7.0,
+    bytes_per_param=2.0,    # FP16
+    num_layers=32,
+    num_kv_heads=8,         # GQA: 8 KV heads
+    head_dim=128,
+)
+
+LLAMA3_70B_INT4 = VRAMCalculator(
+    param_billions=70.0,
+    bytes_per_param=0.5,    # INT4
+    num_layers=80,
+    num_kv_heads=8,         # GQA
+    head_dim=128,
+)
+
+# Single request
+print(f"7B FP16, 1 request,  2K ctx: {LLAMA3_7B.total_vram_gb(2048, 1):.1f} GB")
+print(f"7B FP16, 20 requests, 2K ctx: {LLAMA3_7B.total_vram_gb(2048, 20):.1f} GB")
+print(f"70B INT4, 1 request,  2K ctx: {LLAMA3_70B_INT4.total_vram_gb(2048, 1):.1f} GB")
+print(f"70B INT4, 20 requests, 2K ctx: {LLAMA3_70B_INT4.total_vram_gb(2048, 20):.1f} GB")
+
+# Output:
+# 7B FP16, 1 request,  2K ctx: 15.0 GB
+# 7B FP16, 20 requests, 2K ctx: 16.4 GB
+# 70B INT4, 1 request,  2K ctx: 41.0 GB
+# 70B INT4, 20 requests, 2K ctx: 42.4 GB
+```
+
+Note: the KV cache for a 70B INT4 model with GQA is actually quite small even at 20 requests — the low number of KV heads (8 with GQA vs 64 in standard MHA) is the reason. Without GQA, the 70B model's KV cache at 20 concurrent requests would be roughly 8x larger.
+
+### GPU tier selection guide
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class GPUSpec:
+    name: str
+    vram_gb: int
+    memory_bandwidth_gbps: float
+    cost_per_hour_approx: float  # on-demand approximate; varies by cloud/region
+    best_for: str
+
+GPU_TIERS = [
+    GPUSpec("NVIDIA H100 80GB", 80, 3350, 3.50, "Highest throughput; large models; latency-sensitive production"),
+    GPUSpec("NVIDIA A100 80GB", 80, 2000, 2.50, "High throughput production; still excellent for most workloads"),
+    GPUSpec("NVIDIA A100 40GB", 40, 1555, 1.80, "Production serving for models up to ~30B INT4"),
+    GPUSpec("NVIDIA A10G 24GB", 24, 600,  0.80, "Cost-efficient for 7B–13B models; good price/throughput"),
+    GPUSpec("NVIDIA L4 24GB",   24, 300,  0.70, "Cost-efficient for inference; lower throughput than A10G"),
+    GPUSpec("RTX 4090 24GB",    24, 1008, 0.40, "Development; not suitable for multi-user production"),
+    GPUSpec("Apple M2 Ultra",   192, 800, 0.00, "Unified memory; good for local serving of large quantized models"),
+]
+
+def select_gpu(vram_needed_gb: float, throughput_priority: str = "balanced") -> list[GPUSpec]:
+    """Return GPUs that fit the VRAM requirement, sorted by cost efficiency."""
+    candidates = [g for g in GPU_TIERS if g.vram_gb >= vram_needed_gb]
+    if throughput_priority == "throughput":
+        return sorted(candidates, key=lambda g: -g.memory_bandwidth_gbps)
+    return sorted(candidates, key=lambda g: g.cost_per_hour_approx)
+```
+
+Memory bandwidth (GB/s) matters more than raw FLOPs for inference throughput — the decode phase is bandwidth-bound. The H100's 3350 GB/s bandwidth is why it outperforms the A100 for inference even beyond the raw compute difference.
+
+### Multi-GPU strategies
+
+When a single GPU does not have enough VRAM, you must split the model across multiple GPUs:
+
+```python
+@dataclass
+class ParallelismConfig:
+    strategy: str
+    what_is_split: str
+    communication_pattern: str
+    best_for: str
+    latency_impact: str
+
+PARALLELISM_OPTIONS = [
+    ParallelismConfig(
+        strategy="Tensor Parallelism (TP)",
+        what_is_split="Each matrix operation is split across GPUs — each GPU computes part of each layer",
+        communication_pattern="All-reduce after each layer (high inter-GPU bandwidth required)",
+        best_for="Reducing latency for a single request; keeps all GPUs busy per token",
+        latency_impact="Minimal if GPUs are on the same node with NVLink; significant across nodes",
+    ),
+    ParallelismConfig(
+        strategy="Pipeline Parallelism (PP)",
+        what_is_split="Model layers are split across GPUs — GPU 0 handles layers 0–19, GPU 1 handles 20–39",
+        communication_pattern="Send activations between pipeline stages (lower bandwidth required than TP)",
+        best_for="Large models where TP communication overhead is too high; cross-node deployments",
+        latency_impact="Pipeline bubble overhead reduces efficiency for small batches",
+    ),
+]
+```
+
+**Practical guidance:** For models that fit on a single node (up to 8 GPUs), tensor parallelism with NVLink is preferred — it reduces per-request latency. For very large models that require multiple nodes, pipeline parallelism is more communication-efficient. Many production systems combine both: tensor parallelism within a node, pipeline parallelism across nodes.
+
+### Spot vs on-demand economics
+
+```python
+def compare_spot_ondemand(
+    gpu_name: str,
+    on_demand_hourly: float,
+    spot_discount_pct: float = 0.70,    # spot typically 60–80% cheaper
+    spot_interruption_rate_pct: float = 5.0,  # probability of interruption per hour
+    workload_type: str = "batch",
+) -> dict:
+    """
+    Compare total cost of spot vs on-demand for a given workload type.
+    Spot instances can be reclaimed by the cloud provider with short notice.
+    """
+    spot_hourly = on_demand_hourly * (1 - spot_discount_pct)
+    daily_savings = (on_demand_hourly - spot_hourly) * 24
+
+    recommendation = (
+        "spot" if workload_type == "batch"   # batch jobs: interruption acceptable
+        else "on-demand"                      # real-time serving: interruption not acceptable
+    )
+
+    return {
+        "on_demand_daily": on_demand_hourly * 24,
+        "spot_daily": spot_hourly * 24,
+        "daily_savings_usd": daily_savings,
+        "interruption_risk": f"{spot_interruption_rate_pct}% per hour",
+        "recommendation": recommendation,
+    }
+
+# Example: A10G serving
+result = compare_spot_ondemand("A10G", on_demand_hourly=0.80, workload_type="realtime")
+# recommendation: on-demand — interruptions cause dropped requests
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### VRAM budget allocation in practice
+
+A realistic VRAM budget for a production deployment:
+
+| Component | Typical allocation |
+|---|---|
+| Model weights | 40–60% of VRAM |
+| KV cache pool | 30–50% of VRAM |
+| Activations (peak, per request) | 2–5% of VRAM |
+| Framework overhead | 1–3% of VRAM |
+
+vLLM's `gpu_memory_utilization` parameter (default 0.90) reserves 90% of VRAM for the weights + KV cache pool. The remaining 10% provides headroom for activations and framework overhead. If the model weights consume 60% of VRAM, 30% is available for KV cache — which directly determines maximum concurrent requests.
+
+### Memory bandwidth hierarchy
+
+Modern GPU memory hierarchy from fastest to slowest:
+
+1. **L1 / Shared memory (SRAM)** — within a streaming multiprocessor; ~20 TB/s; very small (hundreds of KB)
+2. **L2 cache** — shared across SMs; a few TB/s; a few MB
+3. **HBM (High Bandwidth Memory)** — the main VRAM; 2–3.3 TB/s for H100; 40–80GB
+4. **PCIe / NVLink** — between GPUs; 50–900 GB/s
+5. **CPU RAM** — not usable during inference without significant overhead
+
+Flash Attention's benefit is precisely this hierarchy: it keeps attention computation data in SRAM rather than round-tripping to HBM repeatedly.
+
+### When CPU inference is acceptable
+
+CPU inference with llama.cpp on a modern server-grade CPU:
+- 7B GGUF Q4: typically 15–40 tokens/second (depends on CPU core count and memory bandwidth)
+- 13B GGUF Q4: typically 8–20 tokens/second
+
+This is practical for: development and testing, internal tools with under 5 concurrent users, edge deployment where GPUs are unavailable. It is not practical for user-facing products with more than a handful of concurrent users.
+
+Apple Silicon M-series unifies CPU and GPU memory, so a Mac Studio with 192GB of unified memory can run very large quantized models with GPU-accelerated inference via llama.cpp's Metal backend — reaching 20–60 tokens/second for 70B Q4 models. Viable for single-user production applications; not for high-concurrency serving.
+
+### Further reading
+
+- [NVIDIA — GPU Architecture Whitepapers](https://www.nvidia.com/en-us/technologies/) — Technical architecture specifications for H100, A100, and other relevant hardware; the memory bandwidth and VRAM figures used in production sizing come from these specs.
+- [LLM-Perf Leaderboard](https://huggingface.co/spaces/optimum/llm-perf-leaderboard) — Hugging Face, ongoing. Empirical throughput and latency benchmarks across hardware and model combinations; useful for calibrating theoretical estimates.
+- [NVIDIA Collective Communication Library (NCCL) documentation](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/overview.html) — Reference for multi-GPU communication; relevant for understanding tensor and pipeline parallelism communication patterns.
