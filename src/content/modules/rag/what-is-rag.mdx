@@ -1,0 +1,262 @@
+---
+moduleId: "2.1"
+title: "What is RAG and Why"
+description: "LLMs know a lot, but they don't know your data. Retrieval-Augmented Generation is the pattern that fixes this — not by training the model on your data, but by finding the relevant pieces at query time and handing them directly to the model."
+track: "rag"
+order: 1
+personas: ["junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 6
+  layer2: 14
+  layer3: 18
+productionGotcha: "RAG shifts the failure mode from hallucination to retrieval failure. A model without RAG makes up an answer; a model with bad RAG confidently states whatever the retrieved chunk says — even if the wrong chunk was retrieved. The retrieval step needs its own evaluation, separate from the generation step."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An LLM's knowledge is frozen at its training cutoff. It doesn't know your company's internal documentation, your product's latest release notes, or a customer's account history. Ask it about any of these and it will either say it doesn't know or, worse, make something up.
+
+**Retrieval-Augmented Generation (RAG)** solves this by doing something simple: before calling the model, find the relevant information in your own data store and include it in the prompt. The model's job becomes reading and synthesising text you've already found — which it does reliably — rather than recalling facts from training — which it doesn't.
+
+The pipeline has three steps:
+
+```
+User query
+    ↓
+[Retrieval] — search your data store for documents relevant to the query
+    ↓
+[Augmentation] — add those documents to the prompt
+    ↓
+[Generation] — the model reads the documents and answers
+```
+
+That's it. The model never needed to "know" your data — it just needed to see it at the right moment.
+
+### When RAG is the right answer
+
+| Situation | Right approach |
+|---|---|
+| Your data changes frequently (docs, tickets, news) | RAG — no re-training needed |
+| You need answers grounded in specific sources | RAG — citations come naturally |
+| Your data is too large to fit in a context window | RAG — retrieve only what's relevant |
+| You need a consistent output style or specialised vocabulary | Fine-tuning (not RAG) |
+| The model lacks a capability, not knowledge | Prompting or a larger model (not RAG) |
+
+### Production Gotcha
+
+> **Common Gotcha:** RAG shifts the failure mode from hallucination to retrieval failure. A model without RAG makes up an answer; a model with bad RAG confidently states whatever the retrieved chunk says — even if the wrong chunk was retrieved. The retrieval step needs its own evaluation, separate from the generation step.
+
+---
+
+## Layer 2 — Guided
+
+### The retrieval gap in practice
+
+Here is the difference between a naive LLM call and a RAG call on a private knowledge question:
+
+```python
+# --- pseudocode ---
+
+# Without RAG — model has no access to internal data
+response = llm.chat(
+    model="balanced",
+    messages=[{"role": "user", "content": "What is our refund policy for enterprise customers?"}],
+    max_tokens=512,
+)
+# Model will either refuse or hallucinate a plausible-sounding policy.
+
+# With RAG — retrieve first, then generate
+relevant_docs = retriever.search("refund policy enterprise customers", top_k=3)
+context = "\n\n".join(relevant_docs)
+
+response = llm.chat(
+    model="balanced",
+    system=(
+        "Answer using only the provided documents. "
+        "If the answer is not in the documents, say so explicitly."
+    ),
+    messages=[{
+        "role": "user",
+        "content": f"Documents:\n\n{context}\n\nQuestion: What is our refund policy for enterprise customers?"
+    }],
+    max_tokens=512,
+)
+```
+
+The model in the second call is doing something much simpler: reading text you found and extracting the relevant part. It doesn't need to remember anything.
+
+### The full RAG pipeline
+
+A production RAG system has two distinct pipelines that run at different times:
+
+**Indexing pipeline** (runs once, then on data updates):
+```
+Raw documents (PDFs, docs, HTML, database records)
+    ↓
+[Preprocessing] — clean, deduplicate, extract text
+    ↓
+[Chunking] — split into retrieval-sized pieces
+    ↓
+[Embedding] — convert each chunk to a vector
+    ↓
+[Storage] — write vectors + text to a vector database
+```
+
+**Query pipeline** (runs on every user request):
+```
+User query
+    ↓
+[Embed the query] — convert query to a vector
+    ↓
+[Search] — find the most similar vectors in the database
+    ↓
+[Retrieve] — fetch the corresponding text chunks
+    ↓
+[Augment + Generate] — add chunks to prompt; call the model
+    ↓
+Response to user
+```
+
+Each step in both pipelines is a point where things can go wrong — and each has its own failure modes and evaluation criteria.
+
+### A minimal working example
+
+Here is the thinnest possible RAG implementation, without a vector database — using simple keyword search to demonstrate the pattern:
+
+```python
+# --- pseudocode ---
+# In production, replace the keyword search with a vector database.
+
+DOCUMENTS = [
+    {"id": "doc1", "text": "Enterprise customers receive a 60-day money-back guarantee on annual plans."},
+    {"id": "doc2", "text": "Monthly subscribers can cancel anytime; no refunds for the current billing period."},
+    {"id": "doc3", "text": "Volume discounts apply automatically for accounts with over 50 seats."},
+]
+
+def keyword_search(query: str, documents: list[dict], top_k: int = 2) -> list[str]:
+    """Naive keyword overlap — replace with vector search in production."""
+    query_words = set(query.lower().split())
+    scored = []
+    for doc in documents:
+        doc_words = set(doc["text"].lower().split())
+        overlap = len(query_words & doc_words)
+        scored.append((overlap, doc["text"]))
+    scored.sort(reverse=True)
+    return [text for _, text in scored[:top_k] if _ > 0]
+
+def rag_answer(question: str) -> str:
+    chunks = keyword_search(question, DOCUMENTS)
+
+    if not chunks:
+        return "I don't have information about that in my knowledge base."
+
+    context = "\n\n".join(f"[{i+1}] {chunk}" for i, chunk in enumerate(chunks))
+
+    response = llm.chat(
+        model="balanced",
+        system=(
+            "Answer the question using only the provided documents. "
+            "Cite the document number [1], [2] etc. where you found the answer. "
+            "If the answer is not in the documents, say so."
+        ),
+        messages=[{
+            "role": "user",
+            "content": f"Documents:\n\n{context}\n\nQuestion: {question}"
+        }],
+        max_tokens=256,
+    )
+    return response.text
+```
+
+This is obviously not production-ready (keyword search misses synonyms, doesn't rank by semantic meaning), but the structure — retrieve chunks, build context string, call model with grounding instruction — is identical to what a production system does.
+
+### Before vs After
+
+**Without RAG — hallucination on private data:**
+```python
+# BAD: Model asked about data it never saw
+response = llm.chat(
+    model="balanced",
+    messages=[{"role": "user", "content":
+        "What SLA does our enterprise tier guarantee?"
+    }],
+    max_tokens=256,
+)
+# Returns: "Enterprise tiers typically offer 99.9% uptime SLAs..." (invented)
+```
+
+**With RAG — grounded in actual docs:**
+```python
+# GOOD: Model reads the actual SLA document
+sla_chunks = retriever.search("enterprise SLA uptime guarantee", top_k=3)
+context = "\n\n".join(sla_chunks)
+response = llm.chat(
+    model="balanced",
+    system="Answer only from the provided documents. Quote directly where possible.",
+    messages=[{"role": "user", "content":
+        f"Documents:\n{context}\n\nWhat SLA does our enterprise tier guarantee?"
+    }],
+    max_tokens=256,
+)
+# Returns: "According to the SLA document, enterprise customers are guaranteed 99.95% uptime..." (grounded)
+```
+
+### Common mistakes
+
+1. **Skipping the grounding instruction** — Not telling the model to answer only from provided documents. Without it, the model blends retrieved content with recalled facts, defeating the point of RAG.
+2. **Passing too many chunks** — Retrieving 20 chunks when 3–5 are relevant. More context isn't always better: it dilutes the relevant signal and hits the "lost in the middle" problem (module 1.6).
+3. **Assuming retrieval is "solved"** — Using the first working retrieval method without evaluating it. Retrieval quality determines answer quality; bad retrieval produces confident wrong answers.
+4. **One pipeline for all content types** — Treating PDFs, HTML, database records, and code the same way. Different content types need different preprocessing and chunking strategies.
+5. **No source attribution** — Returning answers without indicating which document they came from. Users can't verify, trust degrades, and debugging failures is harder.
+
+---
+
+## Layer 3 — Deep Dive
+
+### RAG vs fine-tuning vs prompting
+
+These three options are frequently confused. They solve different problems:
+
+| Approach | What it changes | Use when |
+|---|---|---|
+| **Better prompting** | How the model interprets the task | The model has the knowledge but isn't applying it well |
+| **RAG** | What information the model sees at inference | The model lacks the specific knowledge — it's not in training data |
+| **Fine-tuning** | The model's weights | You need a consistent style, specialised vocabulary, or a capability the base model lacks entirely |
+
+A common mistake is reaching for fine-tuning when RAG would work. Fine-tuning is not efficient at storing facts — models fine-tuned on factual data still hallucinate about that data. RAG is the right tool for knowledge; fine-tuning is the right tool for behaviour.
+
+### Why "stuffing" the context window isn't the same as RAG
+
+If your model has a 1M-token context window, you might wonder: why not just put your entire knowledge base in the prompt? For some use cases, this works. But it has limits:
+
+- **Cost**: 1M tokens of input costs real money on every request, even when 99% is irrelevant to the question.
+- **Latency**: Large contexts are slower to process.
+- **Quality degradation**: The "lost in the middle" effect — models attend unevenly to long contexts; information in the middle is retrieved less reliably than information at the start or end.
+- **Knowledge base size**: Most real knowledge bases are millions or billions of tokens — no context window covers that.
+
+RAG is the scalable answer: retrieve the 1,000 tokens that matter, not the million that exist.
+
+### Semantic search vs keyword search
+
+Traditional search (BM25, Elasticsearch) finds documents that share words with the query. If the query says "return policy" and the document says "refund guidelines," keyword search may miss it.
+
+Embedding-based (semantic) search converts text to vectors that capture meaning, not words. "Return policy" and "refund guidelines" end up close together in vector space because they mean similar things. This is why vector search is the backbone of most production RAG systems — module 2.2 covers how it works.
+
+### The evaluation problem
+
+You can't evaluate RAG by asking "does it give a good answer?" You need to evaluate two separate things:
+
+1. **Retrieval quality**: Are the right chunks being retrieved? This is measurable independently of the model.
+2. **Generation quality**: Given the right chunks, does the model produce a faithful, useful answer?
+
+A system with great retrieval and bad generation fails. A system with great generation and bad retrieval fails differently — it gives confident, well-written wrong answers. Module 2.6 covers how to measure both.
+
+### Further reading
+
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The foundational RAG paper that established the pattern; still the clearest explanation of why retrieval beats recall.
+- [REALM: Retrieval-Augmented Language Model Pre-Training](https://arxiv.org/abs/2002.08909) — Guu et al., 2020. An earlier approach that integrates retrieval into pre-training; useful contrast to inference-time RAG.
+- [Benchmarking Large Language Models in Retrieval-Augmented Generation](https://arxiv.org/abs/2309.01431) — Chen et al., 2023. Systematic evaluation of how well LLMs use retrieved context — relevant to understanding when RAG helps and when it doesn't.

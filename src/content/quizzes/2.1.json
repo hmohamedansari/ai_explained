@@ -1,0 +1,76 @@
+{
+  "title": "What is RAG and Why — Check your understanding",
+  "moduleId": "2.1",
+  "questions": [
+    {
+      "id": "2.1-q1",
+      "type": "multiple-choice",
+      "question": "A user asks your AI assistant about an internal process that was updated two weeks ago. The model's training data is 12 months old. Which approach most directly solves this?",
+      "options": [
+        "Switch to a larger frontier model with more knowledge",
+        "Fine-tune the model on the updated process documentation",
+        "Use RAG — retrieve the current documentation at query time and include it in the prompt",
+        "Lower the temperature so the model is more careful about what it states"
+      ],
+      "answer": 2,
+      "explanation": "The problem is a knowledge gap, not a capability gap — the model simply hasn't seen the updated document. RAG solves this directly by retrieving the current version at query time, with no re-training. A larger model and lower temperature don't give the model information it was never trained on. Fine-tuning could work but is far slower, more expensive, and still won't reflect changes made after the fine-tuning run.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.1-q2",
+      "type": "multiple-choice",
+      "question": "Which statement best describes what a RAG system does differently from a plain LLM call?",
+      "options": [
+        "It trains the model on your private data before answering questions",
+        "It searches your data store at query time and adds the relevant results to the prompt",
+        "It uses a smaller, faster model to pre-filter questions before sending them to the main model",
+        "It stores conversation history so the model remembers previous sessions"
+      ],
+      "answer": 1,
+      "explanation": "RAG retrieves relevant documents at query time and includes them in the prompt — no training, no weight updates, no session storage. The model's job shifts from recalling facts to reading and synthesising text it was just handed. This is why RAG works for frequently-changing data: you update your data store, not the model.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.1-q3",
+      "type": "multiple-choice",
+      "question": "You deploy a RAG system and users report it occasionally gives confident but wrong answers. What does the production gotcha in this module predict is the most likely cause?",
+      "options": [
+        "The model's temperature is too high, causing creative rather than factual responses",
+        "The context window is too small to hold the retrieved documents",
+        "Retrieval failure — the wrong chunks are being retrieved, and the model faithfully answers based on irrelevant content",
+        "The model is ignoring the retrieved documents and answering from memory"
+      ],
+      "answer": 2,
+      "explanation": "RAG shifts the failure mode from hallucination to retrieval failure. The model isn't making things up — it's correctly synthesising whatever it was given. If wrong chunks are retrieved, the model produces confident wrong answers based on that content. This is why retrieval quality must be evaluated independently from generation quality. Temperature and context window issues would show different symptoms.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.1-q4",
+      "type": "multiple-choice",
+      "question": "Your knowledge base contains 50,000 documents and your model has a 200K token context window. Why not simply include all documents in every prompt?",
+      "options": [
+        "It is technically impossible — LLMs cannot process more than 10,000 tokens",
+        "Cost, latency, and the lost-in-the-middle effect make full-context stuffing impractical at real knowledge base sizes, and most content would be irrelevant to any given query",
+        "The model will refuse to answer if given too many documents at once",
+        "Vector databases are faster than context windows for text lookup"
+      ],
+      "answer": 1,
+      "explanation": "Even at 200K tokens, 50,000 documents won't fit — and if they did, you'd pay full input cost for every request regardless of relevance. More importantly, models attend unevenly to long contexts (lost-in-the-middle effect), so packing everything in degrades quality rather than improving it. RAG retrieves the 3–5 relevant chunks, not the full corpus — solving cost, latency, and quality simultaneously.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "2.1-q5",
+      "type": "multiple-choice",
+      "question": "You want your AI assistant to always refer to your company's products using the internal naming convention (e.g. 'Platform X v2' not 'our analytics tool'). Which approach is most appropriate?",
+      "options": [
+        "RAG — retrieve the naming convention document and include it in every prompt",
+        "Fine-tuning — teach the model the vocabulary through weight updates",
+        "A larger model — frontier models have better vocabulary adaptation",
+        "Prompt engineering — list all product names in the system prompt"
+      ],
+      "answer": 3,
+      "explanation": "Consistent output style and specialised vocabulary are exactly what prompt engineering handles cheaply and reliably — put the naming conventions in the system prompt. Fine-tuning is more appropriate when the vocabulary is too large or complex for a system prompt, but for a product naming list, a system prompt instruction with examples is the right first reach. RAG would retrieve the list dynamically (works, but adds latency for a static list). A larger model doesn't help with vocabulary you define.",
+      "personas": ["junior", "senior", "sre"]
+    }
+  ]
+}
