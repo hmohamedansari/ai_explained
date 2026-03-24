@@ -8,6 +8,7 @@ interface Question {
   options: string[];  // required — multiple-choice only
   answer: number;     // index into options[]
   explanation: string;
+  read_more?: string;
 }
 
 interface QuizProps {
@@ -136,6 +137,16 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
                 ].join(' ')}>
                   <p className="font-medium mb-1">{isCorrect ? '✓ Correct' : '✗ Not quite'}</p>
                   <p className="text-slate-300">{q.explanation}</p>
+                  {q.read_more && (
+                    <a
+                      href={q.read_more}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                    >
+                      Read more →
+                    </a>
+                  )}
                 </div>
               )}
             </div>

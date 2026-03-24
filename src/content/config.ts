@@ -65,6 +65,7 @@ const quizzes = defineCollection({
       options: z.array(z.string()).min(2), // multiple-choice needs at least 2 options
       answer: z.number().int(),       // index into options[]
       explanation: z.string(),
+      read_more: z.string().url().optional(),  // optional link to authoritative external resource
       personas: z.array(PERSONA)
         .default(['curious', 'leader', 'junior', 'senior', 'sre']),
     }).superRefine((q, ctx) => {

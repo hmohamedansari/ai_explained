@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Readiness probe failures never restart a pod — they only remove it from the load balancer's endpoint list so no new traffic is routed to it. Liveness probe failures (and container crashes) are what trigger pod kills and restarts. With initialDelaySeconds: 30 and failureThreshold: 3 at periodSeconds: 10, the liveness probe gives up after 60 seconds total — far short of the 6-minute weight loading window. The correct fix is to either raise initialDelaySeconds and failureThreshold on the liveness probe to cover the full startup time, or add a separate startupProbe (introduced in Kubernetes 1.16) with a large failureThreshold during startup, which disables the liveness probe until the startupProbe passes.",
+      "read_more": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
       "personas": ["senior", "sre"]
     },
     {
