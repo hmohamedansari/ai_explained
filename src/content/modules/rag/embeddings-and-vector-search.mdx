@@ -38,7 +38,7 @@ Three things you need to build retrieval:
 
 | Component | What it does | Examples |
 |---|---|---|
-| **Embedding model** | Converts text → vector | `text-embedding-3-small` (OpenAI), `text-embedding-004` (Google), `all-MiniLM-L6-v2` (open-source) |
+| **Embedding model** | Converts text → vector | `text-embedding-3-small` (OpenAI), `gemini-embedding-001` (Google), `all-MiniLM-L6-v2` (open-source) |
 | **Vector database** | Stores vectors, answers similarity queries | Chroma, pgvector, Pinecone, Weaviate, Qdrant |
 | **Similarity metric** | Defines "closeness" between vectors | Cosine similarity (most common), dot product, Euclidean distance |
 
@@ -84,7 +84,7 @@ def embed(text: str) -> list[float]:
     return model.encode(text).tolist()
 ```
 
-Note: **Anthropic does not offer an embedding model.** For RAG with Claude as the generation model, you'll use a separate provider for embeddings — OpenAI, Google (`text-embedding-004`), Cohere (`embed-english-v3.0`), or an open-source model.
+Note: **Anthropic does not offer an embedding model.** For RAG with Claude as the generation model, you'll use a separate provider for embeddings — OpenAI, Google (`gemini-embedding-001`), Cohere (`embed-english-v3.0`), or an open-source model.
 
 ### Choosing an embedding model
 
@@ -94,7 +94,7 @@ The right embedding model depends on your constraints:
 |---|---|---|---|---|
 | `text-embedding-3-small` | OpenAI | 1536 | Low | Best cost/quality balance for most use cases |
 | `text-embedding-3-large` | OpenAI | 3072 | Medium | Higher quality; worth it for complex documents |
-| `text-embedding-004` | Google | 768 | Low | Strong multilingual support |
+| `gemini-embedding-001` | Google | 3072 | Low | Strong multilingual support; supports output dimension reduction |
 | `embed-english-v3.0` | Cohere | 1024 | Low | Good for English retrieval tasks |
 | `all-MiniLM-L6-v2` | open-source | 384 | Free | Fast, small; good for local/offline use |
 | `nomic-embed-text` | open-source | 768 | Free | Higher quality open-source option |

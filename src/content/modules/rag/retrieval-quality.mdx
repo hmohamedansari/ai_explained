@@ -241,7 +241,7 @@ In practice: high IDF (rare terms in the query) × reasonable frequency in the d
 
 Embedding models learn vector representations during training. A term that appears rarely or not at all in training data gets a poor representation — it may collapse to a generic "unknown word" vector that doesn't capture its specific meaning.
 
-This is the out-of-vocabulary (OOV) problem: proprietary product names, internal error codes, recent proper nouns, and domain-specific jargon are all candidates for poor dense retrieval. BM25 doesn't suffer from this — it's a character-level comparison, and a match is a match regardless of training data.
+This is the out-of-vocabulary (OOV) problem: proprietary product names, internal error codes, recent proper nouns, and domain-specific jargon are all candidates for poor dense retrieval. BM25 doesn't suffer from this — it scores on exact term matches using term frequency and inverse document frequency, so "ERR-4021" in a document scores exactly against "ERR-4021" in a query regardless of whether the term ever appeared in any model's training data.
 
 ### Retrieval evaluation metrics
 

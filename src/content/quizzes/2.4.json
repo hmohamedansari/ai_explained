@@ -13,7 +13,7 @@
         "The query is too short for dense retrieval to work effectively"
       ],
       "answer": 1,
-      "explanation": "Dense retrieval searches by meaning, not by exact words. 'ERR-4021' is an opaque identifier — it has no semantic relationship to other error codes. An embedding model likely represents it similarly to other error codes, producing imprecise retrieval. BM25 (sparse retrieval) matches it exactly because it's a character-level comparison. Hybrid search would catch both: the exact match from BM25 and semantic matches from dense retrieval.",
+      "explanation": "Dense retrieval searches by meaning, not by exact words. 'ERR-4021' is an opaque identifier — it has no semantic relationship to other error codes, so an embedding model produces a poor representation for it. BM25 (sparse retrieval) catches it through exact term matching: the term 'ERR-4021' in the query scores directly against the same term in documents using term frequency and IDF, with no dependence on training data. Hybrid search combines both: the exact match from BM25 and semantic matches from dense retrieval.",
       "personas": ["junior", "senior", "sre"]
     },
     {
