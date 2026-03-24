@@ -1,0 +1,76 @@
+{
+  "title": "Prototype to Production Checklist — Check your understanding",
+  "moduleId": "1.9",
+  "questions": [
+    {
+      "id": "1.9-q1",
+      "type": "multiple-choice",
+      "question": "You are preparing to launch your first AI feature. Which of the following is a P0 — must-have before launch?",
+      "options": [
+        "A red-team exercise completed by an external security firm",
+        "Latency baselines and p95 alerting configured",
+        "API error handling with retry logic and graceful refusal handling",
+        "Eval set seeded with at least 200 real traffic samples"
+      ],
+      "answer": 2,
+      "explanation": "API errors and model refusals happen from day one. If your application crashes on a rate limit or shows a blank screen on a refusal, users are affected immediately. This makes error handling a hard P0. Red-teaming, latency alerting, and large eval sets are important but can follow in the first sprint after launch.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.9-q2",
+      "type": "multiple-choice",
+      "question": "Your AI feature processes customer contracts. Three months after launch, users report the model is contradicting itself mid-conversation. What checklist gap most likely caused this?",
+      "options": [
+        "The model version was not pinned and a provider update changed behaviour",
+        "The context window is being exceeded and early conversation turns are being truncated or dropped",
+        "The output guardrail is filtering too aggressively",
+        "The eval threshold was set too low at launch"
+      ],
+      "answer": 1,
+      "explanation": "Self-contradiction mid-conversation is a classic symptom of context overflow — early turns (which established the facts or constraints) are being dropped as history grows. The fix is token monitoring with an alert before the limit is hit, plus a history management strategy (summarisation or sliding window) before that point.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.9-q3",
+      "type": "multiple-choice",
+      "question": "A developer updates the system prompt to fix a tone issue, tests it manually on three examples, and deploys. The next day, classification accuracy drops from 91% to 68%. What process failure caused this?",
+      "options": [
+        "The model version was not pinned, so the provider served a different model",
+        "Manual testing on three examples is not sufficient; the eval set was not run before deploying the prompt change",
+        "The system prompt should not be stored in code — it should be managed through a prompt dashboard",
+        "The developer should have used a larger model to compensate for the prompt change"
+      ],
+      "answer": 1,
+      "explanation": "Prompts are code. A change that fixes one case can regress many others — exactly what happened here. Running the full eval set before deploying any prompt change would have caught the 91% → 68% drop before it reached users. The fix is eval in CI and treating prompt changes with the same review process as code changes.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.9-q4",
+      "type": "multiple-choice",
+      "question": "You are building a document summarisation pipeline that runs overnight on thousands of documents. Which cost and latency optimisation applies most directly?",
+      "options": [
+        "Use streaming to reduce perceived latency for the overnight batch",
+        "Use the Batch API for the overnight job — it typically costs ~50% less for asynchronous workloads",
+        "Pin to a frontier model to ensure the summarisation quality justifies the overnight run",
+        "Set max_tokens to the context limit to ensure no document is truncated"
+      ],
+      "answer": 1,
+      "explanation": "Asynchronous, non-real-time workloads like overnight batch processing are exactly what the Batch API is designed for — roughly 50% cost reduction in exchange for higher latency, which doesn't matter for an overnight job. Streaming is for interactive UX. Frontier models may be unnecessary (balanced models handle summarisation well). Setting max_tokens to the context limit is the wrong ceiling — set it to the expected output size.",
+      "personas": ["leader", "senior", "sre"]
+    },
+    {
+      "id": "1.9-q5",
+      "type": "multiple-choice",
+      "question": "Which statement best captures the relationship between the model and the production AI system that wraps it?",
+      "options": [
+        "The model is the system — a better model eliminates the need for most architectural work",
+        "The model is the smallest part of what you own; the architecture around it determines production reliability",
+        "The model and architecture are equally important — neither can compensate for deficiencies in the other",
+        "The architecture matters only for latency and cost; model quality determines everything else"
+      ],
+      "answer": 1,
+      "explanation": "A frontier model with no eval set, no error handling, no token monitoring, no guardrails, and unbounded history will fail in production. A balanced-tier model with all of those things will be reliable. The architecture — eval, observability, context management, safety, versioning — is what you own and maintain. The model is one component inside it.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}
