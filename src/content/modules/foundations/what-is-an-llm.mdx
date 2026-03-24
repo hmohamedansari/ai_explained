@@ -190,16 +190,16 @@ The pseudocode above uses a simplified interface. Here's how those concepts map 
 
 | | Anthropic | OpenAI | Google Gemini |
 |---|---|---|---|
-| **Package** | `pip install anthropic` | `pip install openai` | `pip install google-generativeai` |
-| **Client** | `anthropic.Anthropic()` | `OpenAI()` | `genai.GenerativeModel(model)` |
-| **API call** | `client.messages.create(...)` | `client.chat.completions.create(...)` | `model.generate_content(...)` |
-| **System prompt** | `system="..."` param | `{"role": "system"}` in messages | `system_instruction="..."` param |
+| **Package** | `pip install anthropic` | `pip install openai` | `pip install google-genai` |
+| **Client** | `anthropic.Anthropic()` | `OpenAI()` | `genai.Client()` |
+| **API call** | `client.messages.create(...)` | `client.chat.completions.create(...)` | `client.models.generate_content(...)` |
+| **System prompt** | `system="..."` param | `{"role": "system"}` in messages | `config=types.GenerateContentConfig(system_instruction="...")` |
 | **Response text** | `response.content[0].text` | `response.choices[0].message.content` | `response.text` |
 | **Input tokens** | `response.usage.input_tokens` | `response.usage.prompt_tokens` | `response.usage_metadata.prompt_token_count` |
 | **Output tokens** | `response.usage.output_tokens` | `response.usage.completion_tokens` | `response.usage_metadata.candidates_token_count` |
 | **Stop signal** | `response.stop_reason` | `response.choices[0].finish_reason` | `response.candidates[0].finish_reason` |
 
-Most providers use the same `messages` format — `[{"role": "user"/"assistant", "content": "..."}]` — so conversation history works the same way across SDKs. The main differences are in SDK setup and how you read the response back. Later modules will reference this table rather than repeating it.
+Anthropic and OpenAI share a `messages`-style conversation format — `[{"role": "user"/"assistant", "content": "..."}]`. Gemini's SDK uses a different shape: the parameter is `contents`, roles are `"user"` and `"model"` (not `"assistant"`), and content lives in `parts`. The concepts are the same; the field names aren't. Later modules will reference this table rather than repeating it.
 
 ---
 
