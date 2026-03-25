@@ -85,6 +85,11 @@
   background-size: 100px 100px;
 }
 
+/* Inline code: neutral background — surface-2 is green-tinted, code should be neutral */
+.prose-lesson :not(pre) > code {
+  background-color: #1e2432;
+}
+
 /* Prose tables: wrap cells on mobile instead of overflowing */
 .prose-lesson table {
   width: 100%;
