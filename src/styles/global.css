@@ -16,12 +16,17 @@
 
   html {
     @apply scroll-smooth;
-    overflow-x: hidden;
   }
 
   body {
     @apply bg-surface text-slate-200 font-sans antialiased;
-    overflow-x: hidden;
+  }
+
+  /* Flex column body: prevent flex children from overflowing the viewport.
+     min-width: auto (the default) lets flex items grow past the container width.
+     min-width: 0 forces them to shrink and stay within bounds. */
+  body > * {
+    min-width: 0;
   }
 
   ::selection {
