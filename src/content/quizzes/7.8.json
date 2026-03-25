@@ -42,6 +42,7 @@
       ],
       "answer": 1,
       "explanation": "GDPR Article 33 requires notification to the supervisory authority within 72 hours of becoming aware of a personal data breach, unless it is unlikely to result in a risk to rights and freedoms. Leaking one user's personal information to another user almost certainly meets the risk threshold. The 72-hour clock starts at awareness — in this case, 9am Monday, which means the notification is due by Wednesday 9am. Note that the 72-hour deadline is for supervisory authority notification; notification to affected individuals (Article 34) is required 'without undue delay' if the breach is likely to result in high risk to those individuals. Both obligations may apply here.",
+      "read_more": "https://gdpr-info.eu/art-33-gdpr/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -70,6 +71,7 @@
       ],
       "answer": 1,
       "explanation": "Security and privacy requirements are not inherently incompatible. The approach that satisfies both: scrub PII from prompt logs before storage (so retention does not create unnecessary GDPR exposure), apply a defined retention limit that covers the likely incident discovery window, restrict access to those who need it for incident response, and document the legal basis for retention (typically legitimate interest in security monitoring). This gives incident responders what they need — the context to reproduce incidents — while not retaining personal data longer than necessary or in a form that creates unnecessary risk. The either/or framing is a false dilemma.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["leader", "junior", "senior", "sre"]
     }
   ]

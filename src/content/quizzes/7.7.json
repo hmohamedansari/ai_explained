@@ -14,6 +14,7 @@
       ],
       "answer": 1,
       "explanation": "The EU AI Act Annex III explicitly lists education and vocational training as a high-risk category — specifically, AI systems used to evaluate students and determine access to educational programmes. An essay scoring tool that influences admissions decisions is squarely in this category. The production gotcha is relevant: teams assume 'advisory' or 'helpful' tools are minimal risk. Annex III classifies by use case domain and function, not by how the system is marketed. High-risk obligations include technical documentation, conformity assessment, logging of system operation, transparency to users, and human oversight — these must be designed in, not bolted on after launch.",
+      "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -28,6 +29,7 @@
       ],
       "answer": 1,
       "explanation": "Article 22 requires 'suitable measures to safeguard the data subject's rights and freedoms and legitimate interests', which regulators interpret as requiring genuine human review, not nominal human involvement. A reviewer spending 4 seconds on a decision and overriding fewer than 0.1% of AI recommendations is functionally automated decision-making with a human label. The ICO and EDPB guidance both emphasise that the human must have the authority, time, competence, and relevant information to meaningfully override the AI — and must actually do so when appropriate. Rubber-stamp review exposes the company to regulatory challenge on the same basis as fully automated decisions.",
+      "read_more": "https://gdpr-info.eu/art-22-gdpr/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -42,6 +44,7 @@
       ],
       "answer": 1,
       "explanation": "Article 5 of the EU AI Act prohibits AI systems that evaluate or classify natural persons based on their social behaviour or personal characteristics in a way that causes detrimental treatment. Workplace social scoring that affects employment conditions is in scope for this analysis. The prohibition became applicable in February 2025 with no grandfather clause for existing systems. Legal counsel should assess the specific system against Article 5, consider whether it falls under any exemptions, and advise on modification or discontinuation if it is in scope. Consent from employees does not override a prohibition — the category of practice is banned, not made permissible with consent.",
+      "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -56,6 +59,7 @@
       ],
       "answer": 1,
       "explanation": "The NIST AI RMF is voluntary as a national standard — no federal law mandates its use. However, 'voluntary' at the framework level does not mean 'optional in procurement'. Federal agencies regularly incorporate voluntary frameworks as mandatory contract requirements. An RFP that specifies NIST AI RMF compliance as a requirement makes it a binding condition for that contract. US government customers are increasingly using the RMF as a procurement filter, which means it is de facto mandatory for vendors targeting that market even though it remains voluntary as a national standard.",
+      "read_more": "https://airc.nist.gov/RMF",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -70,6 +74,7 @@
       ],
       "answer": 1,
       "explanation": "Disclaimers are a useful risk communication tool but do not constitute legal protection. Under the EU AI Act, access to legal services is listed in Annex III — if the tool influences access to or outcomes from legal processes, a disclaimer does not downgrade the risk tier. In many jurisdictions, providing legal advice without a licence is a regulatory violation regardless of disclaimers — regulators assess what the product actually does, not how it labels itself. For products in regulated domains (legal, medical, financial), the correct step is a legal counsel review of the specific use case and jurisdiction, not a disclaimer.",
+      "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     }
   ]

@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Risk reduction is the ROI category most commonly mis-measured. When a system works, nothing happens — and 'nothing happened' looks like zero value to someone measuring activity rather than outcomes. The correct framing: what is the historical rate of compliance failures, what is the estimated cost per failure, and how many failures was the system expected to prevent? That product is the value delivered, regardless of whether any failure occurred in the measurement window.",
+      "read_more": "https://airc.nist.gov/RMF",
       "personas": ["curious", "leader"]
     },
     {

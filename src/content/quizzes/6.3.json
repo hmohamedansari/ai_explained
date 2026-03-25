@@ -14,6 +14,7 @@
       ],
       "answer": 1,
       "explanation": "BLEU was designed for machine translation, where surface-form overlap correlates with translation quality. For open-ended generation like summarization, valid paraphrases can score near zero because they share no tokens with the reference. 'Quarterly revenue declined' and 'Q3 earnings fell' convey the same fact but produce near-zero BLEU overlap. Using BLEU for this task penalizes the model for using different but equally valid phrasing. Semantic similarity (embedding cosine distance) captures meaning regardless of surface form; LLM-as-judge can evaluate factual accuracy directly.",
+      "read_more": "https://aclanthology.org/P02-1040/",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -42,6 +43,7 @@
       ],
       "answer": 1,
       "explanation": "A calibration correlation of 0.45 is insufficient for production use. The recommended threshold is Pearson r above 0.70 with human judgements. At 0.45, the judge's scores are weakly predictive of human quality assessment — it will produce many false positives (flagging good responses) and false negatives (missing poor ones). Using a poorly calibrated judge at scale produces quality metrics that do not reflect reality and may mask real regressions. The fix is to revise the rubric to be more concrete and specific, try a different judge model, or invest in more human annotation to understand where the judge diverges.",
+      "read_more": "https://arxiv.org/abs/2306.05685",
       "personas": ["junior", "senior", "sre"]
     },
     {

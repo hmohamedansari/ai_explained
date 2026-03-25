@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Data residency requirements for regulated industries (HIPAA, FedRAMP, etc.) are hard constraints, not preferences. Even with a HIPAA BAA, patient data transiting a third-party provider's infrastructure may not satisfy specific regulatory requirements — the answer depends on the regulation, not on the provider's certifications. The safe path is to start with self-hosted or cloud-managed (within their own cloud account) and work backward from compliance requirements. API inference is worth evaluating only after the compliance team has confirmed it can be made compliant.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["senior", "sre"]
     },
     {

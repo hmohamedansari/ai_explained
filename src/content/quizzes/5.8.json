@@ -14,6 +14,7 @@
       ],
       "answer": 1,
       "explanation": "LLM inference is GPU-bound, not CPU-bound. The serving process uses the CPU primarily for request handling and scheduling — lightweight tasks that may consume only one or two CPU cores. Under full GPU saturation (100% GPU utilization), CPU utilization might be 20–30%, well below the HPA threshold. The HPA sees no need to scale, but users experience degraded latency because the GPU is the actual bottleneck. The correct signals are GPU utilization (measured via NVIDIA DCGM exporter and exposed to Prometheus) or request queue depth — which directly measures unmet demand. Tools like KEDA can trigger autoscaling on these custom metrics.",
+      "read_more": "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/",
       "personas": ["senior", "sre"]
     },
     {

@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Using unreviewed user-generated content as fine-tuning data introduces training data poisoning risk. An attacker who knows your system will use chat logs for fine-tuning can deliberately submit conversations that introduce backdoor patterns — the fine-tuned model behaves normally for most inputs but produces attacker-chosen outputs when given specific trigger phrases. Privacy (GDPR) is also a real risk, but the security concern is the backdoor: a poisoned model may pass all standard evaluations while hiding malicious behaviour that only activates on trigger inputs. The mitigation is auditing training data before use, particularly flagging unusual patterns, and evaluating the fine-tuned model against adversarial inputs before deploying.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["senior", "sre"]
     },
     {
@@ -70,6 +71,7 @@
       ],
       "answer": 1,
       "explanation": "A standard SBOM lists software packages and their versions. An AI system has additional dependencies that are not packages: model weight files, fine-tuning datasets, LoRA adapters, and the base models they derive from. These carry their own supply chain risks (malicious weights, poisoned training data) that are invisible to a package-only SBOM. An AI SBOM should include: all model files with their checksums, source URLs, and format; fine-tuning data provenance; adapter origins; and the base model name and version. This makes the full dependency graph auditable and allows incident responders to determine whether a specific model artefact was involved in a security event.",
+      "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     }
   ]

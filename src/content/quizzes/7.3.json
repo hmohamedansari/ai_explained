@@ -70,6 +70,7 @@
       ],
       "answer": 1,
       "explanation": "The fail-open vs fail-closed decision is a risk calibration that depends on the relative cost of false positives vs false negatives in the specific domain. For medical information, where a harmful response could influence a user to make a dangerous health decision, the false negative cost is high — fail-closed is appropriate. For a casual content discovery tool where over-blocking is more damaging than occasional misses, fail-open with monitoring may be better. Neither is universally correct; the domain risk profile, regulatory context, and cost of each error type should drive the decision, calibrated against real traffic samples.",
+      "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     }
   ]

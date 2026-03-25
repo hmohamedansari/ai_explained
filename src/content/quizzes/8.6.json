@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Engineering estimates for AI features typically cover the model integration and application logic. For customer-facing features, the full timeline also includes: building and running the evaluation suite, safety testing and red-teaming, production monitoring setup, and the iterative refinement that evaluation findings require. These phases commonly add 50–100% to the engineering estimate. Communicating a realistic estimate upfront, with the explanation for why it differs from the engineering estimate, is better than committing to 6 weeks and delivering in 10.",
+      "read_more": "https://opentelemetry.io/docs/",
       "personas": ["curious", "leader"]
     },
     {

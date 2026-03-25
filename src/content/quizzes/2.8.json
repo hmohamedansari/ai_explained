@@ -70,6 +70,7 @@
       ],
       "answer": 2,
       "explanation": "A relevance threshold prevents empty or irrelevant chunks from reaching the model (avoiding confident wrong answers from garbage retrieval). A grounding instruction prevents the model from blending retrieved content with training knowledge. An explicit no-answer path prevents hallucination when the knowledge base can't answer the question. These three together are the minimum safety net for a user-facing RAG system. A re-ranker and RAGAS monitoring are P1–P2; multi-query retrieval is a pattern to add after measuring that basic recall is insufficient.",
+      "read_more": "https://docs.ragas.io/",
       "personas": ["junior", "senior", "sre"]
     }
   ]

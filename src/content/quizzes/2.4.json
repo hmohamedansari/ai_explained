@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Recall@k directly answers the retrieval question: for k results passed to the model, what fraction of the time does the correct document appear in those k results? If recall@5 is 0.60, 40% of the time the model never sees the right document — no amount of prompt engineering can fix that. BLEU measures generation quality, latency measures speed, and average cosine similarity is a weak proxy that doesn't tell you whether the right document was retrieved.",
+      "read_more": "https://docs.ragas.io/",
       "personas": ["junior", "senior", "sre"]
     },
     {

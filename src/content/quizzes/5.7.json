@@ -14,6 +14,7 @@
       ],
       "answer": 1,
       "explanation": "Standard web service readiness probes check port availability or a lightweight /health endpoint that responds as soon as the process starts. LLM inference servers behave differently: the HTTP port opens within seconds, but the model is not usable until weights are fully loaded into VRAM — which takes 2–5 minutes for large models. A probe that only checks port availability will declare the pod ready long before it can serve inference requests. The correct probe calls a real (minimal) inference endpoint — even a one-token generation — to verify the model is loaded and responding. The initialDelaySeconds should also be set high enough to allow weight loading before the first probe attempt.",
+      "read_more": "https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/",
       "personas": ["senior", "sre"]
     },
     {
@@ -28,6 +29,7 @@
       ],
       "answer": 1,
       "explanation": "Baking large model weights into Docker images creates several compounding problems. A 35GB image pull per pod startup is extremely slow — potentially 10–30 minutes depending on network bandwidth — and defeats the purpose of fast pod scaling. Registry storage at $0.02–0.10/GB means 35GB costs meaningful money even for a few image versions. Layer caching (which normally makes repeated pulls fast) often fails for large single-layer files because the cache key depends on the layer hash. The recommended pattern for production is to mount weights from a persistent volume (PVC) or download from object storage at startup — keeping the image small (code only) and pulling weights from high-bandwidth storage.",
+      "read_more": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
       "personas": ["senior", "sre"]
     },
     {
@@ -42,6 +44,7 @@
       ],
       "answer": 1,
       "explanation": "With maxSurge=1 (only 1 extra pod at a time) and maxUnavailable=0 (never reduce below desired), the rolling update proceeds serially: one new pod starts, must become Ready before the next old pod is terminated, then the next new pod starts. Each new pod takes 4 minutes to load weights. The readiness probe's initialDelaySeconds=30 is too short — the probe will start checking at 30 seconds, fail for the next 3.5 minutes, and then pass when the model finishes loading (assuming failureThreshold is high enough). The total rollout is approximately 16 minutes. Teams must account for this in deployment runbooks and CI/CD timeout configurations.",
+      "read_more": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
       "personas": ["senior", "sre"]
     },
     {
@@ -71,6 +74,7 @@
       ],
       "answer": 1,
       "explanation": "Tensor parallelism requires all GPUs in the parallel group to be connected via NVLink (for acceptable performance) — which means they must be on the same node. Without explicit affinity configuration, the Kubernetes scheduler can place pods on any node with available GPU resources, potentially splitting a 2-pod tensor-parallel group across nodes. Pod affinity with topologyKey: kubernetes.io/hostname ensures that pods with a matching label (e.g., the same model shard group) are co-located on the same node. StatefulSets (option A) provide stable network identities, not co-location. DaemonSets (option C) schedule one pod per node by design, which is the opposite of co-location.",
+      "read_more": "https://kubernetes.io/docs/concepts/workloads/controllers/deployment/",
       "personas": ["senior", "sre"]
     }
   ]

@@ -42,6 +42,7 @@
       ],
       "answer": 1,
       "explanation": "For minimizing latency on the same server with NVLink, tensor parallelism is generally preferred. In pipeline parallelism, each GPU processes different layers sequentially — GPU 0 finishes its layers, then sends activations to GPU 1, which processes its layers. Each GPU is idle while the other works, and the per-stage communication introduces bubble overhead. In tensor parallelism, both GPUs participate in every layer simultaneously and synchronize via all-reduce. With NVLink bandwidth (900 GB/s on modern hardware), the all-reduce communication is fast and both GPUs contribute to each decode step, halving the compute time per step. Pipeline parallelism is more appropriate for cross-node deployments where NVLink is not available.",
+      "read_more": "https://docs.vllm.ai/en/latest/",
       "personas": ["senior", "sre"]
     },
     {

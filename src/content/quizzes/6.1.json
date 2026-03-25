@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "For open-ended natural language answers, exact match is too strict (penalizes correct paraphrases) and semantic similarity is too permissive (cannot catch factual errors that happen to be phrased similarly to the reference). LLM-as-judge with a correctness rubric is the right choice because it can evaluate both factual accuracy and coverage while being robust to paraphrase variation. BLEU was designed for machine translation, not conversational QA, and its correlation with human judgment is poor for open-ended generation.",
+      "read_more": "https://arxiv.org/abs/2306.05685",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -56,6 +57,7 @@
       ],
       "answer": 1,
       "explanation": "For code generation, execution is the gold standard. Running the generated code against the provided test cases gives a binary, unambiguous correctness signal. LLM-as-judge can assess style or readability but cannot reliably verify functional correctness — it might rate broken code as correct because it looks plausible. Semantic similarity captures superficial similarities in code structure, not functional equivalence. BLEU measures surface-form overlap with a specific reference implementation, which penalizes all valid alternative implementations.",
+      "read_more": "https://arxiv.org/abs/2107.03374",
       "personas": ["junior", "senior", "sre"]
     },
     {

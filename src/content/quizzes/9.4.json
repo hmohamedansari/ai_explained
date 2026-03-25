@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Fixed sleeps are unreliable because render times vary with network conditions and server load — a 2-second sleep may be too long under normal conditions and insufficient during high load. Explicit wait conditions (polling for element stability, checking that loading indicators have disappeared, verifying element properties) are the correct pattern from browser automation engineering applied to GUI agents. They are both faster than fixed delays in the common case and more reliable under variable conditions.",
+      "read_more": "https://playwright.dev/docs/actionability",
       "personas": ["senior", "sre"]
     },
     {

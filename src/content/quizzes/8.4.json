@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Documentation reviews are risk theatre if they check whether systems have been described correctly rather than whether they behave correctly. A review that requires eval evidence (how does the system perform on representative inputs?), red-team findings (what failure modes were found?), and a monitoring plan (how will you know if it degrades in production?) catches actual risks in the time it currently takes to produce documentation. The goal is real risk reduction, not compliance with a process.",
+      "read_more": "https://airc.nist.gov/RMF",
       "personas": ["curious", "leader"]
     },
     {

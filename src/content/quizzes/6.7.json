@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Static thresholds only detect when a value exceeds a fixed absolute level — they are blind to gradual trends. Statistical process control (SPC) using EWMA tracks deviations from a running baseline, which means it detects both sudden spikes and gradual drift. As error rate climbs from 0.5% to 4.8% over two months, the EWMA-based control chart would have flagged the progressive deviation from the historical norm weeks before reaching 4.8%. Static thresholds require you to know the 'right' threshold in advance; EWMA control charts adapt to the system's normal operating range and alert on anomalous deviation from it.",
+      "read_more": "https://opentelemetry.io/docs/",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -70,6 +71,7 @@
       ],
       "answer": 1,
       "explanation": "Model aliases (like a version name without a date) can point to different underlying models over time as providers update their infrastructure. Periodic canary probes — running a fixed set of known inputs and comparing outputs to expected behavior — detect behavioral drift regardless of whether it came from team-side changes or provider-side updates. When a probe response changes, it signals a behavioral shift. This is complementary to version pinning: pinning prevents unintentional model changes for teams using dated versions, but teams intentionally using aliases (to get automatic updates) need canary probes to detect when those updates affect their use cases.",
+      "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     }
   ]

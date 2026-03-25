@@ -70,6 +70,7 @@
       ],
       "answer": 1,
       "explanation": "Detecting a prompt injection attempt requires a record of what the model actually did, not just what it was supposed to do. Successful calls are equally important: an injection that exfiltrates data via a read operation (fetch_url, search, get_record) will appear as a successful call. Without logging successful calls, the attack is invisible in the audit trail. Audit logs also enable post-incident analysis (what data was accessed?), anomaly detection (this user never calls admin_tool), and compliance reporting.",
+      "read_more": "https://airc.nist.gov/RMF",
       "personas": ["junior", "senior", "sre"]
     }
   ]

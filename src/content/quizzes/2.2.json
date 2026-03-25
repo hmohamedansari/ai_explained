@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Anthropic does not offer an embedding model. For RAG systems that generate with Claude, you pick an embedding model from another provider (OpenAI text-embedding-3-small, Google gemini-embedding-001, Cohere embed-english-v3.0, or open-source models like all-MiniLM-L6-v2). The generation model and embedding model are completely independent — you can mix any combination.",
+      "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     },
     {

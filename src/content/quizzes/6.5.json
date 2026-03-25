@@ -70,6 +70,7 @@
       ],
       "answer": 1,
       "explanation": "A z-score of 3.3 on a cost metric means the request cost is 3.3 standard deviations above the rolling mean — a statistically significant anomaly. The correct response is to investigate immediately: look at what made this request more expensive than typical. Was it an unusually long output? A wrong model being routed? A new code path that constructs a much longer prompt? Dismissing the first alert allowed 200 subsequent requests at the same elevated cost to accumulate before the pattern was visible in aggregate dashboards. The anomaly detector exists precisely to catch these signals before they compound.",
+      "read_more": "https://opentelemetry.io/docs/",
       "personas": ["junior", "senior", "sre"]
     }
   ]

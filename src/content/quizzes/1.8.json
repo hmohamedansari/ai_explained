@@ -70,6 +70,7 @@
       ],
       "answer": 1,
       "explanation": "Model providers update safety behaviour with new versions — what a model refused in one version it may handle differently in another, and vice versa. Always run safety-specific test cases (edge cases, adversarial inputs, in-scope/out-of-scope boundary tests) against the new version before promoting it. Treat model upgrades like software deployments: tested and verified before rollout.",
+      "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     }
   ]

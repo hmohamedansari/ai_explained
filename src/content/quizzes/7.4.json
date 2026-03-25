@@ -14,6 +14,7 @@
       ],
       "answer": 1,
       "explanation": "This is the production gotcha for module 7.4. Teams apply PII controls to the visible user input field but miss the much larger PII surface in their RAG pipeline — retrieved documents, CRM records, tool results. A user may type 50 words with no PII, while the system fetches 10 customer records containing dozens of PII fields and sends them all to an external API. The fix requires scrubbing to be applied at every data entry point into the context: user input, retrieved documents, and tool results.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -42,6 +43,7 @@
       ],
       "answer": 1,
       "explanation": "A DPA establishes the provider's obligations as a data processor — it covers how they handle the data you send them, whether they use it for training, their breach notification obligations, etc. It does not create a legal basis for your data processing. Under GDPR, you still need to identify your lawful basis for processing each category of personal data you send: consent, contractual necessity, legal obligation, or legitimate interest. Without a lawful basis, sending personal data to the API is a GDPR violation regardless of whether a DPA is in place.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -56,6 +58,7 @@
       ],
       "answer": 1,
       "explanation": "Article 22 applies when a decision is solely automated AND produces legal or similarly significant effects on individuals. Automated rejection of a job application meets both criteria — employment opportunity is considered 'similarly significant'. The HR manager reviewing the shortlist does not help the rejected applicants, who never received human review. The required safeguards include: a lawful basis (or explicit consent) for the automated processing, the right to request human review, the ability to express their point of view, and a meaningful explanation of the logic. Designing out Article 22 compliance after launch is expensive — it should be a design requirement from the start.",
+      "read_more": "https://gdpr-info.eu/art-22-gdpr/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
@@ -70,6 +73,7 @@
       ],
       "answer": 1,
       "explanation": "Training data memorisation means the model retains and can reproduce fragments of its training data when prompted. If customer support tickets containing personal data were included in training data (yours or another provider customer's), the model could reproduce that data in responses. This creates a cross-user PII leakage risk: a user's personal data from a support ticket could surface in a response to a completely different user. The practical mitigations are: confirm with your provider whether your data is used for training (and opt out), review the DPA for breach notification obligations, and scrub PII before sending tickets to the API.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["senior", "sre"]
     }
   ]

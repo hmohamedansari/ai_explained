@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "Unit tests verify tool logic. Contract tests verify schema agreement. Neither tests whether the model uses the tools correctly — that requires a real model call. Integration tests answer: does the model call the right tool for this query? Does it pass arguments in the expected format? Does the end-to-end response meet quality expectations? These behaviors cannot be verified without a real model. The token cost of running an integration test suite (typically dozens of scenarios) is small compared to the cost of discovering model-tool incompatibilities in production.",
+      "read_more": "https://docs.vllm.ai/en/latest/",
       "personas": ["junior", "senior", "sre"]
     },
     {

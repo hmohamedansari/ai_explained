@@ -42,6 +42,7 @@
       ],
       "answer": 1,
       "explanation": "BLEU was designed for machine translation where phrasing choices are more constrained and multiple references can be enumerated. For open-ended image captioning, the space of correct phrasings is essentially unbounded — 'a dog runs across a field' and 'a canine sprinting through grass' describe the same image equally well but share almost no n-grams. BLEU penalises the second description heavily. Expanding references helps but cannot cover all valid phrasings. Semantic similarity metrics and LLM-as-judge with explicit accuracy criteria are more appropriate for open-ended generation evaluation.",
+      "read_more": "https://aclanthology.org/P02-1040/",
       "personas": ["senior", "sre"]
     },
     {

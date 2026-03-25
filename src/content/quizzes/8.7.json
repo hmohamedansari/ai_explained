@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Broad purpose clauses in DPAs are a significant data governance risk. 'Product improvement and model development' can encompass training general foundation models on your customers' personal data — potentially without your customers' knowledge or consent. Under GDPR and equivalent regulations, you need a legal basis for every processing purpose. Push for narrow, specific purpose limitation, explicit opt-out from training use, and clarity on which processing is technically necessary versus optional. If the vendor will not negotiate this clause, that is a signal about the relationship.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["curious", "leader"]
     },
     {

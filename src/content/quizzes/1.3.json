@@ -28,6 +28,7 @@
       ],
       "answer": 1,
       "explanation": "Model aliases always point to the current recommended version. When providers ship improvements, the alias updates automatically. If you haven't pinned a specific model version, your output distribution can change with no action on your part. Always use versioned model IDs in production.",
+      "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -70,6 +71,7 @@
       ],
       "answer": 1,
       "explanation": "An eval set gives you objective, reproducible scores across model tiers on your actual task. Without one, model selection is based on intuition. With one, you can quantify the quality drop when moving to a cheaper model and make an informed tradeoff — and re-run the eval when providers ship new model versions.",
+      "read_more": "https://airc.nist.gov/RMF",
       "personas": ["curious", "leader", "junior", "senior", "sre"]
     }
   ]

@@ -56,6 +56,7 @@
       ],
       "answer": 1,
       "explanation": "The data flywheel only runs if you capture the data. Every user interaction, correction, and feedback signal is potential training and evaluation data — but only if it is logged, stored, and made usable. An organisation that builds AI features without capturing interaction data is leaving the most valuable long-term asset on the table. The irony is that the cost of capturing is low; the cost of not capturing is an eventual capability gap relative to competitors who did.",
+      "read_more": "https://gdpr-info.eu/",
       "personas": ["curious", "leader"]
     },
     {
