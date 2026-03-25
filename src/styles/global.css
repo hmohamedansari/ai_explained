@@ -16,10 +16,12 @@
 
   html {
     @apply scroll-smooth;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-surface text-slate-200 font-sans antialiased;
+    overflow-x: hidden;
   }
 
   ::selection {
