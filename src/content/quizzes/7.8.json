@@ -1,0 +1,76 @@
+{
+  "title": "Incident Response for AI Systems — Check your understanding",
+  "moduleId": "7.8",
+  "questions": [
+    {
+      "id": "7.8-q1",
+      "type": "multiple-choice",
+      "question": "An on-call engineer receives a P1 alert: multiple users have reported that the AI assistant is producing offensive content. The engineer wants to investigate root cause before taking any action. What should happen first?",
+      "options": [
+        "Investigate root cause first — you need to understand what happened before you can contain it",
+        "Containment comes before investigation — tighten the output guardrail threshold immediately to stop new offensive responses; investigation can run in parallel once the system is no longer actively harming users; the investigation that finds the perfect root cause while users are still receiving offensive responses is the wrong priority order",
+        "Notify the executive team before taking technical action",
+        "Wait for more user reports to confirm the pattern before acting"
+      ],
+      "answer": 1,
+      "explanation": "In AI incidents, containment always comes before investigation. A safety violation that is still occurring is an ongoing harm — every minute spent investigating before containing it is another user receiving harmful content. The standard sequence is: contain (tighten guardrail, block affected users, or enable kill switch depending on severity), then investigate in parallel once the rate of new incidents has been reduced. This mirrors the incident response principle from software operations: stop the bleeding, then diagnose.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.8-q2",
+      "type": "multiple-choice",
+      "question": "Six months after deploying an AI agent, a user files a complaint claiming the agent deleted their data without authorisation. The on-call engineer looks for logs of what the agent did during that session. No prompt logs were kept — only server access logs and billing records. What is the consequence?",
+      "options": [
+        "The server access logs and billing records are sufficient to reconstruct the incident",
+        "Without prompt logs capturing the full input context, the root cause cannot be determined — you cannot reproduce the incident, cannot establish whether this was a model failure, prompt failure, or injection, cannot confirm or deny the user's claim, and cannot test that any fix actually addresses the problem; this is the production gotcha: logging must be in place before an incident, not retrofitted after",
+        "The incident can still be investigated by interviewing the user about their session",
+        "Billing records showing the API calls made are sufficient to establish what the agent did"
+      ],
+      "answer": 1,
+      "explanation": "The production gotcha is explicit: without prompt logs, root cause analysis is guesswork. Server access logs show that API calls were made; billing records show how many tokens were used. Neither captures what the user typed, what documents were retrieved, what the system prompt said, or what the model's exact output was. Without the full context, you cannot reproduce the incident, classify its root cause, determine whether it was caused by injection, misconfiguration, or model failure, or verify that any fix addresses the actual problem. Prompt logging with sufficient retention is a prerequisite for incident response, not a nice-to-have.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.8-q3",
+      "type": "multiple-choice",
+      "question": "A data breach occurs: an AI assistant leaked a user's personal information to another user due to a session isolation bug. The company becomes aware at 9am Monday. Under GDPR, what must happen within 72 hours?",
+      "options": [
+        "Nothing formal is required within 72 hours — GDPR breach notification applies only to database breaches, not AI output incidents",
+        "The supervisory authority (e.g., the lead DPA for EU, the ICO for UK) must be notified within 72 hours of the company becoming aware, unless the breach is unlikely to result in a risk to individuals' rights and freedoms; the notification must include the nature of the breach, categories of affected individuals, likely consequences, and measures taken",
+        "The affected users must be notified within 72 hours",
+        "The company has 72 hours to investigate before deciding whether notification is required"
+      ],
+      "answer": 1,
+      "explanation": "GDPR Article 33 requires notification to the supervisory authority within 72 hours of becoming aware of a personal data breach, unless it is unlikely to result in a risk to rights and freedoms. Leaking one user's personal information to another user almost certainly meets the risk threshold. The 72-hour clock starts at awareness — in this case, 9am Monday, which means the notification is due by Wednesday 9am. Note that the 72-hour deadline is for supervisory authority notification; notification to affected individuals (Article 34) is required 'without undue delay' if the breach is likely to result in high risk to those individuals. Both obligations may apply here.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.8-q4",
+      "type": "multiple-choice",
+      "question": "An AI agent took an unintended action — it sent an email to a customer with incorrect information. The post-incident investigation classifies the root cause as 'prompt failure': the system prompt did not adequately constrain the agent's email composition behaviour. What is the required output of the post-mortem to prevent recurrence?",
+      "options": [
+        "A revised system prompt that closes the gap identified in the investigation",
+        "A revised system prompt AND a regression test case that reproduces the original incident and verifies the fix — without a regression test, the same misconfiguration can be reintroduced in a future system prompt update without detection; the post-mortem is not complete until both the fix and the test are merged",
+        "A training session for the team on system prompt design",
+        "A rollback to the previous system prompt version that did not have this issue"
+      ],
+      "answer": 1,
+      "explanation": "A fix without a regression test is a vulnerability that will recur. System prompts are updated frequently — without a test that verifies the fixed behaviour, the next prompt revision can inadvertently reintroduce the same gap. The post-mortem is not complete until: (1) the root cause is identified, (2) the fix is applied and verified against the original incident input, and (3) the regression test is merged to the eval suite so that future prompt changes are tested against this scenario. This pattern comes directly from module 6.8 (Red-teaming): every confirmed finding must become a regression test.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "7.8-q5",
+      "type": "multiple-choice",
+      "question": "An engineer argues: 'We should not log full prompt content because users may input sensitive information, and storing it creates a GDPR compliance risk.' A security engineer responds: 'Without prompt logs we cannot respond to incidents.' How should this tension be resolved?",
+      "options": [
+        "Security wins — prompt logs must be kept indefinitely for incident response",
+        "Privacy wins — prompt logs should not be stored if they may contain personal data",
+        "Both concerns are legitimate and can be addressed together: implement prompt logging with PII scrubbing before storage (so personal data is not retained), a defined retention limit (e.g., 30–90 days), access controls restricting who can read logs, and a legal basis for retention under GDPR; this satisfies the incident response requirement without creating unnecessary privacy risk",
+        "The tension cannot be resolved — teams must choose between security and privacy"
+      ],
+      "answer": 1,
+      "explanation": "Security and privacy requirements are not inherently incompatible. The approach that satisfies both: scrub PII from prompt logs before storage (so retention does not create unnecessary GDPR exposure), apply a defined retention limit that covers the likely incident discovery window, restrict access to those who need it for incident response, and document the legal basis for retention (typically legitimate interest in security monitoring). This gives incident responders what they need — the context to reproduce incidents — while not retaining personal data longer than necessary or in a form that creates unnecessary risk. The either/or framing is a false dilemma.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    }
+  ]
+}

@@ -1,0 +1,173 @@
+---
+moduleId: "8.1"
+title: "AI ROI: What Actually Gets Measured"
+description: "Most AI pilots show impressive returns that evaporate at scale. Understanding why — and how to measure value correctly — is the difference between AI investments that compound and ones that quietly fail."
+track: "strategy"
+order: 1
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "AI pilots consistently overstate ROI because they run on curated inputs with high human oversight and are then compared to the worst-case baseline. Production ROI is lower: inputs are messier, oversight is reduced, and edge cases accumulate. Always model the production scenario, not the pilot scenario, before committing to scale."
+draft: false
+---
+
+## Layer 1 — Surface
+
+AI return on investment is notoriously hard to measure honestly. The headline numbers from pilots tend to be optimistic, and the reasons are structural: pilots are run with careful human supervision, on hand-picked inputs, against the slowest or most error-prone version of the old process. Production is none of those things.
+
+Before you can measure ROI, you need to decide what kind of value you are trying to capture. There are three categories:
+
+- **Cost reduction**: Doing the same thing with fewer people-hours or lower error rates. This is the easiest to measure — you can count FTEs, time saved, or defect rates before and after.
+- **Revenue growth**: Enabling better products or entirely new capabilities that drive more sales or retention. This is hard to measure cleanly because attribution is difficult — was the sale due to the AI feature, or the marketing campaign, or the market conditions?
+- **Risk reduction**: Fewer compliance failures, fewer errors in high-stakes decisions, faster incident response. This often goes unmeasured until something goes wrong. A system that prevents one regulatory fine may have a higher ROI than any efficiency gain, but that ROI only becomes visible in hindsight.
+
+A complete ROI calculation looks like this: **net benefit = (value delivered) − (build cost + run cost + maintenance cost + failure cost)**. Most organisations measure the value delivered and the build cost, and stop there. Run cost, maintenance cost, and failure cost accumulate invisibly until they don't.
+
+### Why it matters
+
+Organisations that measure AI ROI poorly make two kinds of mistakes: they over-invest in AI that doesn't deliver at scale, and they under-invest in the ongoing costs that determine whether AI stays valuable. Both mistakes are expensive.
+
+### Production Gotcha
+
+> **Common Gotcha:** AI pilots consistently overstate ROI because they run on curated inputs with high human oversight and are then compared to the worst-case baseline. Production ROI is lower: inputs are messier, oversight is reduced, and edge cases accumulate. Always model the production scenario, not the pilot scenario, before committing to scale.
+>
+> The assumption that trips teams: "If it works well in the pilot, it will work at scale." The pilot is a controlled experiment. Production is not. Budget for the gap.
+
+---
+
+## Layer 2 — Guided
+
+### The three categories of AI value — and how to measure each
+
+**Cost reduction** is the most straightforward category. You are automating or accelerating something that was previously done manually.
+
+| Metric | How to measure |
+|---|---|
+| Time saved per task | Time the manual process before and after; multiply by task volume |
+| FTE reduction or reallocation | Track headcount or hours against the same workload |
+| Error rate reduction | Compare defect/error rates on the same task type before and after deployment |
+| Throughput increase | Volume processed per unit of time |
+
+The main measurement risk here is the denominator problem: if the baseline was already inefficient, the AI looks better than it is. Always benchmark against a well-run manual process, not the worst one.
+
+**Revenue growth** is harder. You need an A/B test or a natural experiment to make clean attribution claims.
+
+| Metric | How to measure |
+|---|---|
+| Conversion rate lift | A/B test: AI-assisted vs control; measure the difference |
+| Retention improvement | Cohort analysis: users with and without AI features |
+| New revenue from new capabilities | Track revenue from features only AI makes possible |
+| Time to close or quote | Measure sales cycle length with and without AI assistance |
+
+Without a controlled comparison, revenue attribution is a story, not a measurement. "Revenue went up in the quarter we launched the AI feature" is not evidence.
+
+**Risk reduction** is the category most organisations leave unmeasured — which means it rarely influences investment decisions until a failure makes the cost visible.
+
+| Risk type | Measurement approach |
+|---|---|
+| Compliance failures | Audit error rate before and after; regulatory incident count |
+| Decision errors | Sample review of AI-assisted decisions vs baseline; estimated cost per error |
+| Fraud or anomaly detection | False negative rate on fraud; estimated loss per missed event |
+| Operational availability | Downtime or incident frequency with and without AI monitoring |
+
+### The full cost picture
+
+Most ROI models include build cost and perhaps first-year run cost. The complete picture is larger:
+
+```python
+# ROI framework — pseudocode
+from dataclasses import dataclass
+
+@dataclass
+class AIInvestment:
+    # Value delivered
+    cost_reduction_annual: float       # FTE savings, efficiency gains
+    revenue_growth_annual: float       # attributable revenue uplift
+    risk_reduction_annual: float       # avoided cost of failures
+
+    # Costs
+    build_cost: float                  # engineering, data, design
+    run_cost_annual: float             # inference, hosting, monitoring
+    maintenance_cost_annual: float     # prompt tuning, model upgrades, data refresh
+    failure_cost_annual: float         # incident handling, error remediation, reputational
+
+    horizon_years: int = 3
+
+def net_present_value(inv: AIInvestment, discount_rate: float = 0.10) -> float:
+    annual_value = (
+        inv.cost_reduction_annual
+        + inv.revenue_growth_annual
+        + inv.risk_reduction_annual
+    )
+    annual_cost = (
+        inv.run_cost_annual
+        + inv.maintenance_cost_annual
+        + inv.failure_cost_annual
+    )
+    net_annual = annual_value - annual_cost
+    npv = -inv.build_cost
+    for year in range(1, inv.horizon_years + 1):
+        npv += net_annual / ((1 + discount_rate) ** year)
+    return npv
+```
+
+The categories teams most commonly omit: **maintenance cost** (prompts decay as language and user behaviour evolve; models get deprecated; integrations break) and **failure cost** (wrong outputs have downstream consequences that someone pays for).
+
+### Common failure modes in ROI calculation
+
+**Pilot vs production gap**: The pilot ran with a dedicated engineer monitoring every output. Production runs unattended. The quality difference is real and large.
+
+**Ignoring tail costs**: A model that is wrong 2% of the time looks good on average. If the 2% failure cases cluster on your highest-value transactions, the expected cost is much higher than the average suggests.
+
+**Measuring activity, not outcomes**: "We processed 10,000 documents with AI" is an activity. "We reduced document review time by 40%, freeing analysts for higher-value work" is an outcome. Measure outcomes.
+
+**Sunk cost pressure**: Once a team has invested in a pilot, there is social pressure to show it worked. Be willing to read the data honestly, including signals that the investment is not working.
+
+### When to stop
+
+Stop or pause an AI investment when you see:
+
+- Quality metrics declining after pilot conditions are removed
+- Maintenance cost rising faster than value delivered
+- The production failure rate exceeding the threshold where human oversight would be cheaper
+- No measurable improvement over a simpler rule-based or non-AI approach on the same task
+
+---
+
+## Layer 3 — Deep Dive
+
+### The attribution problem
+
+Revenue attribution is a fundamental problem in business, not unique to AI. But AI makes it worse in two ways. First, AI features often work by making existing things marginally better rather than creating step-function changes — incremental improvements are harder to attribute. Second, AI is often deployed alongside other changes (redesigns, new content, process changes), making isolation harder.
+
+The gold standard is a randomised controlled trial: randomly assign users or transactions to AI-assisted and non-AI-assisted conditions, then measure the outcome of interest. This is feasible for some applications (a recommendation feature, a drafting assistant) and infeasible for others (a compliance monitoring system that you would not deliberately disable for a control group).
+
+When a controlled experiment is infeasible, use difference-in-differences: compare the rate of change in your outcome metric against a comparable group that did not receive the AI feature. This does not rule out confounds, but it is far more rigorous than a simple before/after comparison.
+
+### The maintenance cost underestimate
+
+Organisations consistently underestimate the ongoing cost of maintaining AI systems. The sources of maintenance cost are:
+
+- **Prompt decay**: Model providers update models; the same prompt may produce different outputs on a new version. Someone must monitor this and adapt.
+- **Data drift**: If the AI is personalised or adapted to your domain, its performance may degrade as your business evolves, your customers change, or language norms shift.
+- **Integration maintenance**: Upstream data sources change format; downstream consumers evolve; the glue between them requires ongoing engineering.
+- **Regulatory evolution**: What was compliant last year may not be this year. AI-generated content or AI-assisted decisions may face new requirements.
+
+A rough heuristic: budget 20–30% of the initial build cost per year for maintenance. For systems that touch production data frequently or operate in regulated industries, budget more.
+
+### The failure cost calculation
+
+Expected failure cost = (failure rate) × (cost per failure) × (annual volume).
+
+The challenge is that failure rates and costs per failure are often unknown at the start of a project. Use industry analogues where possible, and model scenarios rather than point estimates. If a 2% failure rate with a $500 cost per failure on 10,000 annual transactions produces $100,000 in expected annual failure cost, that number needs to appear in the ROI model — not as a footnote.
+
+### Further reading
+
+- [Measuring the ROI of AI in the Enterprise — MIT Sloan Management Review](https://sloanreview.mit.edu/article/measuring-the-return-on-ai-investments/) — Practical framework for value attribution across cost, revenue, and risk dimensions.
+- [The AI Adoption Paradox — McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai) — McKinsey's annual State of AI survey includes data on which AI use cases are delivering measured value and which are not.
+- [Why AI Projects Fail — Harvard Business Review](https://hbr.org/2021/03/why-so-many-high-profile-digital-transformations-fail) — Common failure patterns in digital/AI transformation; the "pilot trap" is discussed in depth.

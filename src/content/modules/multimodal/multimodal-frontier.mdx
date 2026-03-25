@@ -1,0 +1,343 @@
+---
+moduleId: "9.8"
+title: "The Multimodal Frontier"
+description: "Multimodal AI is advancing faster than any other part of the field — native multimodality, video understanding, and real-time audio-visual interaction are moving from research to production on a timescale of months. This module covers where the field is heading and, more importantly, what durable knowledge to invest in when specific capabilities become outdated within a year."
+track: "multimodal"
+order: 8
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Multimodal capabilities are advancing so fast that production decisions made on capability assessments more than 6 months old are likely stale. Build evaluation infrastructure first — the ability to quickly benchmark a new model on your use case is more durable than any specific model choice."
+draft: false
+---
+
+## Layer 1 — Surface
+
+The history of multimodal AI breaks into two eras: the adapter era and the native era. The adapter era (roughly 2022–2024) attached vision and audio encoders to pre-trained language models via projection layers. This worked, but the language model was fundamentally a text model that had been given a translation layer for images. The native era (emerging 2024–2026) trains models from scratch on interleaved sequences of text, images, and audio — no translation layer, no adapter, just a model that has always seen all modalities together.
+
+Native multimodality changes the capability profile. Adapter-based VLMs are good at image understanding but struggle with tasks that require tight interleaving of visual and textual reasoning — generating an image and then reasoning about it, maintaining visual context across many turns, or handling video as a continuous stream rather than a set of sampled frames. Natively multimodal models handle these better because the modalities are not separated at the architecture level.
+
+The practical frontiers as of early 2026 are three: video understanding (temporal reasoning over a sequence of frames is fundamentally different from single-image understanding), real-time multimodal interaction (low-latency systems where the model can hear and see simultaneously while responding), and generative multimodal (models that can both perceive and produce images, audio, and text within a single interaction).
+
+The volatility notice for this track is not boilerplate — it reflects the actual pace of capability change. Models that were state of the art six months ago are frequently displaced by new releases. The durable investment is in the evaluation infrastructure that lets you quickly assess a new model on your actual task, not in deep knowledge of any specific model's capabilities.
+
+### Why it matters
+
+Teams that make architecture decisions tied to specific current model capabilities find themselves locked into designs that cannot take advantage of rapidly improving models. Teams that invest in clean abstraction layers and fast evaluation can swap models cheaply as better ones become available. This is the practical implication of "volatile" volatility.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake is treating a model evaluation as a one-time investment. A team does thorough benchmarking in Q1, selects the best model, and does not revisit the decision. By Q3, two better models have been released. The cost of switching is high because no evaluation infrastructure was built — the original benchmarks were manual and are not reproducible. The teams that stay current are the ones that automated their eval from day one.
+
+---
+
+## Layer 2 — Guided
+
+### Building a portable evaluation harness
+
+The most durable code you can write for multimodal AI is an evaluation harness that makes model comparison fast and reproducible. This is the infrastructure that turns "a new model just released" into "we know whether it's better for our use case within a day."
+
+```python
+from dataclasses import dataclass, field
+from typing import Callable, Any, Optional
+from pathlib import Path
+import base64
+import json
+import time
+
+
+@dataclass
+class MultimodalBenchCase:
+    case_id: str
+    modalities: list[str]              # ["text"], ["image", "text"], ["audio", "text"]
+    inputs: dict[str, Any]             # {"text": "...", "image_path": "...", "audio_path": "..."}
+    expected_outputs: list[str]        # acceptable correct outputs
+    task_type: str                     # "vqa", "extraction", "classification", "description"
+    min_pass_score: float = 0.8
+
+
+@dataclass
+class BenchResult:
+    case_id: str
+    model_name: str
+    model_output: str
+    score: float
+    passed: bool
+    latency_ms: float
+    error: Optional[str] = None
+
+
+def load_image_b64(path: str) -> str:
+    return base64.b64encode(Path(path).read_bytes()).decode("utf-8")
+
+
+def build_messages(case: MultimodalBenchCase) -> list[dict]:
+    """Build the message payload for any combination of input modalities."""
+    content = []
+    if "image" in case.modalities and "image_path" in case.inputs:
+        content.append({
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/jpeg",
+                "data": load_image_b64(case.inputs["image_path"]),
+            },
+        })
+    if "text" in case.modalities and "text" in case.inputs:
+        content.append({"type": "text", "text": case.inputs["text"]})
+
+    return [{"role": "user", "content": content}]
+
+
+def score_output(output: str, expected: list[str], task_type: str) -> float:
+    """Score model output against expected answers."""
+    import re
+
+    def norm(s: str) -> str:
+        return re.sub(r"\s+", " ", s.lower().strip())
+
+    norm_output = norm(output)
+    for exp in expected:
+        if norm(exp) in norm_output or norm_output in norm(exp):
+            return 1.0
+
+    # Partial credit: word overlap
+    output_words = set(norm_output.split())
+    best_overlap = max(
+        len(output_words & set(norm(e).split())) / max(1, len(set(norm(e).split())))
+        for e in expected
+    )
+    return best_overlap
+
+
+def run_benchmark(
+    cases: list[MultimodalBenchCase],
+    model_names: list[str],
+) -> dict[str, list[BenchResult]]:
+    """
+    Run all benchmark cases against all model names.
+    Returns results keyed by model name.
+    """
+    results: dict[str, list[BenchResult]] = {m: [] for m in model_names}
+
+    for model_name in model_names:
+        for case in cases:
+            t_start = time.perf_counter()
+            try:
+                messages = build_messages(case)
+                response = llm.chat(model=model_name, messages=messages)
+                latency_ms = (time.perf_counter() - t_start) * 1000
+                score = score_output(response.text, case.expected_outputs, case.task_type)
+                results[model_name].append(BenchResult(
+                    case_id=case.case_id,
+                    model_name=model_name,
+                    model_output=response.text,
+                    score=score,
+                    passed=score >= case.min_pass_score,
+                    latency_ms=round(latency_ms, 1),
+                ))
+            except Exception as e:
+                latency_ms = (time.perf_counter() - t_start) * 1000
+                results[model_name].append(BenchResult(
+                    case_id=case.case_id,
+                    model_name=model_name,
+                    model_output="",
+                    score=0.0,
+                    passed=False,
+                    latency_ms=round(latency_ms, 1),
+                    error=str(e),
+                ))
+
+    return results
+
+
+def summarise_benchmark(results: dict[str, list[BenchResult]]) -> dict:
+    """Aggregate benchmark results per model — pass rate, mean score, mean latency."""
+    summary = {}
+    for model_name, bench_results in results.items():
+        n = len(bench_results)
+        if n == 0:
+            continue
+        successful = [r for r in bench_results if r.error is None]
+        summary[model_name] = {
+            "n_cases": n,
+            "pass_rate": sum(r.passed for r in bench_results) / n,
+            "mean_score": sum(r.score for r in bench_results) / n,
+            "mean_latency_ms": sum(r.latency_ms for r in successful) / max(1, len(successful)),
+            "error_rate": sum(1 for r in bench_results if r.error is not None) / n,
+        }
+    return summary
+```
+
+### Model abstraction layer
+
+The other durable investment: an abstraction layer that makes swapping the underlying model a one-line change.
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+from typing import Protocol
+
+
+class ModelTier(str, Enum):
+    FAST = "fast"
+    BALANCED = "balanced"
+    FRONTIER = "frontier"
+
+
+@dataclass
+class MultimodalRequest:
+    text: str
+    image_bytes: Optional[bytes] = None
+    audio_bytes: Optional[bytes] = None
+    detail: str = "auto"     # "low", "high", "auto"
+
+
+@dataclass
+class MultimodalResponse:
+    text: str
+    input_tokens: int
+    output_tokens: int
+    latency_ms: float
+
+
+class MultimodalClient(Protocol):
+    """
+    Protocol for a multimodal LLM client.
+    Any implementation of this protocol can be swapped without changing call sites.
+    """
+    def complete(self, request: MultimodalRequest, tier: ModelTier) -> MultimodalResponse:
+        ...
+
+
+class AbstractMultimodalClient:
+    """
+    Concrete implementation: maps to your vendor's API.
+    Swap the internals here when you change providers or model versions.
+    """
+
+    def complete(self, request: MultimodalRequest, tier: ModelTier) -> MultimodalResponse:
+        import time
+        content = []
+
+        if request.image_bytes is not None:
+            b64 = base64.b64encode(request.image_bytes).decode("utf-8")
+            content.append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/jpeg", "data": b64},
+                "detail": request.detail,
+            })
+
+        content.append({"type": "text", "text": request.text})
+
+        t_start = time.perf_counter()
+        response = llm.chat(
+            model=tier.value,
+            messages=[{"role": "user", "content": content}],
+        )
+        latency_ms = (time.perf_counter() - t_start) * 1000
+
+        return MultimodalResponse(
+            text=response.text,
+            input_tokens=response.usage.input_tokens,
+            output_tokens=response.usage.output_tokens,
+            latency_ms=round(latency_ms, 1),
+        )
+```
+
+### Tracking the frontier: what to watch
+
+```python
+# Not executable code — a framework for staying current
+FRONTIER_SIGNALS = {
+    "native_multimodality": {
+        "signal": "Models trained from scratch on text+image+audio (not adapter-based)",
+        "why_it_matters": "Better cross-modal reasoning, no modality boundary artefacts",
+        "watch_for": "Models that can generate and reason about images in the same context",
+        "current_examples": ["GPT-4o (partial)", "Gemini 1.5+ (partial)"],
+    },
+    "video_understanding": {
+        "signal": "Temporal reasoning across frames, not just per-frame analysis",
+        "why_it_matters": "Actions, events, and changes over time require sequence modelling",
+        "watch_for": "Models that can answer questions about what changed between frames",
+        "current_examples": ["Gemini 1.5 Pro (long video)", "Video-LLaMA (open)"],
+    },
+    "real_time_audio_visual": {
+        "signal": "Sub-200ms audio+video processing with concurrent speech output",
+        "why_it_matters": "Voice assistants that can also see enable new interaction patterns",
+        "watch_for": "Latency improvements in live audio-visual models",
+        "current_examples": ["GPT-4o real-time (API-gated)", "Gemini Live"],
+    },
+    "generative_multimodal": {
+        "signal": "Models that both perceive and generate across modalities",
+        "why_it_matters": "Edit, generate, reason about images and audio in the same session",
+        "watch_for": "Unified models that do not require separate generation APIs",
+        "current_examples": ["DALL-E 3 + GPT-4V (separate)", "Gemini Imagen integration"],
+    },
+}
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Native vs adapter-based multimodality
+
+The architectural distinction matters for practical capability assessment:
+
+| Property | Adapter-based VLM | Native multimodal |
+|---|---|---|
+| Training approach | Pre-trained LLM + separately trained ViT + projection fine-tuning | Single model trained on interleaved text+image+audio from scratch |
+| Cross-modal reasoning | Good for single-turn image description; weaker for deep multi-turn visual reasoning | Better at sustained visual reasoning and modality-crossing tasks |
+| Robustness | Can struggle with adversarial image inputs at modality boundary | More robust (no hard boundary) |
+| Controllability | Modalities can be tuned separately | Harder to update one modality without affecting others |
+| Current state | Most deployed models (LLaVA, Claude 3, GPT-4V original) | Emerging (GPT-4o, Gemini, future open models) |
+
+For practitioners: do not treat "native multimodal" as automatically better. Adapter-based models can be more cost-effective and easier to fine-tune for specific domains. Evaluate on your task.
+
+### Video understanding: the context length problem
+
+Video is the hardest modality for current LLMs because of context length. A 1-minute video at 1 frame per second is 60 images. At 768 tokens per image, that is 46,080 tokens just for video content — often exceeding current context windows, and certainly making inference expensive.
+
+Current strategies for video understanding:
+
+1. **Frame sampling**: select key frames (1 fps or lower) rather than every frame. Works for static content; misses fast motion.
+2. **Temporal compression**: use a video-specific encoder that compresses a sequence of frames into a fewer number of embeddings before passing to the LLM. Less information loss than frame dropping.
+3. **Sliding window**: process the video in overlapping windows and aggregate summaries. Requires a summary-merging strategy.
+4. **Long-context models**: models with 1M+ token contexts (Gemini 1.5 Pro, later Claude versions) can in principle fit longer video sequences, but cost scales linearly with context length.
+
+As of early 2026, reliable temporal reasoning in video — "what happened between minute 2 and minute 4?" — remains genuinely difficult. Frame sampling loses the causal structure; long-context models are expensive. This is an area where capabilities are advancing quickly and benchmarks change monthly.
+
+### Diffusion models and integration patterns
+
+Image generation models (diffusion models: Stable Diffusion, DALL-E, Imagen, Flux) are architecturally distinct from VLMs and LLMs. They generate images from text prompts via a denoising process, not by predicting tokens autoregressively. The practical integration patterns are:
+
+- **Text → image**: standard prompt-to-image generation. Well-supported via API.
+- **Image editing** (inpainting/outpainting): modify a region of an existing image using a text instruction. Requires a mask and the original image.
+- **Controlled generation** (ControlNet): constrain generated images to follow an edge map, depth map, or pose skeleton. Used for layout-controlled generation.
+- **LLM + diffusion pipeline**: the LLM generates a refined prompt or layout instruction, which is then passed to a diffusion model. The models do not share weights — they are separate services connected by text.
+
+The "unified" model that can both understand and generate images within a single context is technically feasible (as token prediction over a quantized image vocabulary) but still emerging in production quality as of 2026.
+
+### What to track and how
+
+For practitioners on a volatile track, a systematic monitoring approach beats ad hoc tracking:
+
+- **Subscribe to arXiv cs.CV and cs.CL** — filter for papers with "multimodal", "VLM", or "vision-language" in the title. The most important papers get community attention within days.
+- **Run your eval suite on new models within 2 weeks of release** — a 2-hour benchmark run is cheap; discovering six months later that a better model was available is expensive.
+- **Follow model release notes** — capabilities often change significantly between minor versions; the model you evaluated in January may behave differently in March.
+- **Watch for context window increases** — video and multi-image use cases are directly unlocked by context length improvements. A 2x context window increase often changes what is architecturally possible.
+
+### Further reading
+
+- [GPT-4 Technical Report](https://arxiv.org/abs/2303.08774) — OpenAI, 2023. The GPT-4V capabilities section covers multimodal capability benchmarks; useful baseline reference.
+- [Gemini: A Family of Highly Capable Multimodal Models](https://arxiv.org/abs/2312.11805) — Google DeepMind, 2023. Native multimodal architecture description and cross-modal reasoning benchmarks.
+- [Video-LLaMA: An Instruction-tuned Audio-Visual Language Model for Video Understanding](https://arxiv.org/abs/2306.02858) — Zhang et al., 2023. An open-weight video-language model; illustrates the temporal compression approach for video context.
+- [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) — Esser et al., 2024. The Stable Diffusion 3 / Flux architecture paper; the current state of diffusion-based image generation.

@@ -1,0 +1,214 @@
+---
+moduleId: "8.8"
+title: "Building an AI-Ready Data Foundation"
+description: "Most AI ambitions stall not on model capability but on data readiness. This module gives you a practical checklist to assess whether your data is ready for AI, and explains why data infrastructure investment returns more than model investment for most organisations."
+track: "strategy"
+order: 8
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Most organisations discover their data is not AI-ready when a project starts — it lives in incompatible formats, lacks labels, has inconsistent quality, or has unclear usage rights. A two-week data readiness audit before committing to a project timeline saves months of downstream rework."
+draft: false
+---
+
+## Layer 1 — Surface
+
+The bottleneck for most AI ambitions is not model capability and not compute. It is data.
+
+AI models are capable of remarkable things — but only with data that is collected, clean, labelled, accessible, and legally usable. Most organisations are surprised to discover that their data, despite years of collection and storage, fails one or more of these requirements when they try to use it for AI.
+
+The data problem has several layers:
+
+- **Collection**: Do you have the data the AI needs? If it has not been collected, no model can conjure it.
+- **Labelling**: Does the data have the annotations the AI needs to learn from? Raw data without labels is like a textbook without the answers.
+- **Quality**: Is the data accurate and consistent? Models trained on noisy or inconsistent data learn to be noisy and inconsistent.
+- **Accessibility**: Can the data be accessed programmatically? Data locked in PDFs, legacy systems, or spreadsheets emailed to individuals is not usable without significant engineering work.
+- **Legal usability**: Do you have the rights to use this data for AI? Data collected under one legal basis may not be usable for a different purpose.
+
+Different AI applications need different things from data:
+- **RAG** (retrieval-augmented generation) needs current, well-organised, accessible documents or records
+- **Fine-tuning** needs labelled input/output pairs showing the desired behaviour
+- **Evaluation** needs representative examples with ground-truth answers to measure quality against
+
+### Why it matters
+
+Organisations that skip the data readiness assessment commit to project timelines they cannot hit, discover blockers mid-project, and sometimes abandon AI initiatives that would have succeeded with better data preparation.
+
+### Production Gotcha
+
+> **Common Gotcha:** Most organisations discover their data is not AI-ready when a project starts — it lives in incompatible formats, lacks labels, has inconsistent quality, or has unclear usage rights. A two-week data readiness audit before committing to a project timeline saves months of downstream rework.
+>
+> The assumption: "We have lots of data — data won't be the problem." The reality: having data and having AI-ready data are two very different things.
+
+---
+
+## Layer 2 — Guided
+
+### The data readiness checklist
+
+Use this checklist before committing to any AI project timeline:
+
+```
+Data Readiness Checklist
+├── COLLECTED
+│   ├── Does the data exist in digital form?
+│   ├── Is the volume sufficient? (rule of thumb: 500+ examples for fine-tuning; more for complex tasks)
+│   └── Does the data cover the range of inputs the AI will encounter in production?
+│
+├── LABELLED (for supervised tasks)
+│   ├── Are the labels you need available, or do they need to be created?
+│   ├── Are labels applied consistently? (check inter-annotator agreement)
+│   └── Are the labels accurate? (spot-check a sample)
+│
+├── CLEAN
+│   ├── What is the data error rate? (duplicates, missing values, formatting inconsistencies)
+│   ├── Are there quality checks or validation rules in the data pipeline?
+│   └── Is the data representative, or is there a selection bias (only positive cases, only weekdays, etc.)?
+│
+├── ACCESSIBLE
+│   ├── Can the data be accessed programmatically via an API or standard format?
+│   ├── Is access documented and stable? (not: "ask Dave, he has the file")
+│   └── Is access latency acceptable for the AI use case? (RAG requires sub-second retrieval)
+│
+└── LEGALLY USABLE
+    ├── Under what consent basis was the data collected?
+    ├── Is using this data for AI consistent with that consent basis?
+    ├── If the data includes third-party content, do you have the rights to use it for training?
+    └── Does using this data for AI require a DPIA or other regulatory assessment?
+```
+
+### Data requirements by AI application type
+
+The requirements differ significantly depending on how you are using the data:
+
+| Dimension | RAG | Fine-tuning | Evaluation |
+|---|---|---|---|
+| **Primary need** | Accurate, current, well-structured documents | Labelled input/output pairs showing target behaviour | Representative examples with known-correct answers |
+| **Volume** | All relevant knowledge documents | Typically 500–5,000 labelled pairs to start | 50–500 examples minimum; more for statistical confidence |
+| **Quality requirement** | High accuracy; out-of-date docs produce wrong answers | Consistent labels; bad labels make behaviour worse | Must reflect real production distribution |
+| **Update frequency** | Frequent (knowledge should be current) | Periodic (retrain as behaviour target evolves) | Ongoing (add production failures as they occur) |
+| **Label requirement** | No labels needed (documents are the input) | Labels required — this is the expensive part | Ground truth required for every example |
+
+### Data quality issues specific to AI
+
+Standard data quality problems (duplicates, missing values) are well-understood. AI introduces additional quality dimensions:
+
+**Inconsistent labels**: Two annotators label the same input differently. The model learns inconsistency as if it were signal. Measure inter-annotator agreement; resolve disagreements before training.
+
+**Domain drift**: Your historical data reflects the world as it was, not as it is. If your users' behaviour, language, or context has changed, a model trained on old data may be calibrated for a population that no longer exists.
+
+**Selection bias**: If your training data only includes resolved cases (tickets that were closed), completed transactions, or successful outcomes, the model never learns from partial or ambiguous situations — but production is full of them.
+
+**Recency bias**: If you weight recent data heavily, you may overfit to recent trends that are not representative. Balance recency against coverage.
+
+### Data governance for AI
+
+```python
+# Data lineage tracking — pseudocode
+from dataclasses import dataclass
+from datetime import date
+from typing import Optional
+
+@dataclass
+class DataAsset:
+    name: str
+    description: str
+    owner: str                     # person accountable for this data asset
+    source: str                    # system or process that generated this data
+    collection_basis: str          # GDPR legal basis or equivalent
+    ai_usage_approved: bool        # has legal/privacy reviewed AI use?
+    ai_usage_scope: str            # which AI applications are this data approved for
+    last_reviewed: date
+    retention_policy: str          # how long is this data kept?
+    known_quality_issues: list[str]
+    downstream_ai_systems: list[str]  # which AI systems use this asset
+
+# Example
+customer_support_transcripts = DataAsset(
+    name="customer-support-transcripts-2022-2025",
+    description="Anonymised support chat transcripts; PII removed",
+    owner="data-privacy-team",
+    source="support-platform-zendesk",
+    collection_basis="legitimate-interests",
+    ai_usage_approved=True,
+    ai_usage_scope="intent-classification, response-quality-evaluation",
+    last_reviewed=date(2026, 1, 15),
+    retention_policy="3 years from collection",
+    known_quality_issues=["pre-2023 transcripts use legacy category taxonomy", "some non-English transcripts incorrectly labelled as English"],
+    downstream_ai_systems=["support-classifier-v2", "response-quality-monitor"],
+)
+```
+
+### The feedback loop: production outputs as future training data
+
+One of the highest-return investments in AI data infrastructure is building the loop from production outputs back to training and evaluation data:
+
+1. **Capture**: Log all production model inputs and outputs
+2. **Sample**: Regularly sample a portion for human review
+3. **Label**: Have reviewers rate outputs as correct / incorrect / acceptable
+4. **Feed back**: Add reviewed examples to the evaluation set; use high-quality examples as future training data
+
+This creates a compounding improvement cycle. The longer it runs, the better your training data quality and your evaluation coverage — without additional data collection effort.
+
+### The data flywheel
+
+The data flywheel is the mechanism by which data advantage compounds:
+
+```
+More users
+    → More interactions
+        → More feedback signal
+            → Better model (trained on richer data)
+                → Better product
+                    → More users
+```
+
+Not every AI feature has a natural data flywheel. To assess whether yours does: would more users using the feature generate data that would make the feature better? If yes, invest in capturing that data systematically from day one. If no, the feature is valuable but not self-reinforcing.
+
+---
+
+## Layer 3 — Deep Dive
+
+### Why data infrastructure investment outperforms model investment for most organisations
+
+Foundation model improvements come from providers — you benefit automatically when a provider releases a better model. Data infrastructure improvements are proprietary — only you benefit from your data. This asymmetry has a clear strategic implication: invest in the thing that compounds for you, not the thing that improves for everyone.
+
+The practical implication: a mediocre model fine-tuned on high-quality domain-specific data typically outperforms a frontier model prompted generically on that same domain. And the fine-tuned model improves as you collect more domain data; the generic model does not.
+
+This does not mean ignoring model quality — using the right model tier still matters for cost and performance. But at the margin, an additional month of engineering time on data infrastructure returns more than the same time spent trying to extract 1–2% more quality from prompt engineering.
+
+### Data labelling economics
+
+Labelling data is expensive. Rough benchmarks:
+
+- Simple binary classification (positive/negative, relevant/not relevant): £0.05–0.20 per label with crowdsourced labour; £0.50–2 per label with expert review
+- Complex categorisation or quality assessment: £1–10 per label with expert labour
+- Specialised domain (medical, legal, financial): £10–50 per label
+
+At these rates, a training dataset of 5,000 labelled examples could cost anywhere from £500 to £250,000 depending on complexity and expertise required. This is often the dominant cost in a fine-tuning project — and the reason to exhaust prompt engineering and RAG before committing to a labelling programme.
+
+Mitigation strategies:
+- **Bootstrapping with a stronger model**: Use a frontier model to generate initial labels, then have humans review and correct. This can reduce labelling cost by 60–70% while maintaining quality.
+- **Active learning**: Use the model itself to identify which unlabelled examples it is most uncertain about, and label those first — concentrating labelling budget on the most informative examples.
+- **Programmatic labelling**: For some tasks, labels can be generated from existing signals (user corrections, downstream outcomes, resolution status) without manual annotation.
+
+### Data residency and cross-border considerations
+
+Data used for AI training or inference may be subject to data residency requirements — particularly in the EU (GDPR), China (PIPL), and increasingly in other jurisdictions. Before building a data pipeline for AI:
+
+- Map where your data will be processed (your systems, vendor systems, inference infrastructure)
+- Identify any data that cannot be transferred across borders
+- Understand whether inference (querying the model) is subject to the same residency requirements as training (which it sometimes is, if the query contains personal data)
+
+This is an area where legal counsel is essential and where requirements continue to evolve.
+
+### Further reading
+
+- [Data-Centric AI — Andrew Ng / Landing AI](https://datacentricai.org/) — Framework for improving AI performance through data quality rather than model complexity; practical methodology for data readiness.
+- [The Data Flywheel — Gradient Flow](https://gradientflow.com/the-data-flywheel/) — Analysis of how data flywheels work and where they do and don't apply; important counterpoint to uncritical "more data is always better" thinking.
+- [EU AI Act Data Governance Requirements](https://artificialintelligenceact.eu/article/10/) — Article 10 of the EU AI Act specifies data governance requirements for high-risk AI systems; relevant to organisations operating in European markets.

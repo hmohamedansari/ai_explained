@@ -1,0 +1,304 @@
+---
+moduleId: "7.4"
+title: "Data Privacy and PII"
+description: "LLM systems create new PII leakage vectors that traditional data protection controls do not cover: model memorisation, cross-user context leakage, and RAG pipelines that pull in customer records without scrubbing. This module covers detection, scrubbing, retention, and the vendor agreements that govern what happens to your data."
+track: "safety"
+order: 4
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "PII scrubbing before sending to an LLM API is commonly implemented on user input but not on retrieved documents — a RAG system that fetches customer records without scrubbing can send far more PII than the user directly typed."
+draft: false
+---
+
+## Layer 1 — Surface
+
+PII (Personally Identifiable Information) — names, email addresses, phone numbers, identification numbers, health data — enters LLM systems through more channels than most teams anticipate. The user types some of it. But retrieved documents, tool results, and conversation history can carry far more.
+
+**How PII leaks from LLM systems:**
+
+| Vector | What happens |
+|---|---|
+| **Model memorisation** | Training data containing PII may be reproduced by the model when prompted correctly |
+| **Context verbatim reproduction** | The model copies PII from the context window into its response |
+| **Cross-user context leakage** | In multi-tenant systems, one user's session data is accessible to another |
+| **RAG pipeline leakage** | Retrieved documents containing customer records are sent to an LLM API without scrubbing |
+| **Logging** | Prompts and responses containing PII are stored in logs accessible to support teams or third parties |
+
+### Why it matters
+
+Sending PII to an LLM API without a data processing agreement, storing it in logs indefinitely, or allowing it to leak between users can create regulatory liability under GDPR, HIPAA, CCPA, and other frameworks. Beyond compliance, a data leak damages user trust in a way that is very difficult to recover from.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Teams focus their PII controls on the user input field — a text box they can see. They do not apply the same scrutiny to the 15 documents their RAG pipeline fetches from a CRM database, each of which may contain a customer's full name, email, phone number, and purchase history. The fix is to apply PII scrubbing at every point where external data enters the context.
+
+---
+
+## Layer 2 — Guided
+
+### PII detection: regex + NER
+
+A layered detection approach combines fast regex patterns with a slower but more accurate NER model:
+
+```python
+import re
+from dataclasses import dataclass
+
+@dataclass
+class PIIDetection:
+    pii_type: str
+    value: str
+    start: int
+    end: int
+
+# Fast regex patterns for common PII types
+PII_PATTERNS = {
+    "email": re.compile(
+        r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Z|a-z]{2,}\b"
+    ),
+    "phone_us": re.compile(
+        r"\b(?:\+1[-.\s]?)?\(?[2-9][0-9]{2}\)?[-.\s][0-9]{3}[-.\s][0-9]{4}\b"
+    ),
+    "ssn": re.compile(
+        r"\b(?!000|666|9\d{2})[0-9]{3}[-\s](?!00)[0-9]{2}[-\s](?!0000)[0-9]{4}\b"
+    ),
+    "credit_card": re.compile(
+        r"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b"
+    ),
+    "uk_nino": re.compile(
+        r"\b[A-CEGHJ-PR-TW-Z]{2}[0-9]{6}[A-D]\b", re.IGNORECASE
+    ),
+}
+
+def detect_pii_regex(text: str) -> list[PIIDetection]:
+    """Fast regex-based PII detection."""
+    findings = []
+    for pii_type, pattern in PII_PATTERNS.items():
+        for match in pattern.finditer(text):
+            findings.append(PIIDetection(
+                pii_type=pii_type,
+                value=match.group(),
+                start=match.start(),
+                end=match.end(),
+            ))
+    return findings
+
+def scrub_pii_regex(text: str, replacement: str = "[REDACTED]") -> str:
+    """Replace detected PII with a placeholder."""
+    result = text
+    # Process in reverse order so positions stay valid
+    detections = sorted(detect_pii_regex(text), key=lambda d: d.start, reverse=True)
+    for detection in detections:
+        result = result[:detection.start] + replacement + result[detection.end:]
+    return result
+```
+
+### Pseudonymisation for consistent tokens
+
+Redaction breaks the coherence of the text. Pseudonymisation replaces PII with consistent tokens that preserve context without exposing real values:
+
+```python
+import hashlib
+from typing import Optional
+
+class Pseudonymiser:
+    """
+    Replace PII with consistent, reversible tokens.
+    The same input value always maps to the same token within a session.
+    The mapping can be stored server-side to reverse the substitution if needed.
+    """
+
+    def __init__(self, secret_key: str):
+        self._key = secret_key
+        self._forward: dict[str, str] = {}   # real value -> token
+        self._reverse: dict[str, str] = {}   # token -> real value
+
+    def _make_token(self, value: str, pii_type: str) -> str:
+        digest = hashlib.sha256(f"{self._key}:{value}".encode()).hexdigest()[:8]
+        prefix = {"email": "EMAIL", "phone_us": "PHONE", "ssn": "SSN"}.get(
+            pii_type, "PII"
+        )
+        return f"[{prefix}_{digest.upper()}]"
+
+    def pseudonymise(self, text: str) -> str:
+        """Replace PII with consistent tokens and store the mapping."""
+        result = text
+        detections = sorted(
+            detect_pii_regex(text), key=lambda d: d.start, reverse=True
+        )
+        for detection in detections:
+            real_value = detection.value
+            if real_value not in self._forward:
+                token = self._make_token(real_value, detection.pii_type)
+                self._forward[real_value] = token
+                self._reverse[token] = real_value
+            else:
+                token = self._forward[real_value]
+            result = result[:detection.start] + token + result[detection.end:]
+        return result
+
+    def reverse(self, text: str) -> str:
+        """Restore original values from tokens."""
+        result = text
+        for token, real_value in self._reverse.items():
+            result = result.replace(token, real_value)
+        return result
+```
+
+### Scrubbing at every pipeline entry point
+
+Apply scrubbing to every source of external data, not just user input:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class PipelineContext:
+    user_input: str
+    retrieved_documents: list[str]
+    tool_results: list[str]
+
+def scrub_pipeline_context(
+    context: PipelineContext,
+    pseudonymiser: Optional[Pseudonymiser] = None,
+) -> PipelineContext:
+    """
+    Scrub PII from every data source before it enters the context window.
+    """
+    scrub = pseudonymiser.pseudonymise if pseudonymiser else scrub_pii_regex
+
+    return PipelineContext(
+        user_input=scrub(context.user_input),
+        retrieved_documents=[scrub(doc) for doc in context.retrieved_documents],
+        tool_results=[scrub(result) for result in context.tool_results],
+    )
+
+def process_request(
+    raw_user_input: str,
+    raw_documents: list[str],
+    raw_tool_results: list[str],
+) -> str:
+    # Step 1: Build context from all sources
+    raw_context = PipelineContext(
+        user_input=raw_user_input,
+        retrieved_documents=raw_documents,
+        tool_results=raw_tool_results,
+    )
+
+    # Step 2: Scrub PII from all sources — not just user input
+    clean_context = scrub_pipeline_context(raw_context)
+
+    # Step 3: Send scrubbed context to the LLM
+    combined_docs = "\n\n".join(clean_context.retrieved_documents)
+    combined_tools = "\n\n".join(clean_context.tool_results)
+
+    response = llm.chat(
+        model="balanced",
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Documents:\n{combined_docs}\n\n"
+                f"Tool results:\n{combined_tools}\n\n"
+                f"User question: {clean_context.user_input}"
+            ),
+        }],
+    )
+    return response.text
+```
+
+### Multi-tenant session isolation
+
+Cross-user context leakage is a configuration error, not a model failure:
+
+```python
+import uuid
+
+class SessionStore:
+    """
+    Namespace all session data by user ID.
+    Never allow one user's session to be read by another.
+    """
+
+    def __init__(self):
+        self._sessions: dict[str, dict] = {}  # {user_id: {session_id: data}}
+
+    def create_session(self, user_id: str) -> str:
+        session_id = str(uuid.uuid4())
+        if user_id not in self._sessions:
+            self._sessions[user_id] = {}
+        self._sessions[user_id][session_id] = {"messages": []}
+        return session_id
+
+    def get_messages(self, user_id: str, session_id: str) -> list[dict]:
+        user_sessions = self._sessions.get(user_id, {})
+        session = user_sessions.get(session_id)
+        if session is None:
+            raise ValueError(f"Session {session_id} not found for user {user_id}")
+        return session["messages"]
+
+    def add_message(
+        self, user_id: str, session_id: str, role: str, content: str
+    ) -> None:
+        messages = self.get_messages(user_id, session_id)
+        messages.append({"role": role, "content": content})
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Data residency and retention
+
+Where prompts and responses are stored determines who can access them and what regulations apply:
+
+| Storage location | Who can access | Regulation implications |
+|---|---|---|
+| LLM provider (prompt logging) | Provider, possibly used for training | Check DPA; opt out of training use if available |
+| Your application logs | DevOps, support, on-call team | Apply retention limits; restrict access; encrypt at rest |
+| Vector store (RAG embeddings) | Anyone with vector store access | Embeddings may reconstruct near-verbatim source text |
+| User session store | Application backend | Session data counts as personal data under GDPR |
+
+Minimum requirements:
+1. Set a log retention limit — 30–90 days is typical for operational logs.
+2. Redact or pseudonymise PII in logs before storage.
+3. Sign a Data Processing Agreement (DPA) with your LLM provider.
+4. Confirm whether your provider uses your prompts for training; opt out if so.
+
+### What LLM provider DPAs actually cover
+
+A Data Processing Agreement with an LLM provider typically covers:
+- The provider's role as a data processor (not controller)
+- How long they retain prompt/response data
+- Whether data is used for training (and opt-out rights)
+- Subprocessor lists (who else processes your data)
+- Breach notification obligations
+
+What DPAs typically **do not** cover:
+- Model memorisation of data from other customers' prompts
+- Downstream use of outputs by your users
+- On-premises or VPC deployment guarantees (separate contract)
+
+For GDPR compliance, a DPA with the provider is necessary but not sufficient — you also need a legal basis for processing the personal data you send.
+
+### GDPR Article 22 and automated decision-making
+
+If your LLM application makes or significantly influences decisions about individuals (hiring, credit, insurance, content moderation), Article 22 of GDPR applies:
+- The subject has a right to human review of automated decisions
+- You must be able to explain the decision in meaningful terms
+- Solely automated decisions producing legal or similarly significant effects require explicit consent or a legal basis
+
+"The model decided" is not an explanation that satisfies Article 22. Design audit trails that record what input the model received and what factors influenced its output.
+
+### Further reading
+
+- [ICO Guidance on AI and Data Protection](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/) — UK ICO, 2023. Practical guidance on applying UK GDPR to AI systems; particularly relevant to automated decision-making and data minimisation in training.
+- [Privacy Considerations in Large Language Models](https://arxiv.org/abs/2310.10383) — Neel et al., 2023. Technical review of memorisation, extraction, and mitigation in LLMs.
+- [Extracting Training Data from Large Language Models](https://arxiv.org/abs/2012.07805) — Carlini et al., 2021. Demonstrates that models can verbatim reproduce training data; the foundational paper on memorisation risk.

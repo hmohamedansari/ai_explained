@@ -1,0 +1,198 @@
+---
+moduleId: "8.5"
+title: "Managing AI Risk at the Org Level"
+description: "AI systems introduce risk categories that traditional software governance does not cover. This module maps the five risk categories, explains how to set risk appetite, and distinguishes real risk management from risk theatre."
+track: "strategy"
+order: 5
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously — model versions are upgraded, prompts are edited, new tools are added — and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate."
+draft: false
+---
+
+## Layer 1 — Surface
+
+AI systems create risks that traditional software governance was not designed to manage. A conventional software system does what its code says. An AI system does what its model and data predict — and that prediction can be wrong in ways that are hard to anticipate, hard to reproduce, and hard to audit.
+
+There are five categories of risk an organisation must manage:
+
+1. **Model risk**: The AI produces wrong, biased, or harmful outputs. This includes hallucinations, discriminatory outputs, and confidently incorrect recommendations.
+2. **Operational risk**: The AI system fails, is slow, is unavailable, or behaves inconsistently in ways that disrupt operations.
+3. **Reputational risk**: The AI system fails publicly — a viral screenshot, a news story, a social media incident — damaging trust in the brand.
+4. **Compliance risk**: The AI system violates laws or regulations — data protection, anti-discrimination, financial advice, medical advice, or sector-specific rules.
+5. **Strategic risk**: The organisation becomes dependent on an external AI provider that changes pricing, restricts access, or ceases to operate.
+
+Good risk management is not about preventing all failures. It is about knowing which failures are acceptable and which are not, and building appropriate controls for the ones that are not.
+
+### Why it matters
+
+Organisations that treat AI risk as a one-time project approval exercise discover the problem when a failure occurs in production — typically at the worst possible time, with the highest possible visibility.
+
+### Production Gotcha
+
+> **Common Gotcha:** AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously — model versions are upgraded, prompts are edited, new tools are added — and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate.
+>
+> The assumption: "We approved this system at launch, so it's covered." The reality: the system you approved no longer exists — it has been updated dozens of times since.
+
+---
+
+## Layer 2 — Guided
+
+### Risk appetite by use case
+
+Not every AI application carries the same risk. Set your risk appetite explicitly for each use case category:
+
+| Use case type | Model risk tolerance | Compliance exposure | Recommended oversight |
+|---|---|---|---|
+| Internal productivity tools (summarisation, drafting) | Medium — errors are caught by human reviewer | Low | Minimal: basic output review |
+| Customer-facing informational (FAQ, search) | Low — errors reach customers directly | Medium | Output guardrails + monitoring |
+| Customer-facing advisory (recommendations, advice) | Very low — incorrect advice has real consequences | High | Human review checkpoint for high-stakes outputs |
+| Automated decision-making (approvals, scoring) | Very low — no human in the loop | Very high | Regulatory compliance required; human oversight often mandated |
+| Internal process automation (document processing, data entry) | Low — downstream processes depend on accuracy | Medium | Validation of outputs before use |
+
+### Governance structure
+
+Who approves AI use cases? Who owns incident response? Who monitors production? These are governance questions that need answers before systems ship, not after.
+
+A minimal governance structure:
+
+```
+Use Case Approval
+├── Who: Cross-functional review (legal, compliance, product, engineering)
+├── What: Use case brief, risk assessment, proposed controls, eval evidence
+└── Gate: Approval required before customer-facing deployment
+
+Incident Response
+├── Owner: Designated on-call engineer + product manager
+├── Process: Detect → assess severity → mitigate or disable → communicate → post-mortem
+└── Trigger: Any output that causes user harm, regulatory exposure, or significant reputational risk
+
+Production Monitoring
+├── Owner: Engineering team with assigned on-call rotation
+├── Signals: Quality score drift, guardrail trigger rate, error rate, user complaint volume
+└── Review cadence: Weekly dashboard review + automated alerts
+```
+
+### The difference between risk management and risk theatre
+
+**Risk management** is an ongoing operational process. It changes the system's behaviour. Examples:
+- Output guardrails that block harmful content before it reaches users
+- Eval suites that catch regressions before they ship
+- Automated alerts that fire when quality metrics degrade
+- Quarterly risk register reviews that update assessments based on what happened
+
+**Risk theatre** is a process that generates documentation but does not change outcomes. Examples:
+- A 40-page risk assessment produced at launch and never read again
+- A review committee that approves systems based on documentation completeness, not on evidence of actual testing
+- "AI ethics principles" published on the website but not embedded in any decision process
+- A compliance sign-off that checks whether the system was described correctly, not whether it behaves correctly
+
+### A practical risk register format
+
+```python
+# AI Risk Register entry — pseudocode
+from dataclasses import dataclass
+from datetime import date
+from typing import Literal
+
+RiskLevel = Literal["low", "medium", "high", "critical"]
+
+@dataclass
+class RiskEntry:
+    system: str
+    risk_category: str           # model / operational / reputational / compliance / strategic
+    risk_description: str
+    likelihood: RiskLevel
+    impact: RiskLevel
+    controls: list[str]          # what is actually preventing or reducing this risk
+    residual_risk: RiskLevel     # risk remaining after controls
+    owner: str                   # the person accountable for this risk
+    last_reviewed: date
+    next_review: date
+    open_actions: list[str]      # specific things that need to happen to reduce risk further
+
+# Example entry
+example = RiskEntry(
+    system="customer-support-ai",
+    risk_category="model",
+    risk_description="AI provides incorrect product information that misleads customers",
+    likelihood="medium",
+    impact="high",
+    controls=[
+        "RAG retrieval from verified product catalogue only",
+        "Output guardrail blocks responses with unsupported claims",
+        "Eval suite includes 50 product information questions; threshold 92%",
+    ],
+    residual_risk="low",
+    owner="product-manager-support",
+    last_reviewed=date(2026, 3, 24),
+    next_review=date(2026, 6, 24),
+    open_actions=[
+        "Add eval cases for discontinued products",
+        "Test guardrail against new product category launched in Q2",
+    ],
+)
+```
+
+### Vendor concentration risk
+
+If your primary LLM provider increases pricing by 40%, has a multi-day outage, or discontinues your chosen model, what happens?
+
+Mitigation strategies:
+
+| Risk event | Mitigation |
+|---|---|
+| Pricing increase | Negotiate enterprise contract with price protection; abstract vendor behind internal interface to ease switching |
+| Outage | Graceful degradation: AI features fail safely (fall back to non-AI version); SLA with financial penalties |
+| Model deprecation | Pin to specific model version; subscribe to deprecation notices; document upgrade process |
+| Data policy change | Track vendor policy changes; maintain contracts that protect your data rights |
+| Vendor failure | For mission-critical use cases: multi-vendor architecture or self-hosted fallback |
+
+---
+
+## Layer 3 — Deep Dive
+
+### The regulatory landscape
+
+AI regulation is evolving rapidly and varies by jurisdiction and sector. As of early 2026, the key regulatory frameworks to be aware of:
+
+- **EU AI Act**: Risk-based classification system. High-risk AI uses (certain employment decisions, credit scoring, biometric identification, critical infrastructure) face mandatory conformity assessments, human oversight requirements, and transparency obligations.
+- **GDPR and equivalent data protection laws**: AI systems that process personal data for automated decision-making face specific requirements including explainability and the right to human review.
+- **Sector-specific regulations**: Financial services (fair lending, model risk management guidelines), healthcare (FDA oversight for clinical decision support), and employment (EEOC guidance on AI in hiring) each add sector-specific requirements.
+
+Compliance risk management for AI is not a one-time legal review. It requires ongoing monitoring of both the system's behaviour and the regulatory environment, with the ability to update the system as requirements evolve.
+
+### Building a continuous risk management practice
+
+One-time risk reviews fail because AI systems change continuously and the risk landscape shifts. A continuous practice requires:
+
+**Change management integration**: Every change to a production AI system — prompt update, model version change, new tool added, new data source — triggers a lightweight risk reassessment. Not a full approval process; a structured checklist that takes under 30 minutes.
+
+**Production monitoring as risk intelligence**: The signals from production monitoring are not just operational — they are risk signals. A spike in guardrail trigger rate may indicate a new attack pattern. A quality score drop may indicate model drift. A cluster of user complaints may indicate a failure mode the risk register missed.
+
+**Regular risk register reviews**: Quarterly at minimum. Review open actions, update likelihood and impact assessments based on what has happened, and add new risks discovered through monitoring.
+
+**Post-mortem integration**: When an AI system causes a significant incident, the post-mortem should feed back into the risk register. What risk was not anticipated? What control failed? What new control is needed?
+
+### The model risk management parallel
+
+Financial services regulators have developed model risk management (MRM) frameworks over decades for quantitative models used in trading, credit, and operations. The principles translate well to AI systems:
+
+- Models must be validated by an independent function before deployment
+- Model performance must be monitored in production against expected benchmarks
+- Material changes to models require revalidation
+- Model inventory must be maintained with ownership, purpose, and status
+
+Organisations outside financial services can adopt these practices without the regulatory mandate. The discipline they create — treating models as governed assets, not code — is exactly what AI production systems need.
+
+### Further reading
+
+- [EU Artificial Intelligence Act — Official text](https://artificialintelligenceact.eu/) — The full EU AI Act with risk classification system and requirements by tier; essential reading for organisations operating in European markets.
+- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf) — NIST, 2023. Voluntary framework for managing AI risks; the most comprehensive publicly available guidance; widely referenced in US enterprise AI governance.
+- [Model Risk Management — Federal Reserve SR 11-7](https://www.federalreserve.gov/supervisionreg/srletters/sr1107.htm) — Originally for financial models, but the validation, monitoring, and governance principles apply directly to AI systems in any industry.

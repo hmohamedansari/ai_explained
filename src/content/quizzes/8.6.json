@@ -1,0 +1,76 @@
+{
+  "title": "Communicating AI to Stakeholders — Check your understanding",
+  "moduleId": "8.6",
+  "questions": [
+    {
+      "id": "8.6-q1",
+      "type": "multiple-choice",
+      "question": "An engineering team presents an AI feature to the executive team with the headline: 'The model achieves 96% accuracy.' An executive approves the feature, assuming it will be wrong only 4% of the time on routine cases. After launch, users report frequent failures on their most common query type. What went wrong in the communication?",
+      "options": [
+        "The accuracy number was fabricated",
+        "The 96% accuracy figure was presented without context — no mention of which dataset it was measured on, no description of where the 4% errors are concentrated, and no information about whether the most common production query type is in the high-accuracy or high-error segment",
+        "The executive should have asked for more detail before approving",
+        "Accuracy is the wrong metric; F1 score should have been reported"
+      ],
+      "answer": 1,
+      "explanation": "Accuracy numbers without failure distribution context are routinely misleading. A 96% average accuracy number is compatible with 60% failure on the most common query type if the distribution is skewed. The executive reasonably assumed uniform failure distribution — which is a natural but incorrect assumption. The engineer's responsibility is to accompany any accuracy figure with: what it was measured on, where the errors are concentrated, and what that means for the use cases stakeholders care most about.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.6-q2",
+      "type": "multiple-choice",
+      "question": "After a public incident where your AI chatbot produced an embarrassing and incorrect response that was screenshotted and shared on social media, what do stakeholders most need from your communication?",
+      "options": [
+        "A technical explanation of why the model produced the output, including the prompt and response",
+        "Four things in clear, non-technical language: what happened, why it happened, what immediate action was taken to limit harm, and what specific change has been made to prevent recurrence",
+        "An apology without technical details, to avoid drawing more attention to the failure",
+        "A comparison showing that competitor AI systems make similar mistakes"
+      ],
+      "answer": 1,
+      "explanation": "Stakeholder communication after a failure requires four elements: what happened (factual, non-technical), why (root cause at an accessible level), what was done immediately (was the feature disabled? were affected users contacted?), and what specific change prevents recurrence (a named control, not 'we will be more careful'). A technical deep-dive serves the engineering team; stakeholders need enough to understand the severity, the response, and whether the problem is managed. Absence of any of the four elements leaves stakeholders filling the gap with their own assumptions, which are usually worse.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.6-q3",
+      "type": "multiple-choice",
+      "question": "A product manager tells the executive team that 'the AI will learn and improve over time as more users interact with it.' What is wrong with this statement?",
+      "options": [
+        "Nothing — all AI systems improve with use",
+        "It implies automatic, passive improvement without explaining the operational mechanism — in reality, production LLM systems do not self-improve without deliberate human actions: capturing feedback, labelling data, retraining, and evaluating. If this mechanism is not built, the system does not improve.",
+        "It overstates the rate of improvement, which will be slower than implied",
+        "It is technically accurate but may raise user privacy concerns"
+      ],
+      "answer": 1,
+      "explanation": "Saying 'the AI learns over time' creates a false expectation of automatic improvement. Foundation model APIs do not update themselves based on your users' interactions. Improvement requires deliberate work: capturing interaction data, labelling it, fine-tuning or updating retrieval, and evaluating whether quality improved. If this mechanism is not explicitly built and resourced, the system quality is static — or it degrades as the world changes and the model's training data becomes stale. Any claim of improvement over time should be accompanied by the specific mechanism: 'We will collect user feedback, review it monthly, and retrain the model quarterly.'",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.6-q4",
+      "type": "multiple-choice",
+      "question": "A leader asks: 'How long will it take to build this AI feature?' The engineering estimate is 6 weeks. The feature is customer-facing. What is the most accurate response to give?",
+      "options": [
+        "6 weeks — the engineering estimate is reliable",
+        "Approximately 10 weeks — the engineering estimate covers building the feature, but customer-facing AI requires additional time for evaluation, safety testing, and production readiness work that is systematically underestimated in initial estimates",
+        "3–12 months, depending on unknowns",
+        "6 weeks for the demo; longer for production, but no estimate is possible at this stage"
+      ],
+      "answer": 1,
+      "explanation": "Engineering estimates for AI features typically cover the model integration and application logic. For customer-facing features, the full timeline also includes: building and running the evaluation suite, safety testing and red-teaming, production monitoring setup, and the iterative refinement that evaluation findings require. These phases commonly add 50–100% to the engineering estimate. Communicating a realistic estimate upfront, with the explanation for why it differs from the engineering estimate, is better than committing to 6 weeks and delivering in 10.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.6-q5",
+      "type": "multiple-choice",
+      "question": "You need to communicate the AI system's capabilities and limitations to front-line users who will rely on it daily. Which framing is most appropriate for this audience?",
+      "options": [
+        "Technical accuracy: describe the model architecture, training data, and accuracy metrics",
+        "Practical trust calibration: explain what the system does well (where to rely on it), what it does poorly (where to verify), and what to do when something looks wrong — so users develop accurate intuitions about when to trust the output",
+        "Motivational framing: emphasise the benefits and efficiency gains to encourage adoption",
+        "Minimal communication: let users discover the system's capabilities through use"
+      ],
+      "answer": 1,
+      "explanation": "Front-line users need accurate mental models of when to trust the AI and when to verify. Over-trust leads to errors passing unchecked; under-trust leads to users ignoring the tool entirely. The most effective communication tells users concretely: 'This system is highly reliable for X, less reliable for Y, and you should always verify Z before acting on it.' This gives users the information they need to use the system safely and effectively, without requiring them to rediscover its limitations through trial and error.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

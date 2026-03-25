@@ -1,0 +1,76 @@
+{
+  "title": "Where AI Creates Durable Advantage — Check your understanding",
+  "moduleId": "8.3",
+  "questions": [
+    {
+      "id": "8.3-q1",
+      "type": "multiple-choice",
+      "question": "A company builds an AI-powered writing assistant that calls a publicly available frontier model API. They are first to market by eight months. Is this a durable competitive advantage?",
+      "options": [
+        "Yes — first-mover advantage in AI is typically sustained for 3–5 years",
+        "No — any competitor with the same API access can replicate the feature; without proprietary data, deep workflow integration, or network effects, the moat is thin and the advantage is time-to-market only",
+        "Yes, if the company patents the specific prompting approach",
+        "It depends entirely on user interface quality"
+      ],
+      "answer": 1,
+      "explanation": "A feature built on a public API, without proprietary data or feedback loops, can be replicated by any competitor in the next product cycle. Eight months of lead time is valuable but not durable. Durable advantage requires something a competitor cannot easily copy: data that took years to collect, workflows so deeply embedded that switching is costly, or network effects that improve the product as more users engage. The durability test: could a well-funded competitor reach parity within 12 months? If yes, protect the time-to-market value, but do not call it a moat.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.3-q2",
+      "type": "multiple-choice",
+      "question": "A legal technology company has been collecting lawyer-corrected AI outputs for three years — every time the AI made an error on a contract clause, a lawyer corrected it. This dataset does not exist anywhere else. What kind of advantage does this represent?",
+      "options": [
+        "A temporary advantage until foundation models improve enough to not need corrections",
+        "A proprietary data moat — the correction dataset encodes expert knowledge that is not publicly available and cannot be replicated without three more years of operation",
+        "No advantage — labelled datasets are available from data labelling services",
+        "An operational advantage only, not a competitive one"
+      ],
+      "answer": 1,
+      "explanation": "Three years of expert-corrected domain-specific examples is a genuine data moat. It is not available from labelling services because the labels require legal expertise and come from real production errors — the exact failure modes the AI makes on real contracts. A competitor cannot buy this dataset; they have to build it. And building it takes time, real-world usage, and access to expert annotators. This is the classic 'data flywheel' outcome: usage generates corrections, corrections improve the model, the improved model attracts more usage.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.3-q3",
+      "type": "multiple-choice",
+      "question": "What distinguishes AI as an 'enabler' from AI as a 'moat'?",
+      "options": [
+        "AI is an enabler if it is cheap to run; AI is a moat if it is expensive to run",
+        "AI is an enabler when it improves existing capabilities without creating barriers competitors cannot cross; AI is a moat when it depends on assets — data, integration depth, or network effects — that are structurally hard for competitors to replicate",
+        "AI is an enabler in B2C products; AI is a moat in B2B products",
+        "AI becomes a moat after it has been in production for two or more years"
+      ],
+      "answer": 1,
+      "explanation": "Most AI is an enabler — it makes things faster, cheaper, or better, but a competitor with the same model access can achieve the same effect. A moat exists when the value comes from something below the model layer that is hard to replicate: proprietary data, deep operational embedding, or a user base generating training signal. The distinction matters for investment decisions: enablers should be evaluated on operational ROI; moats justify larger strategic investment because their value compounds over time.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.3-q4",
+      "type": "multiple-choice",
+      "question": "An organisation invests heavily in building AI features but collects no feedback from users and stores no interaction data. What strategic opportunity are they missing?",
+      "options": [
+        "They are missing the opportunity to personalise the UI",
+        "They are missing the data flywheel — user interactions generate signal that could improve the model over time, creating a compounding advantage; without capture infrastructure, the interactions leave no lasting asset",
+        "They are missing the ability to retrain the base foundation model",
+        "They are missing compliance data for regulatory reporting"
+      ],
+      "answer": 1,
+      "explanation": "The data flywheel only runs if you capture the data. Every user interaction, correction, and feedback signal is potential training and evaluation data — but only if it is logged, stored, and made usable. An organisation that builds AI features without capturing interaction data is leaving the most valuable long-term asset on the table. The irony is that the cost of capturing is low; the cost of not capturing is an eventual capability gap relative to competitors who did.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.3-q5",
+      "type": "multiple-choice",
+      "question": "A well-funded competitor has just launched an AI feature using the same foundation model you use. You have been operating this feature in production for 18 months with user feedback collection. Why might your feature still be significantly better?",
+      "options": [
+        "Your feature is better because you built it first",
+        "18 months of production feedback has generated a domain-specific dataset for fine-tuning and evaluation that the competitor cannot instantly replicate — the model you have adapted to your users' behaviour is different from the base model they are starting with",
+        "Your engineering team knows the codebase better",
+        "Foundation model capabilities are the only difference; both features will be equivalent"
+      ],
+      "answer": 1,
+      "explanation": "18 months of feedback data is a structural advantage that cannot be shortcut. If that data has been used to fine-tune the model, improve retrieval, or build a robust evaluation suite, you have something a competitor starting today simply does not have: a calibrated system that has been tested against your actual users' real queries. The competitor has the same base model, but not your operational history. This is the data flywheel working: usage generated signal, signal improved the system, the improved system is genuinely differentiated.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

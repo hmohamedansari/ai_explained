@@ -1,0 +1,76 @@
+{
+  "title": "Multimodal Evaluation — Check your understanding",
+  "moduleId": "9.6",
+  "questions": [
+    {
+      "id": "9.6-q1",
+      "type": "multiple-choice",
+      "question": "You are evaluating a VLM on a document understanding task. The model produces accurate, fluent descriptions for 95% of documents but systematically fails on documents with multi-column layouts. A single accuracy number across the full test set reports 95%. What does this reveal about using aggregate metrics for multimodal eval?",
+      "options": [
+        "95% accuracy is sufficient for production — no further analysis needed",
+        "Aggregate metrics mask systematic failures on specific input types; segment eval results by document layout, image type, or other structural properties to surface subpopulation failures that matter for real use cases",
+        "The model needs more training data on multi-column documents before further evaluation",
+        "The test set is too small — a larger test set would surface the multi-column failure in the aggregate score"
+      ],
+      "answer": 1,
+      "explanation": "A 95% aggregate accuracy can hide a 0% accuracy on a specific subpopulation if that subpopulation is small enough. Multi-column documents may represent 10% of the test set — failing all of them contributes only a 10% penalty to the aggregate score, masking a complete failure on a layout that is common in real production traffic. Segmented evaluation by input type (layout, resolution, language, document type) is the correct approach. More training data may help but does not change the evaluation methodology. A larger test set preserves the same 95% aggregate if the failure rate and class distribution are unchanged.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.6-q2",
+      "type": "multiple-choice",
+      "question": "A VLM is evaluated on a visual question answering task. The LLM-as-judge prompt asks the judge to rate the answer quality 1–5 based on accuracy and completeness. You notice the judge consistently rates longer answers higher, regardless of accuracy. What is this bias called and how is it corrected?",
+      "options": [
+        "Recency bias — the judge is over-weighting the last sentence of the answer",
+        "Length bias — the judge conflates verbosity with quality; correct it by adding explicit rubric instructions that penalise unnecessary length, using pairwise comparison rather than absolute scoring, and calibrating the judge against human-rated examples where the shorter answer is correct",
+        "Position bias — the judge favours answers presented first in the context",
+        "Hallucination bias — the judge cannot distinguish accurate long answers from inaccurate long answers"
+      ],
+      "answer": 1,
+      "explanation": "Length bias is well-documented in LLM judges — models trained on human feedback where longer responses were often preferred can inherit a tendency to rate length as a proxy for quality. Absolute scoring (1–5) amplifies this because the judge sets its own anchor. Pairwise comparison (which answer is better?) reduces but does not eliminate the bias. Explicit rubric instructions like 'a concise correct answer should score higher than a verbose incorrect answer' help calibrate the prompt. Comparison against human ratings on a held-out set is the most reliable calibration method.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.6-q3",
+      "type": "multiple-choice",
+      "question": "You are building an eval pipeline for an image captioning system. Ground truth captions were written by annotators who saw the image. The model produces captions that are factually accurate but use different phrasing. BLEU score is low. What does this reveal about BLEU for open-ended generation tasks?",
+      "options": [
+        "BLEU is too strict — use ROUGE instead for image captioning tasks",
+        "BLEU measures n-gram overlap with reference strings, not semantic accuracy; for open-ended generation where many phrasings are equally correct, BLEU systematically underscores paraphrases; use semantic similarity (embedding cosine distance) or LLM-as-judge with an accuracy rubric for tasks where the output space is open-ended",
+        "The model needs fine-tuning to match annotator phrasing style",
+        "The ground truth captions need to be expanded with multiple reference phrasings before BLEU is reliable"
+      ],
+      "answer": 1,
+      "explanation": "BLEU was designed for machine translation where phrasing choices are more constrained and multiple references can be enumerated. For open-ended image captioning, the space of correct phrasings is essentially unbounded — 'a dog runs across a field' and 'a canine sprinting through grass' describe the same image equally well but share almost no n-grams. BLEU penalises the second description heavily. Expanding references helps but cannot cover all valid phrasings. Semantic similarity metrics and LLM-as-judge with explicit accuracy criteria are more appropriate for open-ended generation evaluation.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.6-q4",
+      "type": "multiple-choice",
+      "question": "A production VLM system processes receipts to extract line items and totals. You want to monitor for hallucinations in production without labelling every output. What is the most practical monitoring approach?",
+      "options": [
+        "Run every output through a second VLM and flag disagreements — dual-model consensus as a hallucination signal",
+        "Sample a percentage of production outputs and verify specific extractable claims programmatically — for receipts, cross-check extracted totals against sum of line items, verify date formats, and flag outputs where the internal arithmetic is inconsistent; this catches a class of hallucinations without human labelling",
+        "Log all outputs and review them in weekly batches with human annotators",
+        "Use perplexity scores from the model as a proxy for hallucination likelihood"
+      ],
+      "answer": 1,
+      "explanation": "Programmatic consistency checks exploit the structure of the task — a receipt total that does not equal the sum of extracted line items is a detectable hallucination without requiring a human to look at the source image. This approach catches a meaningful subclass of hallucinations at zero marginal cost per output. Dual-model consensus helps but doubles inference cost and still misses cases where both models hallucinate similarly. Weekly human review is too slow for production monitoring. Perplexity measures how surprising the output is to the model, which correlates weakly with factual accuracy and not at all with task-specific correctness.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.6-q5",
+      "type": "multiple-choice",
+      "question": "What does the CHAIR metric measure, and when should it be used in a multimodal eval suite?",
+      "options": [
+        "CHAIR measures caption hallucination rate by counting how many words in the caption do not appear in the image's colour histogram",
+        "CHAIR (Caption Hallucination Assessment with Image Relevance) measures the rate at which a VLM mentions objects not present in the image, by comparing generated captions against a reference object set derived from ground truth annotations; use it when evaluating VLMs on tasks where object hallucination is a known failure mode, such as image captioning, visual QA, and structured extraction",
+        "CHAIR measures cosine distance between image embeddings and caption embeddings as a proxy for alignment quality",
+        "CHAIR is a human evaluation rubric for rating image caption quality on five dimensions"
+      ],
+      "answer": 1,
+      "explanation": "CHAIR specifically targets object hallucination — the common failure mode where a VLM describes objects that are not present in the image. It requires a reference set of objects actually present (typically from dataset annotations like COCO) and computes what fraction of mentioned objects are hallucinated. It does not measure whether described relationships or attributes are correct, only whether the named objects exist. It is most useful as a targeted metric for object-heavy tasks rather than as a general quality metric. For tasks without a reference object annotation, other evaluation approaches are needed.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

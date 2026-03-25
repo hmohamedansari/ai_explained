@@ -1,0 +1,76 @@
+{
+  "title": "Working with Images in Production — Check your understanding",
+  "moduleId": "9.2",
+  "questions": [
+    {
+      "id": "9.2-q1",
+      "type": "multiple-choice",
+      "question": "A pipeline submits user-uploaded photos to a VLM for content analysis. In monitoring, the team notices that roughly 3% of requests return what appears to be valid, well-formed natural language — but on inspection, these responses say things like 'I'm unable to analyse this image' or 'I cannot assist with this content.' The pipeline's error rate shows 0%. What is the architectural gap?",
+      "options": [
+        "The model is returning HTTP 4xx errors that the monitoring system is miscounting as successes",
+        "Content refusals return HTTP 200 with a natural-language message — not an error code — so HTTP-based error monitoring misses them entirely; the pipeline needs explicit refusal detection that scans response text for refusal patterns before passing the output downstream",
+        "The model is timing out and returning a cached previous response",
+        "The monitoring system is only checking the first 100 characters of each response"
+      ],
+      "answer": 1,
+      "explanation": "VLM refusals are silent at the HTTP protocol level. The model returns a 200 OK response with a natural-language explanation of why it cannot process the image. HTTP error monitoring, status code checks, and response length checks all pass — the response looks healthy. Only content-level inspection reveals the refusal. Building a refusal pattern scanner that runs on every response and raises an explicit application-level error (not relying on HTTP status) is the correct mitigation.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.2-q2",
+      "type": "multiple-choice",
+      "question": "A document extraction pipeline sends RGBA PNG images to a VLM API and receives consistent extraction errors on certain files. The same files work correctly when the team manually processes them. What is the most likely cause?",
+      "options": [
+        "RGBA PNG files are too large for the API's per-request payload limit",
+        "Many VLM APIs expect RGB images; RGBA images (with an alpha channel) may cause decoding issues or unexpected behaviour when the transparency layer is not handled — converting to RGB before sending resolves this class of error",
+        "PNG files are not supported by most VLM APIs; JPEG must be used",
+        "The alpha channel contains steganographic data that triggers the content filter"
+      ],
+      "answer": 1,
+      "explanation": "VLM APIs expect colour images in RGB format. RGBA images include a fourth alpha (transparency) channel that most APIs do not handle gracefully — depending on the implementation, the alpha channel may be dropped incorrectly, causing colour shifts, or the image may fail internal validation. The standard preprocessing step is to convert all images to RGB before sending, removing the alpha channel by compositing over white or black background. This resolves a class of format-related failures that can be hard to diagnose without knowing the API's internal image handling.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.2-q3",
+      "type": "multiple-choice",
+      "question": "A team uses a VLM to extract structured fields from invoice images. The model sometimes returns the JSON wrapped in markdown code fences (```json ... ```) and sometimes returns bare JSON. Their JSON parser fails when code fences are present. What is the correct handling strategy?",
+      "options": [
+        "Instruct the model to never use markdown; enforce this with a post-processing validation step",
+        "Parse the response defensively: strip markdown code fences if present before attempting JSON parse, since models inconsistently wrap JSON in code blocks even when instructed not to; additionally, use strict JSON mode if the API supports it to minimise variance",
+        "Use a different model that always returns bare JSON",
+        "Wrap the JSON parsing in a try-except and log failures for manual review"
+      ],
+      "answer": 1,
+      "explanation": "LLMs, including VLMs, inconsistently adhere to formatting instructions — they may add code fences, explanatory text, or trailing comments even when explicitly told not to. The correct defence is defensive parsing: detect the presence of code fences, strip them, and then parse. A simple approach is to look for the first '{' and last '}' in the response and parse the substring between them. If the API offers a structured JSON output mode (forcing the model to output valid JSON), use it — but still handle the fence-stripping case for APIs that do not support strict mode.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.2-q4",
+      "type": "multiple-choice",
+      "question": "A team is choosing between a VLM and classical OCR (e.g., Tesseract) for extracting fields from scanned paper forms with handwritten annotations. Which should they choose and why?",
+      "options": [
+        "Classical OCR — it is faster and more accurate for all document types",
+        "VLM — handwritten text is a well-known failure mode for classical OCR engines, which rely on character shape matching against printed fonts; a VLM understands context and can interpret ambiguous handwriting by reasoning about surrounding content, making it significantly more accurate for mixed handwritten and printed form fields",
+        "Either is appropriate — handwriting quality is the only determining factor, not model type",
+        "Classical OCR — VLMs hallucinate handwritten fields and classical OCR does not"
+      ],
+      "answer": 1,
+      "explanation": "Classical OCR is trained primarily on printed fonts and struggles significantly with handwriting, irregular characters, and degraded paper quality. VLMs can leverage semantic context — knowing that a field labelled 'Date' should contain a date, or that a field adjacent to 'Total:' should contain a monetary value — to interpret ambiguous or poorly formed characters more accurately. For forms with a mix of printed fields and handwritten responses, VLMs typically outperform classical OCR substantially. The tradeoff is higher per-unit cost and slower throughput, which matters at scale.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.2-q5",
+      "type": "multiple-choice",
+      "question": "A batch image processing pipeline processes 10,000 images overnight. The pipeline crashes mid-run when it encounters a corrupted JPEG file. The team wants to make the pipeline resilient to individual file failures without losing progress. What is the correct architecture?",
+      "options": [
+        "Validate all images before the batch starts and reject any that fail validation",
+        "Wrap per-image processing in per-item exception handling that captures and logs failures for individual items without stopping the batch; record the result (success or error) for each item in a results store; corrupted files produce a BatchResult with success=False, not an unhandled exception that terminates the entire run",
+        "Use a try-except around the entire batch loop and restart from the beginning on failure",
+        "Pre-sort images by file size so smaller files run first and corrupt large files are encountered last"
+      ],
+      "answer": 1,
+      "explanation": "Production batch pipelines must isolate per-item failures from the overall job. An unhandled exception from a single corrupted file should produce a failed result for that item, not terminate the entire 10,000-item batch. The correct pattern is per-item exception handling that captures the error, records it in the results, and continues to the next item. Pre-validation catches some issues but cannot catch all failure modes (some images appear valid but fail during inference), so per-item resilience is needed regardless. A results store that tracks success/failure for each item also enables resumption from the last checkpoint rather than full restart.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

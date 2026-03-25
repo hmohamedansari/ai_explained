@@ -1,0 +1,76 @@
+{
+  "title": "Buy vs Build vs Fine-tune — Check your understanding",
+  "moduleId": "8.2",
+  "questions": [
+    {
+      "id": "8.2-q1",
+      "type": "multiple-choice",
+      "question": "A team wants their customer service AI to always respond in a specific conversational tone and always follow a particular response structure — concise acknowledgement, solution, next step. They find the model is inconsistent. They are considering fine-tuning. Is this the right decision?",
+      "options": [
+        "Yes — tone and structure consistency is exactly what fine-tuning solves",
+        "Possibly, but only after exhausting prompt engineering first — tone, structure, and format are behaviour gaps that good prompting with few-shot examples often resolves without the data labelling overhead of fine-tuning",
+        "No — tone cannot be changed through fine-tuning; it is a model property",
+        "Yes — but only if they have at least 10,000 labelled examples"
+      ],
+      "answer": 1,
+      "explanation": "Tone and response format are classic behaviour gaps — and they are exactly the kind of thing that well-crafted system prompts and a handful of few-shot examples can address. Fine-tuning is warranted when prompting genuinely cannot close the gap, not as a first resort. The cost of not testing prompting first is substantial: data labelling, training compute, model hosting, and ongoing retraining. Exhaust prompting before committing to that overhead.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.2-q2",
+      "type": "multiple-choice",
+      "question": "An organisation has a large internal knowledge base — product documentation, policy documents, historical case records — and wants the AI to answer questions using this information accurately. Which approach is most appropriate?",
+      "options": [
+        "Fine-tuning on the knowledge base documents so the model memorises the content",
+        "Retrieval-Augmented Generation — retrieve relevant documents at query time and include them in the prompt, so the model answers from current documents rather than memorised content",
+        "Buying a commercial AI product and uploading the documents to the vendor",
+        "Fine-tuning on question/answer pairs derived from the knowledge base"
+      ],
+      "answer": 1,
+      "explanation": "A knowledge gap (the model doesn't know your internal facts) is solved by retrieval, not fine-tuning. Fine-tuning on documents trains the model to recall facts at inference time, but facts change — product specs update, policies evolve, cases close — and you cannot retrain every time they do. RAG retrieves the current document at query time, so the AI always answers from up-to-date information. Fine-tuning on knowledge base content is expensive to maintain and produces a model that is out-of-date as soon as anything changes.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.2-q3",
+      "type": "multiple-choice",
+      "question": "A company signs an enterprise contract with an AI vendor whose proprietary API is central to their application. Six months later the vendor raises prices by 50%. What risk did this outcome represent, and what mitigation should have been in place?",
+      "options": [
+        "Strategic risk; the mitigation is to negotiate a lower price",
+        "Vendor lock-in risk; the mitigation is to abstract the vendor behind an internal interface layer from the start, maintaining the ability to switch providers without rewriting the entire application",
+        "Operational risk; the mitigation is an SLA with financial penalties",
+        "Model risk; the mitigation is to evaluate multiple vendors before signing"
+      ],
+      "answer": 1,
+      "explanation": "This is a vendor lock-in risk. When the vendor's proprietary API is directly embedded throughout the application, switching requires rewriting the application — which creates leverage for the vendor to raise prices. The mitigation is architectural: build an abstraction layer that wraps the vendor-specific code and presents a stable internal interface. Switching then means updating the abstraction layer, not the entire application. This should be built in from the start, because retrofitting it after lock-in is exactly as expensive as it sounds.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.2-q4",
+      "type": "multiple-choice",
+      "question": "A team fine-tunes a model on 2,000 examples of their desired output style and behaviour. After deployment, the model is more consistent — but the outputs are worse than before. What most likely went wrong?",
+      "options": [
+        "2,000 examples is not enough; they need at least 20,000",
+        "The training examples contained the bad behaviour they were trying to fix, or inconsistent quality — fine-tuning made the bad behaviour more consistent, not better",
+        "The fine-tuned model was deployed on an incompatible infrastructure",
+        "Fine-tuning always degrades model quality in the first iteration"
+      ],
+      "answer": 1,
+      "explanation": "Fine-tuning amplifies the signal in your training data. If the training examples contain the problem you were trying to solve — wrong tone, incorrect format, bad reasoning patterns — the fine-tuned model learns to replicate that problem more reliably. 'More consistent' after fine-tuning on bad examples means consistently bad. Data quality review before labelling, clear annotation guidelines, inter-annotator agreement checks, and a holdout eval set to measure whether fine-tuning actually improved things are all essential prerequisites.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.2-q5",
+      "type": "multiple-choice",
+      "question": "Which combination of approaches best addresses a use case where the AI needs to behave in a very specific domain-adapted way AND needs access to continuously updated information?",
+      "options": [
+        "Buy a commercial product and configure it",
+        "Fine-tune for behaviour (teaching the model how to respond in your context) combined with RAG for knowledge (retrieving current facts at query time)",
+        "Fine-tune on both the behaviour examples and the knowledge documents",
+        "Build using prompt engineering only, with no retrieval or fine-tuning"
+      ],
+      "answer": 1,
+      "explanation": "Fine-tuning and RAG address complementary gaps. Fine-tuning teaches the model how to behave — the tone, format, decision patterns, and domain conventions specific to your use case. RAG provides what the model needs to know at any given moment — current documents, live records, up-to-date facts. Combining both gives you domain-appropriate behaviour plus current knowledge, without the need to retrain every time facts change. This hybrid approach is the standard pattern for mature domain-specific AI applications.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

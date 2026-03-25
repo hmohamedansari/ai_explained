@@ -1,0 +1,76 @@
+{
+  "title": "Building an AI-Ready Data Foundation — Check your understanding",
+  "moduleId": "8.8",
+  "questions": [
+    {
+      "id": "8.8-q1",
+      "type": "multiple-choice",
+      "question": "A team starts an AI project with the assumption that their data is ready because they have 'five years of historical records.' Two months into the project, they discover the records are in incompatible formats across systems, lack the labels the AI needs, and have unclear usage rights. What should they have done?",
+      "options": [
+        "Started the project anyway — data issues are always discovered mid-project",
+        "Conducted a data readiness audit before committing to a timeline — a two-week assessment of whether data is collected, labelled, clean, accessible, and legally usable would have surfaced these blockers before they became critical-path delays",
+        "Hired a data engineer at the start to handle whatever data issues arose",
+        "Used a public dataset instead until internal data issues were resolved"
+      ],
+      "answer": 1,
+      "explanation": "The data readiness audit is the single highest-ROI activity before starting an AI project. Two weeks of assessment against five criteria — collected, labelled, clean, accessible, legally usable — identifies blockers that would otherwise cause months of rework. The assumption that existing data volume implies data readiness is one of the most common and expensive mistakes in AI project planning. Volume and readiness are different properties; you can have a lot of data that is none of those five things.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.8-q2",
+      "type": "multiple-choice",
+      "question": "A company has extensive historical customer records that are accurate, accessible, and legally usable. They want to build an AI that answers customer questions about current product offerings. Do they have everything they need?",
+      "options": [
+        "Yes — accurate historical records are ideal training data for a product Q&A AI",
+        "No — RAG for current product information requires current, structured, accessible product documentation, not historical records; historical records reflect past products and past prices which may mislead customers",
+        "Yes, if the historical records include the last 12 months",
+        "No — they also need customer interaction labels to train the Q&A model"
+      ],
+      "answer": 1,
+      "explanation": "RAG requires current documents. Historical records tell you about the past; product Q&A requires current product specifications, current pricing, and current availability. Answering product questions with historical data is worse than having no AI — the system will confidently provide outdated information. The data readiness assessment for RAG specifically should ask: is this data current? When was it last updated? Is there a reliable update process? Historical breadth does not substitute for current accuracy in retrieval-based applications.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.8-q3",
+      "type": "multiple-choice",
+      "question": "A team has 10,000 labelled support tickets — but 8,000 of them are from the last six months when a new product was launched, and only 2,000 cover the previous three years of queries. The AI trained on this dataset performs poorly on older query types. What data quality problem does this illustrate?",
+      "options": [
+        "Insufficient data volume — 10,000 examples is too few for a production model",
+        "Recency bias — the training distribution over-represents recent query types and under-represents older ones, so the model is poorly calibrated for queries that were common before the new product launch",
+        "Label inconsistency — the labelling standards changed when the new product was launched",
+        "Selection bias — the tickets were chosen non-randomly"
+      ],
+      "answer": 1,
+      "explanation": "Recency bias occurs when recent data dominates the training distribution, causing the model to be well-calibrated for current patterns but poorly calibrated for patterns that were common in the past. This matters in production because users do not only ask about the latest thing — they also ask about older products, legacy issues, and historical context. The fix is deliberate stratified sampling: ensure the training dataset represents the full range of query types the model will encounter in production, not just the most recently collected examples.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.8-q4",
+      "type": "multiple-choice",
+      "question": "An organisation wants to build a data flywheel for their AI-powered search product. What infrastructure investment makes the flywheel possible?",
+      "options": [
+        "A larger, more powerful foundation model that can handle more query types",
+        "Logging every user query and click, capturing explicit feedback signals, building a review pipeline to label samples, and feeding high-quality examples back into the model's training or retrieval — creating the loop from usage to data to improvement",
+        "Increasing the search index size to cover more documents",
+        "Partnering with a data provider to supplement internal data"
+      ],
+      "answer": 1,
+      "explanation": "The data flywheel requires infrastructure, not just a better model. The loop has four components: capture (log interactions), signal (record which results users clicked, rated, or corrected), review (have humans sample and label the signal), and feedback (use the labelled data to improve retrieval or model behaviour). Without the capture and review infrastructure, usage generates no lasting asset. The model improves for everyone with a better base model; the flywheel only runs for you if you have built the capture loop.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.8-q5",
+      "type": "multiple-choice",
+      "question": "Why does data infrastructure investment typically return more than equivalent model investment for most organisations?",
+      "options": [
+        "Data infrastructure is cheaper to build than model infrastructure",
+        "Foundation model improvements are available to everyone simultaneously, so they provide no relative advantage; proprietary data and the infrastructure to use it improve only your system, creating a compounding relative advantage that grows over time",
+        "Data infrastructure does not require as much engineering expertise",
+        "Model investment has diminishing returns after a certain quality threshold"
+      ],
+      "answer": 1,
+      "explanation": "When a model provider releases a better foundation model, every organisation benefits simultaneously — it is not a source of relative advantage. When you invest in building a proprietary dataset, improving data quality, or establishing a feedback loop, only you benefit. That asymmetry means data infrastructure investment produces relative competitive return while model investment produces absolute return that is shared with all competitors. For most organisations, the marginal return on data infrastructure exceeds the marginal return on further model capability investment, especially as foundation model quality continues to improve for everyone.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

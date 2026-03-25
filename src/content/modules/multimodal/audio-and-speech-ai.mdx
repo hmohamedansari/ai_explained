@@ -1,0 +1,358 @@
+---
+moduleId: "9.3"
+title: "Audio and Speech AI"
+description: "The audio AI stack spans automatic speech recognition (ASR), text-to-speech (TTS), and the orchestration layer that connects them to language models. This module covers the key components, their production metrics, and the voice AI pipeline pattern that powers real-time conversational applications."
+track: "multimodal"
+order: 3
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "ASR word error rate on clean speech in benchmarks (typically 3–5% for Whisper large) degrades significantly with background noise, accents, domain-specific terminology, and crosstalk — real-world WER in a contact centre or meeting transcription context is routinely 15–30%. Always benchmark on your actual audio conditions, not clean-speech datasets."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Audio AI has four distinct capabilities that are often conflated: ASR (automatic speech recognition) converts audio to text; TTS (text-to-speech) converts text back to audio; audio classification identifies what kind of sound is present; and speaker diarisation identifies who is speaking and when in a multi-speaker recording. Most production voice AI applications use ASR and TTS together, with a language model in the middle.
+
+The standard voice AI pipeline is: audio in → ASR → text → LLM → text → TTS → audio out. The language model never touches audio directly — it works on the transcript, and the TTS system speaks the language model's reply. This architecture means you can swap any component independently, but it also means latency compounds: you must wait for ASR before the LLM starts, and for the LLM before TTS starts.
+
+The most important metric for ASR is Word Error Rate (WER): the fraction of words in the transcript that differ from what was actually said. Whisper large achieves roughly 3–5% WER on clean English speech from benchmark datasets. On a contact centre call with background noise, regional accents, and technical product names, the same model routinely produces 15–30% WER — often high enough to corrupt downstream LLM reasoning.
+
+For TTS, the key metric is TTFA (time to first audio): how long after the request before the user hears the first syllable. A streaming TTS that begins speaking after receiving the first sentence token feels dramatically more responsive than one that waits for the full LLM output before speaking.
+
+### Why it matters
+
+Teams that benchmark ASR on LibriSpeech or similar clean-speech datasets and then deploy to real-world audio conditions discover a significant gap at the worst possible time: in production. Domain-specific vocabulary (medical terms, product names, acronyms) is a particularly common failure — the model confidently transcribes a novel word as the nearest-sounding common word, producing subtle errors that the LLM then reasons about incorrectly.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake is trusting benchmark WER as a predictor of production accuracy. Clean-speech benchmarks are specifically designed to isolate the ASR model from confounding factors. Your users may speak with strong accents, call from noisy environments, or discuss topics with technical vocabulary the ASR model has rarely seen in training. Record a sample of real production audio early in development and measure WER directly on it.
+
+---
+
+## Layer 2 — Guided
+
+### ASR with Whisper: the basic pipeline
+
+Whisper is the most widely used open-weight ASR model. It accepts 16kHz mono audio and produces a transcript with optional word-level timestamps.
+
+```python
+import io
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+# Requires: pip install openai-whisper or use API
+# import whisper   # for local inference
+
+
+@dataclass
+class TranscriptSegment:
+    start_s: float     # start time in seconds
+    end_s: float       # end time in seconds
+    text: str
+    confidence: Optional[float] = None   # not all implementations return this
+
+
+@dataclass
+class Transcript:
+    full_text: str
+    segments: list[TranscriptSegment]
+    language: str
+    duration_s: float
+
+
+def normalize_audio(audio_bytes: bytes, target_sample_rate: int = 16000) -> bytes:
+    """
+    Normalize audio to 16kHz mono PCM WAV — the format expected by most ASR models.
+    Requires: pip install pydub
+    """
+    from pydub import AudioSegment
+
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+    audio = audio.set_frame_rate(target_sample_rate)
+    audio = audio.set_channels(1)    # mono
+
+    buf = io.BytesIO()
+    audio.export(buf, format="wav")
+    return buf.getvalue()
+
+
+def transcribe_audio(audio_bytes: bytes, language: Optional[str] = None) -> Transcript:
+    """
+    Transcribe audio using a speech recognition API.
+    Vendor-neutral: substitue your provider's actual client.
+    """
+    # Ensure correct format
+    normalized = normalize_audio(audio_bytes)
+
+    response = stt.transcribe(
+        model="whisper-large",    # or your provider's model name
+        audio=normalized,
+        language=language,        # None = auto-detect
+        timestamps=True,
+    )
+
+    segments = [
+        TranscriptSegment(
+            start_s=seg["start"],
+            end_s=seg["end"],
+            text=seg["text"],
+        )
+        for seg in response.segments
+    ]
+
+    return Transcript(
+        full_text=response.text,
+        segments=segments,
+        language=response.language,
+        duration_s=response.duration,
+    )
+```
+
+### Chunking long audio
+
+Audio files longer than a few minutes need to be split into chunks before transcription. Many ASR APIs have a maximum file size (typically 25–50MB) and optimal accuracy at shorter durations.
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass
+class AudioChunk:
+    chunk_id: int
+    start_s: float
+    end_s: float
+    audio_bytes: bytes
+
+
+def split_on_silence(
+    audio_bytes: bytes,
+    min_silence_ms: int = 500,
+    silence_thresh_dbfs: float = -40.0,
+    max_chunk_s: float = 60.0,
+) -> list[AudioChunk]:
+    """
+    Split audio at silence boundaries to avoid cutting mid-word.
+    Falls back to hard cuts at max_chunk_s if no silence is found.
+    Requires: pip install pydub
+    """
+    from pydub import AudioSegment
+    from pydub.silence import detect_silence
+
+    audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+    total_s = len(audio) / 1000.0
+
+    # Find silence intervals
+    silences = detect_silence(audio, min_silence_len=min_silence_ms, silence_thresh=silence_thresh_dbfs)
+
+    chunks = []
+    chunk_id = 0
+    prev_end_ms = 0
+    max_chunk_ms = int(max_chunk_s * 1000)
+
+    for silence_start, silence_end in silences:
+        midpoint = (silence_start + silence_end) // 2
+
+        # If this chunk is getting too long, cut here
+        if midpoint - prev_end_ms >= max_chunk_ms:
+            chunk_audio = audio[prev_end_ms:midpoint]
+            buf = io.BytesIO()
+            chunk_audio.export(buf, format="wav")
+            chunks.append(AudioChunk(
+                chunk_id=chunk_id,
+                start_s=prev_end_ms / 1000.0,
+                end_s=midpoint / 1000.0,
+                audio_bytes=buf.getvalue(),
+            ))
+            chunk_id += 1
+            prev_end_ms = midpoint
+
+    # Final chunk
+    if prev_end_ms < len(audio):
+        chunk_audio = audio[prev_end_ms:]
+        buf = io.BytesIO()
+        chunk_audio.export(buf, format="wav")
+        chunks.append(AudioChunk(
+            chunk_id=chunk_id,
+            start_s=prev_end_ms / 1000.0,
+            end_s=total_s,
+            audio_bytes=buf.getvalue(),
+        ))
+
+    return chunks
+
+
+def transcribe_long_audio(audio_bytes: bytes) -> Transcript:
+    """Transcribe long audio by chunking and stitching transcripts."""
+    chunks = split_on_silence(audio_bytes)
+    all_segments = []
+    full_texts = []
+
+    for chunk in chunks:
+        result = transcribe_audio(chunk.audio_bytes)
+        # Adjust timestamps to be relative to the full file
+        for seg in result.segments:
+            adjusted = TranscriptSegment(
+                start_s=seg.start_s + chunk.start_s,
+                end_s=seg.end_s + chunk.start_s,
+                text=seg.text,
+            )
+            all_segments.append(adjusted)
+        full_texts.append(result.full_text)
+
+    return Transcript(
+        full_text=" ".join(full_texts),
+        segments=all_segments,
+        language="auto",
+        duration_s=sum(c.end_s - c.start_s for c in chunks),
+    )
+```
+
+### The full voice AI pipeline
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass
+class VoiceResponse:
+    transcript: str       # what the user said
+    llm_reply: str        # what the LLM responded
+    audio_bytes: bytes    # TTS audio to play to the user
+
+
+def voice_ai_pipeline(
+    user_audio: bytes,
+    system_prompt: str,
+    conversation_history: list[dict],
+) -> VoiceResponse:
+    """
+    Full audio-in, audio-out pipeline:
+    1. Transcribe user speech
+    2. Send transcript + history to LLM
+    3. Convert LLM reply to speech
+
+    conversation_history: list of {role, content} dicts (text only)
+    """
+    # Step 1: ASR — audio to text
+    transcript = transcribe_audio(user_audio)
+    user_text = transcript.full_text
+
+    # Step 2: LLM — text to text
+    messages = [{"role": "system", "content": system_prompt}]
+    messages.extend(conversation_history)
+    messages.append({"role": "user", "content": user_text})
+
+    llm_response = llm.chat(model="balanced", messages=messages)
+    reply_text = llm_response.text
+
+    # Step 3: TTS — text to audio
+    audio_response = tts.synthesize(
+        text=reply_text,
+        voice="default",
+        format="mp3",
+        speed=1.0,
+    )
+
+    return VoiceResponse(
+        transcript=user_text,
+        llm_reply=reply_text,
+        audio_bytes=audio_response.audio_bytes,
+    )
+```
+
+### Measuring WER in development
+
+```python
+def word_error_rate(hypothesis: str, reference: str) -> float:
+    """
+    Compute Word Error Rate between ASR output and ground truth.
+    WER = (S + D + I) / N where:
+      S = substitutions, D = deletions, I = insertions, N = words in reference.
+    Lower is better. 0.0 = perfect. > 0.20 is concerning for most applications.
+    """
+    import re
+
+    def tokenize(text: str) -> list[str]:
+        return re.sub(r"[^\w\s]", "", text.lower()).split()
+
+    ref = tokenize(reference)
+    hyp = tokenize(hypothesis)
+
+    # Dynamic programming edit distance (Levenshtein)
+    n, m = len(ref), len(hyp)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if ref[i - 1] == hyp[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+
+    return dp[n][m] / max(1, n)
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### ASR architecture: from CNNs to transformers
+
+Whisper uses an encoder-decoder transformer architecture. The audio encoder processes mel spectrogram features (a frequency-over-time representation of audio) and produces audio embeddings. The decoder generates the transcript token by token, attending to the encoder output.
+
+The mel spectrogram is the key preprocessing step: raw audio samples (PCM waveform) are converted to a frequency representation that separates human speech frequencies from background noise and captures features relevant to phoneme recognition. This is why sample rate normalisation matters — Whisper is trained on 16kHz audio, and resampling from 8kHz (telephone audio) or 44.1kHz (CD quality) is necessary for correct operation.
+
+### Latency components in a voice pipeline
+
+| Stage | Typical latency | Dominant factor |
+|---|---|---|
+| ASR (batch) | 1–5 seconds per minute of audio | Model size, audio length |
+| ASR (streaming) | 200–500ms to first token | Network + partial decode |
+| LLM (non-streaming) | 500ms–3s | Model size, response length |
+| LLM (streaming, first token) | 200–600ms | Model size |
+| TTS (non-streaming) | 500ms–2s | Text length |
+| TTS (streaming, TTFA) | 100–300ms | Time to first sentence |
+
+For a latency-sensitive voice assistant, streaming ASR → streaming LLM → streaming TTS is the path to under-1-second perceived response time. Each stage must stream: ASR emits partial transcripts as audio arrives; the LLM processes partial input as ASR emits tokens; TTS begins speaking the first sentence while the LLM continues generating.
+
+### Speaker diarisation and meeting transcription
+
+Speaker diarisation (who-spoke-when) is commonly required for meeting transcription. It runs alongside ASR but uses a different model family. The pipeline is:
+
+1. Run ASR to get word-level timestamps
+2. Run diarisation to get speaker segments (speaker 1: 0:00–0:45, speaker 2: 0:45–1:30, ...)
+3. Align word timestamps to speaker segments
+4. Attribute each word to a speaker
+
+Common open-weight options include pyannote.audio. Diarisation accuracy degrades significantly with crosstalk (two speakers overlapping), high room reverberation, and more than 4–5 speakers.
+
+### TTS voice cloning and considerations
+
+Modern TTS systems can clone a voice from a short audio sample (as little as 3–10 seconds). This capability has obvious misuse potential — generating audio in someone's voice without their consent. Responsible deployment requires:
+
+- Consent verification before cloning a voice
+- Watermarking generated audio (e.g., AudioSeal from Meta)
+- Clear disclosure to end users when they are hearing AI-generated speech
+
+Voice cloning quality degrades with very short samples, noisy reference audio, and extreme voice characteristics (very high/low pitch).
+
+### Further reading
+
+- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — Radford et al., 2022. The Whisper paper; explains the training approach and benchmark WER. The gap between LibriSpeech WER and real-world WER is addressed in the limitations section.
+- [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884) — Shen et al., 2018. Tacotron 2; the architecture that established the mel spectrogram-based TTS pipeline.
+- [pyannote.audio: neural building blocks for speaker diarization](https://arxiv.org/abs/1911.01255) — Bredin et al., 2020. The main open-weight diarisation library for Python.
+- [AudioSeal: Proactive Detection of Voice Cloning with In-the-Wild Detection](https://arxiv.org/abs/2401.17264) — San Roman et al., 2024. Audio watermarking approach from Meta; relevant to responsible TTS deployment.

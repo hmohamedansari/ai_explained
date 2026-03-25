@@ -1,0 +1,161 @@
+---
+moduleId: "8.6"
+title: "Communicating AI to Stakeholders"
+description: "The gap between what engineers know about AI systems and what stakeholders need to hear is where AI projects lose trust. This module gives you the frameworks to communicate outcomes, risk, cost, and failures in language that lands."
+track: "strategy"
+order: 6
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "\"The model is X% accurate\" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed — in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Engineers think in models, tokens, and evaluation scores. Executives think in outcomes, risk, and cost. The translation between these two languages is one of the most undervalued skills in AI product development — and when it breaks down, projects lose funding, lose trust, or get shut down after a preventable public failure.
+
+The core translation problem: technical accuracy does not equal business clarity.
+
+- "The model achieves 94% accuracy on our classification benchmark" — what does this mean for operations?
+- "We use RAG with a 512-token chunk size" — why should a stakeholder care?
+- "The system hallucinated 2% of the time in testing" — how bad is that, and how is it managed?
+
+Stakeholders are not asking for less information. They are asking for different information, framed differently. What they need:
+
+- **Outcomes**: What does the user or business get? What is better, faster, cheaper, or safer because of this system?
+- **Risk**: What can go wrong? How bad would that be? What is preventing it?
+- **Cost**: What does it cost to build, run, and maintain? What happens if costs increase?
+
+Everything else is an implementation detail that matters internally but not in stakeholder communication.
+
+### Why it matters
+
+Stakeholders who do not understand AI systems make poor decisions about them — they fund the wrong projects, cut the right ones, underestimate risks, or over-promise to users. Clear communication is not a soft skill; it is a governance requirement.
+
+### Production Gotcha
+
+> **Common Gotcha:** "The model is X% accurate" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed — in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution.
+>
+> The assumption: "95% is a high number, so this system is reliable." The reality: if the 5% failure rate is concentrated on the most common or highest-stakes query type, it may be functionally unacceptable.
+
+---
+
+## Layer 2 — Guided
+
+### The three framing lenses
+
+Every AI communication to stakeholders should answer three questions:
+
+**1. Outcome framing**: What is better because of this system?
+- Be specific: "Analysts spend 60% less time on first-pass document review" is better than "the AI helps with document review"
+- Quantify where possible, with honest confidence intervals: "we estimate 40–60% time savings based on pilot data, subject to production validation"
+- Attribute honestly: "this requires the analyst to verify outputs before actioning them"
+
+**2. Risk framing**: What can go wrong, and how is it managed?
+- Name the failure modes: "The system may produce incorrect summaries when documents are in non-standard formats"
+- Describe the control: "Outputs are reviewed by a qualified reviewer before any decision is made based on them"
+- Be honest about residual risk: "There will be errors. Our goal is to keep the error rate below 2% and ensure all errors are caught before they reach customers"
+
+**3. Cost framing**: What does this cost to build, run, and maintain?
+- Build cost: engineering time, data work, design
+- Run cost: API costs, infrastructure, per-transaction cost at scale
+- Maintenance cost: ongoing prompt tuning, model upgrades, data refresh
+- Avoid presenting only the build cost — run and maintenance costs often exceed it over a 3-year horizon
+
+### What not to say
+
+Some phrasings create false impressions that will damage trust when reality differs:
+
+| Avoid | Why | Say instead |
+|---|---|---|
+| "The AI will learn over time" | Implies automatic improvement without explaining what learning means operationally | "We will capture user feedback and use it to improve the system on a quarterly retraining cycle" |
+| "The model is X% accurate" (bare number) | Obscures the failure distribution and measurement context | "The model correctly classifies X% of our standard cases; error rates are higher for [specific edge cases], which are handled by [control]" |
+| "It's just a tool — humans are still in control" | Understates AI influence on decisions that are effectively automated | "Human review is required before any [specific action] is taken based on AI output" |
+| "The AI doesn't have biases" | No AI system is bias-free | "We have tested for [specific bias types] on [specific populations]; our findings are [findings]; monitoring continues" |
+| "It's similar to what [well-known AI company] does" | Creates capability expectations you may not meet | Describe your system's actual capabilities and limitations |
+
+### Communicating failures
+
+When an AI system fails publicly or causes a significant incident, stakeholders need four things:
+
+1. **What happened**: A factual, non-technical description of the failure. What did the system do? What was the impact?
+2. **Why it happened**: The root cause, at a level of detail that explains without obscuring. "The model produced a confidently incorrect answer because it was asked a question outside the scope it was designed for" is better than "the model hallucinated" (jargon) or a 10-paragraph technical post-mortem.
+3. **What was done**: The immediate response. Was the feature disabled? Were affected users notified? Was the damage bounded?
+4. **What prevents recurrence**: The specific change — a new guardrail, a new eval test, a new human review step — that reduces the probability of this failure mode recurring. Not "we will be more careful" — a specific, verifiable change.
+
+### Managing timeline expectations
+
+AI projects routinely take longer than estimated because evaluation and safety work is systematically underestimated. When setting timelines:
+
+```python
+# A rough timeline adjustment heuristic — pseudocode
+def realistic_timeline(engineering_estimate_weeks: int, use_case_risk: str) -> int:
+    """
+    Adjusts an engineering estimate to account for the work that gets
+    underestimated in early planning.
+    """
+    multipliers = {
+        "internal-low-stakes": 1.3,   # add ~30% for basic eval and deployment work
+        "customer-facing":     1.6,   # add ~60% for eval, safety testing, monitoring
+        "regulated-domain":    2.0,   # double: compliance review, audit trail, approval process
+    }
+    return int(engineering_estimate_weeks * multipliers.get(use_case_risk, 1.5))
+```
+
+Communicate this to stakeholders before the project starts: "The engineering estimate is X weeks. We are adding Y weeks for evaluation, safety testing, and production readiness work. This is not optional — it is what separates a demo from a production system."
+
+### Accuracy numbers — the right way to present them
+
+When you must share an accuracy metric, include:
+
+1. **What task it measures**: "Correctly classifying support tickets into one of five categories"
+2. **What dataset it was measured on**: "A held-out test set of 500 real tickets from November 2025"
+3. **The failure distribution**: "The error rate is highest for [specific category] at [rate]; all other categories are below [rate]"
+4. **What failure means operationally**: "An incorrectly classified ticket is reviewed by a support agent before any response is sent; the agent catches and corrects approximately [rate] of misclassifications"
+5. **How it will be monitored in production**: "We track classification accuracy weekly using a sample review; degradation beyond [threshold] triggers a review"
+
+---
+
+## Layer 3 — Deep Dive
+
+### Why accuracy percentages mislead
+
+A 95% accuracy number is reassuring until you examine the distribution. Consider a system that classifies medical images as normal or abnormal. A 95% accuracy rate on a dataset where 90% of images are normal can be achieved by classifying everything as normal — a system that misses every actual abnormality.
+
+Even in less extreme cases, the failure distribution matters more than the average. If a customer service AI has 95% accuracy overall but fails 40% of the time on billing queries — the highest-value and most frustrating failure category for customers — the average number is misleading to the point of being dangerous.
+
+Always ask: where does the system fail? How often? What is the cost of those failures? A system with 93% accuracy and evenly distributed failures may be far preferable to a system with 97% accuracy and failures concentrated on high-stakes cases.
+
+### Trust calibration over time
+
+Stakeholders develop intuitions about AI systems based on their experience with them. A system that performs reliably for six months and then fails in an unexpected way tends to produce more trust damage than a system with a consistently known, bounded failure rate. This has implications for how you communicate:
+
+- Communicate failure modes proactively, before they occur. "This system does not handle queries in languages other than English well; those queries are routed to a human agent" is better to say upfront than after an incident.
+- Resist the temptation to over-sell early performance. If the pilot showed 96% accuracy and production delivers 89%, you have a trust problem even if 89% is objectively good.
+- Build a track record with small, visible wins before tackling high-stakes use cases. Trust in AI systems is earned incrementally.
+
+### Communication across different stakeholder groups
+
+Different stakeholders need different framings of the same information:
+
+| Stakeholder | Primary concern | What they need |
+|---|---|---|
+| Board / executive | Risk and strategic value | Portfolio view: which AI initiatives are working, at what cost, with what risk |
+| Operational managers | Reliability and process impact | What does this do to our workflow? What happens when it fails? |
+| Front-line users | Usability and trust | Does this make my job easier? What should I trust vs verify? |
+| Legal / compliance | Regulatory exposure | What decisions does AI influence? What audit trail exists? |
+| Customers (if affected) | Fairness and accuracy | Is this system treating me fairly? How do I get a human to review? |
+
+Tailor communications to what each group needs to make their specific decisions.
+
+### Further reading
+
+- [Communicating Uncertainty in AI Systems — Partnership on AI](https://partnershiponai.org/) — Practical guidance on communicating AI limitations to non-technical audiences; relevant frameworks for describing failure modes.
+- [AI Explainability 360 — IBM Research](https://aix360.res.ibm.com/) — Open-source toolkit with examples of different explanation approaches for different audiences; useful for understanding the range of options.
+- [On the Dangers of Stochastic Parrots — Bender et al., 2021](https://dl.acm.org/doi/10.1145/3442188.3445922) — Critical analysis of large language model risks; useful background for understanding the failure mode landscape that informs stakeholder communication.

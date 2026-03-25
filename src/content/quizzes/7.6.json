@@ -1,0 +1,76 @@
+{
+  "title": "Supply Chain Security — Check your understanding",
+  "moduleId": "7.6",
+  "questions": [
+    {
+      "id": "7.6-q1",
+      "type": "multiple-choice",
+      "question": "A data scientist downloads a LoRA adapter from a Hugging Face repository in .pt format. The model card looks legitimate and the repository has 500 stars. A security engineer raises a concern. What is the nature of the risk?",
+      "options": [
+        "The model card may contain inaccurate performance claims that affect model selection",
+        "A .pt file is a pickled Python object — loading it executes any __reduce__ method on deserialized objects, which means a malicious .pt file can run arbitrary code (network calls, file access, process execution) at load time; repository stars and a professional model card do not indicate the file is safe to load",
+        "Downloading files from third-party repositories violates most enterprise security policies regardless of file format",
+        "LoRA adapters from unverified sources may have lower accuracy than the base model"
+      ],
+      "answer": 1,
+      "explanation": "PyTorch's pickle-based serialisation format (.pt, .bin) executes arbitrary Python code on load. A malicious .pt file can exfiltrate environment variables, establish reverse shells, or modify other files — all before the model is even used. Repository popularity and a professional model card do not protect against this: the file content is what matters, and Python pickling gives the creator arbitrary code execution on any machine that loads the file. The fix is to require safetensors format, which stores only tensor data and cannot execute code on load, and to verify checksums against a known-good source.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "7.6-q2",
+      "type": "multiple-choice",
+      "question": "A team's pip install fails because the package `transformerz` (with a z) installs instead of `transformers`. The installed package requests an external URL at import time. What type of attack is this?",
+      "options": [
+        "Dependency confusion — a package with the same name as an internal package was published to PyPI",
+        "Typosquatting — a malicious package with a name nearly identical to a legitimate package is published to a public registry hoping developers mistype the name; the external network call at import time is a telltale sign of data exfiltration or command-and-control establishing",
+        "Supply chain compromise — the legitimate transformers package was replaced with a malicious version",
+        "Credential stuffing — the attacker used stolen credentials to modify the legitimate package"
+      ],
+      "answer": 1,
+      "explanation": "Typosquatting places a malicious package with a name one character different from a popular legitimate package on a public registry. Developers who mistype the package name in requirements.txt or a pip install command get the malicious package instead. A network call at import time is a common indicator of malicious packages: it may be exfiltrating the installation environment (hostname, username, environment variables, AWS credentials from IMDS) to a C2 server. The defence includes: pinning exact package versions in requirements files, using a package lock file, running pip-audit on every build, and reviewing new or unusual packages before installation.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "7.6-q3",
+      "type": "multiple-choice",
+      "question": "A team stores their LLM provider API key in a .env file in the project root. The .env file is added to .gitignore. A contractor accidentally removes the .gitignore entry and commits the file to a public GitHub repository. How quickly can the key be compromised?",
+      "options": [
+        "The key is safe as long as the repository is made private again within a few hours",
+        "Automated bots continuously scan public GitHub repositories for API key patterns and can detect and use a committed key within minutes of the commit being pushed; making the repository private and reverting the commit does not help — the key must be rotated immediately in the provider's dashboard",
+        "The key is only at risk if the repository appears in a search engine index",
+        "The contractor should be held responsible for the breach; technical controls are not the primary defence"
+      ],
+      "answer": 1,
+      "explanation": "Automated scanners continuously monitor GitHub for API key patterns — Anthropic, OpenAI, AWS, and other providers publish regex patterns that these scanners use. A key committed to a public repository can be found and used within minutes. GitHub's own secret scanning may also alert the provider, who may revoke the key automatically. The response is not 'hide the repository' — the key must be treated as compromised and rotated immediately regardless of whether it was actively used. The .gitignore approach is a single point of failure; the defence is secrets management: keys should only exist in a secrets manager or environment variables injected at deploy time, never in files that could be committed.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.6-q4",
+      "type": "multiple-choice",
+      "question": "A team fine-tunes a model on customer support conversations to improve domain performance. The training data was collected from a live chat system and not reviewed before use. What supply chain risk does this introduce?",
+      "options": [
+        "Copyright risk — customer messages may contain copyrighted material",
+        "Training data poisoning — if any customer deliberately inserted malicious examples into the chat system (e.g., conversations that would introduce backdoor trigger patterns into the fine-tuned model), those examples could be present in the training data and affect the model's behaviour in production",
+        "Privacy risk only — customer data in training sets requires consent and a legal basis under GDPR",
+        "Performance risk — unfiltered training data may contain off-topic conversations that reduce model quality"
+      ],
+      "answer": 1,
+      "explanation": "Using unreviewed user-generated content as fine-tuning data introduces training data poisoning risk. An attacker who knows your system will use chat logs for fine-tuning can deliberately submit conversations that introduce backdoor patterns — the fine-tuned model behaves normally for most inputs but produces attacker-chosen outputs when given specific trigger phrases. Privacy (GDPR) is also a real risk, but the security concern is the backdoor: a poisoned model may pass all standard evaluations while hiding malicious behaviour that only activates on trigger inputs. The mitigation is auditing training data before use, particularly flagging unusual patterns, and evaluating the fine-tuned model against adversarial inputs before deploying.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "7.6-q5",
+      "type": "multiple-choice",
+      "question": "A security review asks for a Software Bill of Materials (SBOM) for your AI system. What must an AI SBOM include that a traditional software SBOM does not?",
+      "options": [
+        "The AI SBOM is identical to a standard software SBOM and requires no additional fields",
+        "An AI SBOM must include model provenance information beyond standard packages: model files with their checksums, the source and version of base models, any fine-tuning data sources, and adapter/LoRA component origins — these are AI-specific dependencies that a standard package manifest does not capture",
+        "An AI SBOM requires only the Python packages used for inference, not the model files themselves",
+        "AI SBOMs are only required for high-risk AI systems under the EU AI Act"
+      ],
+      "answer": 1,
+      "explanation": "A standard SBOM lists software packages and their versions. An AI system has additional dependencies that are not packages: model weight files, fine-tuning datasets, LoRA adapters, and the base models they derive from. These carry their own supply chain risks (malicious weights, poisoned training data) that are invisible to a package-only SBOM. An AI SBOM should include: all model files with their checksums, source URLs, and format; fine-tuning data provenance; adapter origins; and the base model name and version. This makes the full dependency graph auditable and allows incident responders to determine whether a specific model artefact was involved in a security event.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    }
+  ]
+}

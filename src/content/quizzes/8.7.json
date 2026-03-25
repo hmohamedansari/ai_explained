@@ -1,0 +1,76 @@
+{
+  "title": "AI Procurement and Vendor Evaluation — Check your understanding",
+  "moduleId": "8.7",
+  "questions": [
+    {
+      "id": "8.7-q1",
+      "type": "multiple-choice",
+      "question": "Before signing an enterprise AI contract, you test the vendor's model on 20 example queries from your use case. The model performs well on all 20. Is this a sufficient vendor evaluation?",
+      "options": [
+        "Yes — if the model performs well on representative examples, it is appropriate",
+        "No — 20 hand-picked examples are unlikely to include your hardest cases, edge cases, and failure modes; a valid evaluation requires at least 100–500 representative production queries including difficult cases, with a defined scoring rubric applied consistently across all vendors under comparison",
+        "Yes, but only if the examples include at least one from each major query category",
+        "No — vendor evaluations should use only the vendor's recommended benchmark dataset"
+      ],
+      "answer": 1,
+      "explanation": "20 examples, especially if they are straightforward, tell you almost nothing about vendor performance at scale. A meaningful evaluation requires: enough volume for statistical reliability (typically 100–500 examples), representation of your actual production distribution (not just easy cases), your hardest and most important cases, and consistent scoring applied to all vendors under the same conditions. The performance gap between a 20-example spot check and a real evaluation — and between benchmark performance and production performance — is routinely large enough to change the procurement decision.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.7-q2",
+      "type": "multiple-choice",
+      "question": "A vendor's data processing agreement states that they may use customer data for 'product improvement and model development.' Your application processes customer support tickets that may contain personal information. Should you sign this DPA as-is?",
+      "options": [
+        "Yes — vendors need this data to improve their models for everyone's benefit",
+        "No — 'product improvement and model development' is a broad purpose clause that allows the vendor to train general models on your customers' personal data; you should require narrow purpose limitation, explicit opt-out from training, and clarity on what processing is actually necessary",
+        "Yes, if the data is anonymised before sending to the vendor",
+        "Only if the vendor is GDPR-certified"
+      ],
+      "answer": 1,
+      "explanation": "Broad purpose clauses in DPAs are a significant data governance risk. 'Product improvement and model development' can encompass training general foundation models on your customers' personal data — potentially without your customers' knowledge or consent. Under GDPR and equivalent regulations, you need a legal basis for every processing purpose. Push for narrow, specific purpose limitation, explicit opt-out from training use, and clarity on which processing is technically necessary versus optional. If the vendor will not negotiate this clause, that is a signal about the relationship.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.7-q3",
+      "type": "multiple-choice",
+      "question": "You evaluate three AI vendors on published benchmarks and choose the one with the highest score. Six months into production, your team's quality metrics are disappointing. What most likely explains the gap?",
+      "options": [
+        "The vendor falsified their benchmark results",
+        "Published benchmarks measure general task performance on curated datasets; your production use case has a specific input distribution, specific failure modes, and specific quality criteria that may not align with what the benchmark measures",
+        "The model has degraded since the benchmark was published",
+        "Your team is not using the model correctly"
+      ],
+      "answer": 1,
+      "explanation": "The benchmark-to-production gap is one of the most reliable patterns in AI procurement. Benchmarks use clean, representative, general-task inputs measured against criteria that may have little to do with your specific use case. Your production queries are messier, more domain-specific, and distributed differently from any benchmark dataset. The only way to know which vendor will perform best for your use case is to evaluate on your data — a step that is skipped surprisingly often because it takes time and requires engineering work to set up.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.7-q4",
+      "type": "multiple-choice",
+      "question": "Your organisation's AI application is directly dependent on a vendor's proprietary API, with no abstraction layer. The vendor announces a significant API change in 6 weeks. What is the cost of not having built an abstraction layer?",
+      "options": [
+        "Minimal — API changes are typically backward compatible",
+        "The change requires modifying every part of the application that calls the vendor API directly, rather than updating a single abstraction layer; this is disproportionately expensive and risky compared to what it would have cost to build the abstraction at the start",
+        "Only affects developers, not users",
+        "No cost if the vendor provides migration documentation"
+      ],
+      "answer": 1,
+      "explanation": "Without an abstraction layer, a vendor API change ripples through every component that calls the API directly. With an abstraction layer, you update one wrapper and the rest of the application is unchanged. This is a classic architectural decision with asymmetric cost: the abstraction adds a small amount of upfront complexity, but saves disproportionate effort every time the vendor changes anything. The same abstraction also reduces switching costs if you ever need to change vendors. Build the abstraction before the first production deployment, not as an emergency response to a vendor change.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.7-q5",
+      "type": "multiple-choice",
+      "question": "A vendor guarantees 99.5% monthly uptime in their SLA. Your AI feature is used in a customer-facing workflow. What should you verify about this guarantee beyond the percentage?",
+      "options": [
+        "The uptime percentage is sufficient; no further verification is needed",
+        "What the remedy is (service credits vs exit rights), whether the SLA covers the specific endpoint you use, how outages are communicated, and whether your business can tolerate the graceful degradation path when the vendor is unavailable",
+        "Whether competitor vendors offer higher uptime guarantees",
+        "Whether the SLA applies to trials or only to paid enterprise contracts"
+      ],
+      "answer": 1,
+      "explanation": "An uptime percentage without context is incomplete. Key questions: service credits rarely compensate for the actual business impact of an outage, so push for exit rights on repeated breach. Check whether the SLA covers the specific API endpoint you use (some are excluded). Verify how quickly you are notified of incidents. And critically — design your application to degrade gracefully when the AI feature is unavailable, so users are not blocked by a vendor outage. 99.5% uptime still permits over 3 hours of downtime per month; if your application has no graceful degradation, those 3 hours are full outages.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

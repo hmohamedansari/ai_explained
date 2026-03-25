@@ -1,0 +1,76 @@
+{
+  "title": "The Multimodal Frontier — Check your understanding",
+  "moduleId": "9.8",
+  "questions": [
+    {
+      "id": "9.8-q1",
+      "type": "multiple-choice",
+      "question": "A team is deciding between a natively multimodal model (trained from scratch on interleaved text, image, and audio data) and a text LLM with a bolt-on vision adapter. For a task requiring tight reasoning over the spatial relationship between text and images in a complex document, which architecture is likely to perform better, and why?",
+      "options": [
+        "The bolt-on adapter, because it preserves the stronger text reasoning of the base LLM without modification",
+        "The natively multimodal model, because it learned cross-modal relationships during pre-training rather than projecting image features into a space optimised for text — tasks requiring tight integration of visual and textual context benefit from representations trained jointly from the start",
+        "They perform equivalently — the projection layer in a bolt-on adapter fully compensates for the lack of joint pre-training",
+        "The bolt-on adapter, because it can be fine-tuned on domain-specific images without retraining the language model"
+      ],
+      "answer": 1,
+      "explanation": "Bolt-on adapters project image features into the LLM's token space via a learned projection layer. This works well when visual and textual information can be processed somewhat independently, but the projection layer is a bottleneck for tasks requiring tight cross-modal reasoning — the image representation was never trained to encode relationships with specific textual contexts. Natively multimodal models trained on interleaved data develop richer cross-modal representations because text and image tokens co-occur in training. For complex document understanding where layout, text, and visual elements interact, this architectural difference typically produces measurable quality gaps. Fine-tuning flexibility is a real advantage of bolt-on adapters but does not close the representational gap for tightly cross-modal tasks.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.8-q2",
+      "type": "multiple-choice",
+      "question": "A product team wants to evaluate whether a new multimodal model released 3 months ago is worth migrating to. Given this track's volatility rating of 'volatile', what should their evaluation strategy prioritise?",
+      "options": [
+        "Trust the provider's benchmark scores — these are standardised and reproducible",
+        "Run the new model against your own production query sample and eval suite before making any migration decision — benchmark scores measure average-case performance on general tasks; your use case's performance gap from benchmark to production is the only number that matters for a migration decision",
+        "Wait 6 months for the community to publish independent evaluations before assessing",
+        "Prioritise the model with the best score on the most recent published multimodal benchmark"
+      ],
+      "answer": 1,
+      "explanation": "Benchmark scores are measured on curated general tasks and often do not reflect performance on specific production query distributions. The benchmark-to-production gap for multimodal tasks is typically larger than for text tasks because image inputs vary more in quality, domain, and format than text prompts. Provider benchmarks have an obvious selection bias. Community evaluations are valuable context but are themselves on general tasks. Waiting 6 months introduces a 6-month delay in what is a fast-moving space. The only evaluation that matters is on your data — building and maintaining an eval suite is the highest-ROI investment for keeping up with a volatile field.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.8-q3",
+      "type": "multiple-choice",
+      "question": "A team is building a real-time voice + vision assistant that needs to respond within 500ms of the end of a user's speech. The current pipeline is: audio → ASR (300ms) → LLM (400ms) → TTS (200ms) = 900ms total. Which architectural change has the highest impact on meeting the 500ms target?",
+      "options": [
+        "Replace the TTS model with a faster one to reduce the 200ms TTS latency",
+        "Replace the sequential pipeline with a natively multimodal real-time model that processes audio directly without a separate ASR step, or stream the LLM output token-by-token into a streaming TTS that begins speaking before the full response is generated — both approaches eliminate pipeline serialisation latency",
+        "Increase compute resources for the ASR step to reduce its latency to under 100ms",
+        "Cache common responses so the LLM step is skipped for repeated queries"
+      ],
+      "answer": 1,
+      "explanation": "In a serialised pipeline, total latency is the sum of all steps — even optimising each step individually cannot beat the sum. Streaming TTS (beginning audio output while the LLM is still generating) converts the pipeline from serialised to overlapping, reducing perceived latency to approximately max(LLM TTFT + TTS startup latency). Native audio-in models (like those designed for real-time voice) eliminate the ASR step entirely and process audio tokens directly. Replacing TTS reduces 200ms of a 900ms total — insufficient to meet 500ms. Reducing ASR to 100ms saves 200ms, still leaving 700ms total. Response caching helps for repeated queries but does not solve the architectural latency problem.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.8-q4",
+      "type": "multiple-choice",
+      "question": "Video understanding is listed as an emerging capability that is 'moving from research to production on a timescale of months.' Given this, what is the most durable investment a team can make when building a system that may eventually need video understanding?",
+      "options": [
+        "Integrate the current best-performing video-language model now to get a head start on the capability",
+        "Build modality-agnostic retrieval and evaluation infrastructure — the ability to ingest, index, and evaluate video content independently of which model processes it means the model layer can be swapped as better models emerge, without rearchitecting the surrounding system",
+        "Wait until video understanding models stabilise before designing the architecture",
+        "Use frame sampling as a proxy for video understanding — extract keyframes and process them as images until a video-native solution is available"
+      ],
+      "answer": 1,
+      "explanation": "In a volatile capability space, the model choice will change — what is best-in-class today will be superseded. The durable investment is the infrastructure layer: ingestion pipelines, chunking and indexing for temporal data, evaluation datasets and metrics that measure what your use case actually needs. With this infrastructure, swapping the model layer requires a configuration change and a re-evaluation run, not a rearchitecture. Integrating the current best model now couples the architecture to a specific model's API and assumptions. Frame sampling is a reasonable interim approach but is architecturally different from true video understanding and may require a significant rewrite when migrating.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.8-q5",
+      "type": "multiple-choice",
+      "question": "AI-generated image and audio content (deepfakes, synthetic voices) is increasingly indistinguishable from real content. A platform must decide whether to invest in detection-based or policy-based approaches to synthetic media risk. What does the current state of the field suggest about detection-based approaches?",
+      "options": [
+        "Detection-based approaches are reliable and improving faster than generation — invest in detection",
+        "Detection-based approaches are in an adversarial arms race with generation — detectors trained on current generators are bypassed by newer generators; policy-based approaches (disclosure requirements, provenance metadata like C2PA, context-based trust signals) are more durable because they do not depend on detecting the artefact itself",
+        "Detection is only needed for audio deepfakes — image deepfakes are reliably detected by perceptual hash comparison",
+        "The detection problem is solved for still images; only video deepfake detection remains an open challenge"
+      ],
+      "answer": 1,
+      "explanation": "The history of deepfake detection is a cycle: a detector is trained on current generators, published, and then used to improve the next generation of generators to evade it. No detection approach has maintained reliable accuracy across multiple generations of generators. Policy-based approaches — requiring provenance metadata (C2PA standard), mandating disclosure labels, using contextual signals like source credibility — do not attempt to solve the detection problem and are not defeated by advances in generation quality. They shift the burden to verifiable provenance rather than imperceptible artefact detection. Perceptual hashing detects exact or near-exact copies, not generative AI outputs. Still-image detection remains unsolved for state-of-the-art generators.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

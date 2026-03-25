@@ -1,0 +1,177 @@
+---
+moduleId: "8.7"
+title: "AI Procurement and Vendor Evaluation"
+description: "Choosing an AI vendor on benchmark performance alone is one of the most reliable ways to end up with the wrong vendor. This module gives you a complete evaluation framework covering quality, pricing, data handling, SLAs, and exit planning."
+track: "strategy"
+order: 7
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries — the performance gap between benchmark and production is routinely 15–30 percentage points."
+draft: false
+---
+
+## Layer 1 — Surface
+
+When you procure AI capabilities, you are making a decision that will be very difficult to reverse. The vendor's model will become embedded in your prompts, your retrieval system, your integrations, and your team's mental model of how things work. Switching vendors 18 months in is not a simple API swap — it is a project.
+
+The evaluation criteria that matter most are not the ones vendors lead with. Published benchmarks show how a model performs on standard academic tasks. Your use case is not an academic task. The first rule of AI procurement: test on your data before you commit.
+
+Beyond model quality, there are five dimensions that determine whether a vendor relationship will work:
+
+1. **Pricing model**: How are you charged? Per token, per seat, enterprise contract? What happens to cost as your volume grows?
+2. **Data handling**: Does the vendor train on your data? Where is it stored? What data retention and deletion policies apply?
+3. **SLA**: What uptime, latency, and support tier are guaranteed? What are the financial consequences of SLA breaches?
+4. **Model stability**: How does the vendor manage model versioning? How much notice do they give before deprecating a model? Can you pin to a specific version?
+5. **Vendor viability**: How financially stable is the vendor? What is the concentration risk if they are your only AI provider?
+
+### Why it matters
+
+Organisations that evaluate vendors primarily on benchmark performance and price sign contracts they later regret — either because production quality is lower than expected, data policies are problematic, or the relationship has no exit path.
+
+### Production Gotcha
+
+> **Common Gotcha:** Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries — the performance gap between benchmark and production is routinely 15–30 percentage points.
+>
+> The assumption: "If this model is top-rated on the leaderboard, it will be the best for our use case." The reality: leaderboards measure general tasks; your specific use case may favour a different model entirely.
+
+---
+
+## Layer 2 — Guided
+
+### The full vendor evaluation framework
+
+**Dimension 1: Model quality on your task**
+
+Do not rely on published benchmarks. Run your own evaluation:
+
+1. Collect 100–500 representative examples of your actual production queries
+2. Include your hardest cases, not just representative cases
+3. Define a clear scoring rubric: what does "good" look like for your task?
+4. Run the evaluation on every vendor you are considering, under the same conditions
+5. Calculate quality scores per vendor, including failure distribution (where does each fail?)
+
+Budget for this evaluation. It typically takes one to two weeks of engineering time and some inference cost. This is far less than the cost of six months into a contract with the wrong vendor.
+
+**Dimension 2: Pricing model**
+
+| Pricing element | What to ask |
+|---|---|
+| Unit cost | Per-token, per-request, or per-seat? What is the all-in cost at your current volume and projected volume? |
+| Volume discounts | At what volume does the price break? How does this align with your growth trajectory? |
+| Burst pricing | What happens during usage spikes? Are there rate limits that affect your application? |
+| Contract minimums | What is the minimum commitment? What happens if you exceed it or fall short? |
+| Price stability | Can the vendor change pricing during the contract period? What notice is required? |
+
+**Dimension 3: Data handling**
+
+This is the dimension most organisations under-scrutinise during procurement and most regret later.
+
+```
+Data handling checklist:
+├── Training: Does the vendor use your data to train or fine-tune models?
+│   └── Acceptable if: you consent, it's anonymised, you receive benefit
+│   └── Unacceptable if: without notice or consent; for general model training
+│
+├── Retention: How long does the vendor retain your prompts and outputs?
+│   └── Ask for: specific retention periods; opt-out for logging
+│   └── Red flag: indefinite retention without deletion capability
+│
+├── Residency: Where is your data processed and stored?
+│   └── Ask for: specific regions; commitment not to transfer outside agreed regions
+│   └── Red flag: no region guarantee; data processed in legally incompatible jurisdictions
+│
+├── DPA: Does the vendor offer a Data Processing Agreement?
+│   └── Require for: any personal data; any regulated data; any confidential business data
+│   └── Push back on: DPAs that exclude liability; broad purpose clauses
+│
+└── Subprocessors: Who else has access to your data?
+    └── Ask for: subprocessor list; notification of changes
+    └── Red flag: no subprocessor disclosure
+```
+
+**Dimension 4: SLA**
+
+| SLA element | Acceptable minimum | What to push for |
+|---|---|---|
+| Uptime | 99.5% monthly | 99.9% monthly with credits |
+| Latency | p95 defined | p99 defined; degradation alerts |
+| Support | Email with SLA | Dedicated support with response SLA |
+| Incident communication | Status page | Proactive notification to affected customers |
+| SLA remedy | Service credits | Service credits plus exit right on repeated breach |
+
+**Dimension 5: Model stability**
+
+Model versions change. Without version pinning, your application can change behaviour overnight when the vendor updates their model.
+
+| Stability element | What to verify |
+|---|---|
+| Version pinning | Can you pin to a specific model version? How long is that version guaranteed? |
+| Deprecation notice | How much advance notice is given before a model version is discontinued? (8–12 weeks is typical; push for 6 months for production-critical uses) |
+| Rollback capability | If a new version causes quality regression, can you roll back? |
+| Changelog | Does the vendor publish model change logs so you know what changed? |
+
+### Lock-in vectors and exit planning
+
+Every vendor relationship creates lock-in. Identify yours and build portability in from the start:
+
+| Lock-in type | Mitigation |
+|---|---|
+| Proprietary API | Abstract the vendor behind an internal interface layer; keep vendor-specific code isolated |
+| Custom fine-tuned model | Store training data in portable format; document the training process independently |
+| Proprietary data format | Export your data regularly in standard formats; test the export |
+| Prompt optimised for one provider | Maintain eval suites; test prompts against alternative providers quarterly |
+
+Exit planning question to answer before signing: if this vendor became unavailable tomorrow, how many weeks would it take to switch to an alternative? If the answer is "more than a few months," you have a concentration risk that needs mitigation.
+
+---
+
+## Layer 3 — Deep Dive
+
+### The benchmark vs production gap — why it happens
+
+Published benchmarks use carefully curated datasets designed to test specific capabilities in a controlled way. Production AI use cases differ in several dimensions that benchmarks do not capture:
+
+- **Input noise**: Production inputs contain typos, unconventional formatting, mixed languages, incomplete information, and ambiguity. Benchmark inputs are clean.
+- **Distribution shift**: Your use case has a specific input distribution that may not match the benchmark distribution. A model that excels at academic reasoning may underperform on your technical support queries.
+- **Failure mode relevance**: Benchmarks measure average performance; your use case may care disproportionately about specific failure modes that are rare in the benchmark distribution but common in yours.
+- **Latency under load**: Benchmarks measure quality, not latency. Your production requirement is both.
+
+The performance gap between benchmark and production is consistently larger than organisations expect. Running your own evaluation before committing is not optional diligence — it is the only way to know what you are actually buying.
+
+### Data processing agreement — what to push back on
+
+A well-structured DPA should give you:
+
+- Clear description of processing purposes (narrow, specific)
+- Data residency commitments with named regions
+- Retention periods with automated deletion commitments
+- Subprocessor list with notification of changes
+- Audit rights (at least the right to receive audit reports)
+- Liability clause that is not entirely excluded
+
+Push back on:
+- Broad purpose clauses that allow the vendor to use your data for any "product improvement"
+- Liability exclusions that eliminate all vendor accountability for data breaches
+- No right to terminate for material data policy changes
+
+### Financial stability and concentration risk
+
+Enterprise AI vendors range from well-capitalised public companies to pre-revenue startups. For production-critical use cases, vendor financial stability matters:
+
+- Startups can fail, pivot, or be acquired, taking your integration with them
+- Even well-funded vendors can discontinue products or change pricing dramatically
+- Concentration in a single vendor means a single point of failure for your AI-dependent features
+
+Practical mitigations: diversify across vendors for critical use cases; maintain a list of alternatives that could substitute at reasonable effort; structure contracts with termination rights if the vendor is acquired or materially changes pricing.
+
+### Further reading
+
+- [AI Procurement Guidelines — UK Government](https://www.gov.uk/guidance/buying-ai-products-and-services) — Government guidance on AI procurement; practical checklist covering quality, data, and governance considerations.
+- [Data Processing Agreements — European Data Protection Board](https://edpb.europa.eu/our-work-tools/documents/public-consultations/2020/guidelines-202001-controller-processor-and_en) — EDPB guidelines on processor relationships; defines what a compliant DPA must contain under GDPR.
+- [AI Model Evaluation Best Practices — Hugging Face](https://huggingface.co/docs/evaluate) — Practical guidance on evaluation methodology; useful for structuring your own vendor evaluation process.

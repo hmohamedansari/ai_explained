@@ -1,0 +1,405 @@
+---
+moduleId: "9.2"
+title: "Working with Images in Production"
+description: "Sending an image to a VLM is trivial; building a production image pipeline that handles validation, preprocessing, output parsing, and failure modes is not. This module covers the full ingestion pipeline from receipt to parsed output, with emphasis on the silent failure modes that catch teams by surprise."
+track: "multimodal"
+order: 2
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "VLMs can refuse or give degraded output on images containing certain content (personal photos, certain medical imagery, explicit content) without a clear error signal — the response is a refusal in natural language, not an HTTP error code. Build explicit refusal detection into your output parsing, or low-confidence image tasks will silently return unusable responses."
+draft: false
+---
+
+## Layer 1 — Surface
+
+An image pipeline is not just "receive image, send to model, read response." Between receiving an image from a user and parsing the model's output, there are at least five places where things can go wrong silently: the image format may be unsupported, the file may be too large, the resolution may defeat the model's ability to read fine text, the model may refuse to process the content, or the output may be a natural-language error message where you expected structured data.
+
+The pipeline has five stages:
+
+1. **Receive** — accept the image from the user or upstream system.
+2. **Validate** — check format, file size, dimensions, and optionally content type.
+3. **Preprocess** — resize, reformat, and compress as needed for the target model.
+4. **Infer** — send to the model with an appropriate prompt and resolution setting.
+5. **Parse** — extract structured output from the response, detect refusals, handle partial results.
+
+Document understanding is the most common production use case: OCR (reading printed or handwritten text), table extraction, and form parsing. A VLM can often outperform classical OCR on degraded or complex documents, but it requires more careful output parsing — the model describes what it sees in natural language, and you have to reliably extract structured data from that.
+
+### Why it matters
+
+Teams that skip the validation and refusal-detection steps discover the omission in production, usually when a downstream system receives an empty field or a message saying "I'm sorry, I can't process this image" and treats it as valid content. The fix is always to build explicit error gates into the pipeline from the start.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Content refusals are indistinguishable from successful responses at the HTTP layer — both return 200 OK. The model may respond with "I'm not able to describe this image" or a similar phrase when it encounters content its safety filters restrict. If your pipeline only checks for HTTP errors, these refusals propagate silently. A simple refusal pattern check on every response catches this class of failure before it causes downstream corruption.
+
+---
+
+## Layer 2 — Guided
+
+### The full image pipeline
+
+```python
+import base64
+import io
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Optional
+
+# Requires: pip install Pillow
+from PIL import Image
+
+
+class ValidationError(Exception):
+    pass
+
+
+class RefusalError(Exception):
+    """Raised when the model refuses to process the image."""
+    pass
+
+
+class PipelineStage(str, Enum):
+    RECEIVE = "receive"
+    VALIDATE = "validate"
+    PREPROCESS = "preprocess"
+    INFER = "infer"
+    PARSE = "parse"
+
+
+@dataclass
+class ImageValidationConfig:
+    max_file_bytes: int = 20 * 1024 * 1024    # 20MB — typical API limit
+    max_dimension: int = 4096                  # pixels on any side
+    min_dimension: int = 32                    # too small to be useful
+    allowed_formats: set = field(default_factory=lambda: {"JPEG", "PNG", "WEBP", "GIF"})
+
+
+@dataclass
+class PreprocessConfig:
+    target_max_dimension: int = 2048   # resize if larger
+    output_format: str = "JPEG"
+    jpeg_quality: int = 85             # compression vs quality tradeoff
+
+
+def validate_image(image_bytes: bytes, config: ImageValidationConfig) -> Image.Image:
+    """
+    Validate image format, size, and dimensions.
+    Returns a PIL Image object if valid; raises ValidationError otherwise.
+    """
+    if len(image_bytes) > config.max_file_bytes:
+        raise ValidationError(
+            f"Image too large: {len(image_bytes) / 1024 / 1024:.1f}MB "
+            f"(limit {config.max_file_bytes / 1024 / 1024:.0f}MB)"
+        )
+
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img.verify()   # checks file integrity
+        img = Image.open(io.BytesIO(image_bytes))   # re-open after verify
+    except Exception as e:
+        raise ValidationError(f"Cannot decode image: {e}")
+
+    if img.format not in config.allowed_formats:
+        raise ValidationError(f"Unsupported format: {img.format}. Allowed: {config.allowed_formats}")
+
+    w, h = img.size
+    if w < config.min_dimension or h < config.min_dimension:
+        raise ValidationError(f"Image too small: {w}x{h}")
+    if w > config.max_dimension or h > config.max_dimension:
+        raise ValidationError(f"Image too large: {w}x{h} (max {config.max_dimension})")
+
+    return img
+
+
+def preprocess_image(img: Image.Image, config: PreprocessConfig) -> bytes:
+    """
+    Resize and reformat image for optimal model processing.
+    Converts to RGB (removes alpha channel), resizes if needed, recompresses.
+    """
+    # Convert to RGB — models do not generally support RGBA/CMYK
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    w, h = img.size
+    if max(w, h) > config.target_max_dimension:
+        scale = config.target_max_dimension / max(w, h)
+        new_w, new_h = int(w * scale), int(h * scale)
+        img = img.resize((new_w, new_h), Image.LANCZOS)
+
+    buf = io.BytesIO()
+    img.save(buf, format=config.output_format, quality=config.jpeg_quality)
+    return buf.getvalue()
+
+
+# Patterns that indicate a model refusal — extend based on your provider's phrasing
+REFUSAL_PATTERNS = [
+    "i'm sorry, i can't",
+    "i cannot process",
+    "i'm not able to",
+    "i am unable to",
+    "i can't assist",
+    "this image appears to contain",
+    "i'm not going to",
+    "i won't be able to",
+    "unable to analyze",
+]
+
+
+def detect_refusal(response_text: str) -> bool:
+    """Check if the model has refused to process the image."""
+    lower = response_text.lower()
+    return any(pattern in lower for pattern in REFUSAL_PATTERNS)
+
+
+def run_image_pipeline(
+    image_bytes: bytes,
+    prompt: str,
+    high_resolution: bool = False,
+    validation_config: Optional[ImageValidationConfig] = None,
+    preprocess_config: Optional[PreprocessConfig] = None,
+) -> str:
+    """
+    Full image pipeline: validate → preprocess → infer → check refusal.
+    Returns model response text.
+    Raises ValidationError, RefusalError, or Exception on failure.
+    """
+    val_cfg = validation_config or ImageValidationConfig()
+    pre_cfg = preprocess_config or PreprocessConfig()
+
+    # Stage 1: Validate
+    img = validate_image(image_bytes, val_cfg)
+
+    # Stage 2: Preprocess
+    processed_bytes = preprocess_image(img, pre_cfg)
+    b64 = base64.b64encode(processed_bytes).decode("utf-8")
+
+    # Stage 3: Infer
+    detail = "high" if high_resolution else "low"
+    response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/jpeg", "data": b64},
+                    "detail": detail,
+                },
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    )
+
+    # Stage 4: Check for refusal
+    if detect_refusal(response.text):
+        raise RefusalError(f"Model refused to process image. Response: {response.text[:200]}")
+
+    return response.text
+```
+
+### Document understanding: structured extraction
+
+The most reliable approach for document extraction is to instruct the model to return JSON and then validate the schema.
+
+```python
+import json
+from dataclasses import dataclass
+from typing import Any
+
+
+@dataclass
+class ExtractionResult:
+    success: bool
+    data: dict[str, Any]
+    raw_response: str
+    error: Optional[str] = None
+
+
+INVOICE_PROMPT = """
+Extract the following fields from this invoice image.
+Return a JSON object with exactly these keys:
+{
+  "vendor_name": "string or null",
+  "invoice_number": "string or null",
+  "invoice_date": "YYYY-MM-DD string or null",
+  "total_amount": "decimal number or null",
+  "currency": "3-letter ISO code or null",
+  "line_items": [{"description": "string", "amount": number}]
+}
+If a field is not visible, set it to null. Do not include any text outside the JSON object.
+"""
+
+
+def extract_invoice_fields(image_bytes: bytes) -> ExtractionResult:
+    """Extract structured fields from an invoice image."""
+    try:
+        raw = run_image_pipeline(
+            image_bytes=image_bytes,
+            prompt=INVOICE_PROMPT,
+            high_resolution=True,   # invoices need text-level detail
+        )
+    except RefusalError as e:
+        return ExtractionResult(success=False, data={}, raw_response=str(e), error="refusal")
+    except ValidationError as e:
+        return ExtractionResult(success=False, data={}, raw_response="", error=f"validation: {e}")
+
+    # Parse JSON from response — model may wrap it in markdown code fences
+    text = raw.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+
+    try:
+        data = json.loads(text)
+        return ExtractionResult(success=True, data=data, raw_response=raw)
+    except json.JSONDecodeError as e:
+        return ExtractionResult(
+            success=False, data={}, raw_response=raw,
+            error=f"JSON parse failed: {e}"
+        )
+```
+
+### Batch image processing with partial failure handling
+
+```python
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
+@dataclass
+class BatchResult:
+    item_id: str
+    success: bool
+    data: Optional[dict]
+    error: Optional[str]
+
+
+def process_image_batch(
+    items: list[tuple[str, bytes]],   # (item_id, image_bytes) pairs
+    prompt: str,
+    max_workers: int = 5,
+) -> list[BatchResult]:
+    """
+    Process a batch of images concurrently.
+    Returns results for all items — failures are captured, not raised.
+    """
+    results = []
+
+    def process_one(item_id: str, image_bytes: bytes) -> BatchResult:
+        try:
+            raw = run_image_pipeline(image_bytes, prompt, high_resolution=True)
+            return BatchResult(item_id=item_id, success=True, data={"response": raw}, error=None)
+        except RefusalError as e:
+            return BatchResult(item_id=item_id, success=False, data=None, error=f"refusal: {e}")
+        except ValidationError as e:
+            return BatchResult(item_id=item_id, success=False, data=None, error=f"validation: {e}")
+        except Exception as e:
+            return BatchResult(item_id=item_id, success=False, data=None, error=f"unexpected: {e}")
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = {executor.submit(process_one, item_id, img): item_id
+                   for item_id, img in items}
+        for future in as_completed(futures):
+            results.append(future.result())
+
+    return results
+```
+
+### OCR vs VLM — when each wins
+
+```python
+def choose_extraction_strategy(
+    page_count: int,
+    has_complex_layout: bool,
+    has_handwriting: bool,
+    requires_table_structure: bool,
+) -> str:
+    """
+    Decision aid for choosing between classical OCR and VLM extraction.
+    Not exhaustive — benchmark both on your actual documents.
+    """
+    if has_handwriting:
+        return "vlm"           # classical OCR struggles with handwriting
+    if requires_table_structure:
+        return "vlm"           # VLMs understand table semantics, not just layout
+    if page_count > 50:
+        return "ocr"           # cost and latency favour classical OCR at scale
+    if has_complex_layout:
+        return "vlm"           # multi-column, irregular layouts are hard for OCR
+    return "ocr"               # simple printed text: OCR is faster and cheaper
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### When VLM beats classical OCR
+
+Classical OCR (Tesseract, Amazon Textract, Google Document AI) works by detecting text regions and character shapes. It excels on clean, printed, well-structured text in standard fonts and struggles with:
+
+- Handwriting
+- Degraded or low-contrast text
+- Non-standard fonts and artistic text
+- Mixed-language text in a single document
+- Table cells where column alignment is implied by layout rather than explicit separators
+- Forms where the label-to-field relationship requires spatial reasoning
+
+VLMs handle all of these better because they understand semantics — they know that the number next to a dollar sign is a price, and that the row below a "Total" header probably contains a sum. They do not need the visual layout to be clean to extract meaning.
+
+However, VLMs have their own failure modes for document extraction:
+
+| Failure Mode | Description | Mitigation |
+|---|---|---|
+| Hallucinated fields | Model invents plausible-looking data not present in the document | Always verify extracted numbers against the image with a second pass |
+| Truncated responses | Long documents cause output to hit token limits mid-extraction | Split into pages; extract per-page |
+| Format deviation | Model adds explanation text around the JSON | Use strict JSON mode if available; strip code fences |
+| Low-confidence guessing | Degraded image causes model to guess rather than return null | Ask model to express confidence; treat low-confidence as failure |
+
+### Image preprocessing decisions
+
+| Decision | Option A | Option B | Guidance |
+|---|---|---|---|
+| Format conversion | Keep original (e.g., PNG with alpha) | Convert to JPEG RGB | Convert to JPEG — most APIs accept it, reduces size |
+| Resizing strategy | Resize to fixed dimensions | Resize to max-dimension with aspect ratio | Preserve aspect ratio — distortion can hurt extraction |
+| Compression | Highest quality (quality=95) | Moderate compression (quality=85) | 85 is a good default; test with your content type |
+| Colour mode | Keep grayscale | Convert to RGB | Convert to RGB — consistent input for the model |
+
+### Refusal detection strategy
+
+Building a refusal detector that is both sensitive and specific is harder than it looks. The model's refusal phrasing varies by provider and model version. Overly broad patterns produce false positives on responses that happen to contain "I'm not able to" as part of a legitimate answer ("I'm not able to find a date field in this document — the document does not appear to contain a date").
+
+Better approach: combine pattern matching with a structural check.
+
+```python
+def robust_refusal_detection(response_text: str, expected_schema_keys: list[str]) -> bool:
+    """
+    Combined refusal detection:
+    1. Check for explicit refusal language
+    2. Check if expected structure is absent (indicates the model didn't complete the task)
+    """
+    if detect_refusal(response_text):
+        return True
+
+    # If we expected JSON with specific keys and none are present, it's likely a refusal
+    if expected_schema_keys:
+        has_any_key = any(key in response_text for key in expected_schema_keys)
+        if not has_any_key and len(response_text) < 500:
+            # Short response with no expected keys = likely refusal or error
+            return True
+
+    return False
+```
+
+### Further reading
+
+- [Document Understanding Transformer](https://arxiv.org/abs/2110.00075) — Xu et al., 2021. LayoutLMv3-era document understanding; covers the challenges of joint text and layout modelling that motivate using VLMs for complex documents.
+- [Nougat: Neural Optical Understanding for Academic Documents](https://arxiv.org/abs/2308.13418) — Blecher et al., 2023. A document VLM showing where neural approaches beat classical OCR on scientific PDFs.
+- [Pillow documentation](https://pillow.readthedocs.io/en/stable/) — The Pillow library (Python Imaging Library fork); the practical reference for image preprocessing in Python.

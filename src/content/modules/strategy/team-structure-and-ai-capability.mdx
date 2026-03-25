@@ -1,0 +1,158 @@
+---
+moduleId: "8.4"
+title: "Team Structure and AI Capability"
+description: "How you organise your AI function determines what it can ship. This module maps the tradeoffs between centralised and federated models, defines the roles that actually matter, and gives you a maturity test for assessing whether your AI team can reach production."
+track: "strategy"
+order: 4
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap — fix the practices, not the headcount."
+draft: false
+---
+
+## Layer 1 — Surface
+
+The question "do we have AI capability?" is really three questions: Can we evaluate whether AI is working? Can we ship AI to production? Can we keep it working after it ships?
+
+Most organisations in the early phases of AI adoption can answer "yes" to the first and struggle with the second and third. The gap is not usually about the people — it is about the engineering practices, the deployment infrastructure, and the accountability structures around AI work.
+
+There are three broad ways to organise an AI function:
+
+- **Centralised (AI Centre of Excellence)**: A dedicated team owns AI across the organisation. Everyone goes through them. Optimises for consistency and expertise concentration; breaks down as demand exceeds the team's capacity.
+- **Federated (embedded AI engineers)**: AI engineers sit inside product or business teams and own AI for their domain. Optimises for speed and domain relevance; risks inconsistency in standards and duplicated infrastructure.
+- **Hybrid**: A central platform team owns shared infrastructure (eval frameworks, model access, safety tooling) and sets standards, while engineers embedded in business teams own features and deployment. Most mature organisations land here.
+
+The right structure depends on where you are in your AI journey, how many distinct AI use cases you are running, and how much standardisation vs speed you need.
+
+### Why it matters
+
+The wrong org structure creates bottlenecks (centralised teams that can't keep up), quality gaps (federated teams without shared standards), or the worst outcome: teams building demos that never ship.
+
+### Production Gotcha
+
+> **Common Gotcha:** Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap — fix the practices, not the headcount.
+>
+> The assumption: "We need better engineers." The reality: most teams have capable engineers who have never been expected to ship and maintain production AI — because the organisation never built the discipline around it.
+
+---
+
+## Layer 2 — Guided
+
+### Structure comparison
+
+| Dimension | Centralised | Federated | Hybrid |
+|---|---|---|---|
+| **Speed to first ship** | Slow (queue dependency) | Fast (team owns their roadmap) | Medium |
+| **Quality consistency** | High (one team, one standard) | Variable (different practices per team) | High (central standards, local execution) |
+| **Domain knowledge** | Low (generalists serve many domains) | High (embedded in the domain) | Medium-high |
+| **Infrastructure reuse** | High | Low (duplication risk) | High |
+| **Scales with demand** | Poorly | Well | Well |
+| **Safety and governance** | Easier to enforce | Harder to enforce | Moderate — needs explicit policy |
+
+### The roles that actually matter
+
+AI job title inflation has created confusion about what roles are needed. Strip away the hype:
+
+**AI Engineer** — builds and ships AI-powered features. Owns prompts, retrieval systems, API integrations, evaluation suites, and deployment. This is the core production role. Not a researcher. Not a data scientist. An engineer who specialises in building systems that use AI models.
+
+**ML Engineer** — owns model training, fine-tuning pipelines, and model serving infrastructure. Needed when you are training or fine-tuning models. Not needed when you are only using foundation model APIs.
+
+**AI Product Manager** — defines what the AI feature should do, what "good" looks like, and how success is measured. Works with engineers to define eval criteria. Bridges user needs and technical constraints. This role is often missing; without it, AI features get built to the spec of whoever wrote the first prompt.
+
+**AI Safety / Red Team** — adversarially tests AI systems for failure modes, safety gaps, and misuse vectors before they ship. May be a dedicated role or a shared responsibility distributed across the team. Essential for any customer-facing AI system.
+
+**Roles that are often hype:**
+
+- *Chief AI Officer* without a clear mandate to ship: often adds governance overhead without adding safety value
+- *Prompt Engineer* as a standalone role: in mature teams, prompt engineering is owned by AI Engineers; a separate role creates silos
+- *AI Strategist* without technical grounding: useful for communication, not for building
+
+### Capability maturity assessment
+
+Ask these three questions to assess whether your AI function can reach production:
+
+**1. Can you ship a production AI feature in under four weeks?**
+If no, the bottleneck is usually one of: no deployment pipeline for AI features, no eval framework to know when it's ready to ship, or no clear ownership of the full lifecycle.
+
+**2. Can you diagnose a production failure within 24 hours?**
+If no, you lack observability: no logging of model inputs and outputs, no alert on quality degradation, no way to replay a failure. This is a tooling gap.
+
+**3. Do you have eval suites that run in CI?**
+If no, prompt changes and model upgrades ship without regression testing. This is a practices gap. Eval suites are not sophisticated — a 50-example dataset and a pass/fail threshold are enough to start.
+
+```python
+# Capability maturity self-assessment — pseudocode
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class AICapabilityMaturity:
+    ships_production_in_4_weeks: bool
+    can_debug_production_failure: bool
+    has_eval_suites_in_ci: bool
+    has_cost_monitoring: bool
+    has_model_version_pinning: bool
+    has_incident_response_process: bool
+
+def maturity_level(m: AICapabilityMaturity) -> str:
+    score = sum([
+        m.ships_production_in_4_weeks,
+        m.can_debug_production_failure,
+        m.has_eval_suites_in_ci,
+        m.has_cost_monitoring,
+        m.has_model_version_pinning,
+        m.has_incident_response_process,
+    ])
+    if score <= 2:
+        return "Level 1: Demo capability — can build prototypes, cannot operate production"
+    if score <= 4:
+        return "Level 2: Production capable — can ship but practices are incomplete"
+    return "Level 3: Production mature — can ship reliably and improve safely"
+```
+
+### Common org anti-patterns
+
+**The AI team that doesn't ship**: A central AI team builds impressive demos but nothing reaches production users. Usually the team is structured as a research or innovation function, not an engineering one. Fix: give the team product ownership of at least one production feature, with a shipping deadline.
+
+**The isolated AI team**: AI engineers work without domain experts, so they build technically correct but practically useless features. Fix: embed in product teams or require domain stakeholder involvement in every feature from specification through evaluation.
+
+**The governance committee that slows without adding safety**: A review board that approves AI projects based on documentation checklists rather than actual safety testing. Adds months of delay without finding real problems. Fix: replace documentation reviews with adversarial testing and eval evidence.
+
+**The prompt engineer silo**: A team where one person "does prompting" and engineers do everything else. This creates a bottleneck and means the person who understands the system best (the engineer who built the retrieval and integration) is not writing the prompts. Fix: prompt engineering is an engineering skill, not a separate function.
+
+---
+
+## Layer 3 — Deep Dive
+
+### The maturity model in more detail
+
+Organisations typically evolve through three phases:
+
+**Phase 1 — Exploration**: Individual teams experiment with AI tools and APIs. No shared standards, no production deployments. Value: learning. Risk: divergent practices that are hard to standardise later.
+
+**Phase 2 — Institutionalisation**: First production deployments. A central team or function emerges to hold standards. Evaluation practices, deployment pipelines, and cost monitoring are built. Value: reproducibility. Risk: the central team becomes a bottleneck.
+
+**Phase 3 — Scale**: AI capability is distributed across teams operating against common standards. The central function shifts from doing to enabling — providing infrastructure, tooling, and standards while embedded teams own products. Value: speed and quality at scale. Challenge: maintaining standards as the organisation moves fast.
+
+Most organisations underestimate how long it takes to move from Phase 1 to Phase 3. Two years is a realistic minimum for a mid-sized organisation starting from scratch; most factors that slow it are organisational, not technical.
+
+### What "AI-ready" engineering looks like
+
+An AI-ready engineering culture has a few characteristics that distinguish it from a traditional software engineering culture:
+
+- **Evaluation first**: Engineers write eval cases before or alongside building features, not after. "How will we know it's working?" is answered before "how do we build it?"
+- **Prompt as code**: System prompts and retrieval configurations are stored in version control, reviewed in pull requests, and tagged to releases.
+- **Monitoring by default**: Every production AI feature emits token usage, latency, and quality signals. Alerts are configured before launch.
+- **Comfort with probabilistic behaviour**: Engineers accept that AI outputs are not deterministic, and build systems that handle variation gracefully rather than assuming a fixed output.
+
+### Further reading
+
+- [AI Product Management — Pragmatic Institute](https://www.pragmaticinstitute.com/resources/articles/product/ai-product-management/) — Practical overview of the AI PM role and how it differs from traditional PM.
+- [The State of AI in Enterprise — McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai) — Annual survey data on AI org structures, talent, and maturity across industries.
+- [Team Topologies — Matthew Skelton and Manuel Pais](https://teamtopologies.com/book) — Not AI-specific, but the stream-aligned vs enabling team model maps directly to the hybrid AI org structure; highly recommended for leaders designing AI functions.

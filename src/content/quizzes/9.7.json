@@ -1,0 +1,76 @@
+{
+  "title": "Serving Multimodal Models — Check your understanding",
+  "moduleId": "9.7",
+  "questions": [
+    {
+      "id": "9.7-q1",
+      "type": "multiple-choice",
+      "question": "A team sizes VRAM for a VLM deployment based on the language model's published parameter count (7B parameters, FP16 = ~14GB). Under production load with 20 concurrent requests, each including one image, the pod OOMs. What did the VRAM estimate miss?",
+      "options": [
+        "The FP16 calculation is wrong — 7B parameters at FP16 requires 28GB, not 14GB",
+        "The vision encoder VRAM (typically 1–3GB for the ViT component), plus KV cache for image tokens (images generate many more tokens than equivalent text), plus KV cache for 20 concurrent sequences — the production footprint is substantially higher than the single-request model weight estimate",
+        "The model requires FP32 precision at inference time, doubling the VRAM requirement",
+        "20 concurrent requests require 20 separate model instances, each needing 14GB"
+      ],
+      "answer": 1,
+      "explanation": "Three components are commonly underestimated for VLMs: (1) the vision encoder (ViT) adds 1–3GB on top of the language model weights; (2) image tokens generate much larger KV cache entries than equivalent text — a single image may produce 256–1024 tokens, each requiring KV cache space; (3) KV cache scales with concurrency — 20 simultaneous long-context requests can require as much VRAM as the model weights themselves. The FP16 calculation (2 bytes × 7B parameters = 14GB) is correct for weights only; it is not a production VRAM budget. 20 concurrent requests share one model instance with continuous batching.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.7-q2",
+      "type": "multiple-choice",
+      "question": "A VLM serving deployment uses the same static batching strategy as the previous text-only LLM deployment. Under load, GPU utilisation is low and throughput is poor. What property of image inputs makes static batching less efficient for VLMs?",
+      "options": [
+        "Images require more CPU preprocessing, which creates a bottleneck before the GPU receives the batch",
+        "Images vary significantly in size and token count — a batch containing one large image and one small image pads the small image's KV allocation to match the large one, wasting VRAM and compute; continuous batching with dynamic sequence length management is more efficient because it does not require uniform sequence lengths within a batch",
+        "Static batching does not support mixed text and image inputs in the same batch",
+        "GPU memory bandwidth is lower for image tensor operations than for text token operations"
+      ],
+      "answer": 1,
+      "explanation": "Static batching requires all sequences in a batch to have the same length (or pads them to the longest). For text-only models with similar prompt lengths this is tolerable. For VLMs, a single high-resolution image in a batch can produce 10× more tokens than a low-resolution image, forcing extreme padding for other batch members. Continuous batching (as in vLLM's PagedAttention) handles variable-length sequences without padding by managing KV cache memory in pages rather than contiguous allocations. CPU preprocessing is a real concern but secondary to the batching efficiency problem. Mixed text+image batching is supported by frameworks like vLLM with VLM support.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.7-q3",
+      "type": "multiple-choice",
+      "question": "Your VLM serving stack processes images with a preprocessing pipeline: decode → resize → tile → encode → project into token space. End-to-end latency is higher than expected. Profiling shows 40% of latency is in the decode+resize+tile steps, which run on CPU. What is the correct optimisation direction?",
+      "options": [
+        "Increase the number of CPU cores allocated to the serving pod",
+        "Move image preprocessing to GPU where possible (GPU-accelerated decode and resize), pipeline preprocessing asynchronously with the previous request's inference step, or cache preprocessed image tensors for repeated image submissions — the CPU preprocessing pipeline is the bottleneck, not the model inference",
+        "Reduce image resolution to decrease the tile count and preprocessing time",
+        "Run preprocessing on a separate microservice to avoid blocking the inference server"
+      ],
+      "answer": 1,
+      "explanation": "When preprocessing accounts for 40% of latency, adding CPU cores reduces it but does not eliminate the bottleneck. GPU-accelerated image decode and resize (using CUDA-based libraries or torchvision GPU ops) moves the bottleneck to hardware that is already present and idle during the preprocessing phase. Async pipelining overlaps preprocessing for request N+1 with inference for request N, hiding preprocessing latency. Caching preprocessed tensors is effective when images are reused across requests. Reducing resolution changes the product's capability tradeoff. A separate microservice adds network overhead that may exceed the preprocessing time for small images.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.7-q4",
+      "type": "multiple-choice",
+      "question": "A team wants to serve both a VLM and a Whisper ASR model on the same GPU instance to reduce infrastructure cost. What serving architecture consideration is specific to running both on shared hardware?",
+      "options": [
+        "Whisper and VLMs use incompatible CUDA versions and cannot run on the same GPU",
+        "Whisper and VLMs have different memory access patterns and compute profiles — Whisper is often CPU-efficient and can run on CPU or a small GPU allocation, while VLMs are GPU-memory-bound; co-locating them requires VRAM budgeting for both simultaneously, and GPU memory fragmentation under concurrent load can cause OOMs that would not occur running either model alone",
+        "Shared GPU inference requires a dedicated GPU driver instance per model",
+        "VRAM is not a concern because Whisper uses audio tensors, not text tokens"
+      ],
+      "answer": 1,
+      "explanation": "Whisper is memory-efficient relative to large VLMs — Whisper large v3 is around 3GB at FP16 — and can run on CPU without catastrophic throughput degradation for batch transcription. When co-located on a GPU with a VLM, the combined VRAM footprint must be budgeted together, including both models' KV caches under concurrent load. Memory fragmentation is a real concern: two models with different tensor sizes and lifetimes can leave VRAM in a fragmented state where neither model can allocate the contiguous block it needs, even when total free VRAM appears sufficient. CUDA version compatibility is a practical concern but is handled by containerisation, not a fundamental architectural blocker.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "9.7-q5",
+      "type": "multiple-choice",
+      "question": "What is the architectural advantage of serving the vision encoder and language model as separate components rather than as a single monolithic VLM endpoint?",
+      "options": [
+        "Separate components reduce total VRAM usage because the encoder and language model do not need to be loaded simultaneously",
+        "Separating the vision encoder allows it to be scaled independently — if image preprocessing is the bottleneck, encoder replicas can be added without replicating the expensive language model; it also enables encoder output caching (the same image processed multiple times produces the same encoder output), and allows the language model to be swapped without redeploying the encoder",
+        "Monolithic VLM endpoints have higher latency because they process image and text tokens sequentially",
+        "Separate components allow different hardware for each — the vision encoder runs on TPUs while the language model runs on GPUs"
+      ],
+      "answer": 1,
+      "explanation": "Independent scaling is the primary architectural advantage: the vision encoder is compute-intensive but stateless per image, while the language model is the expensive component that should not be replicated unnecessarily. If encoder throughput is the bottleneck, adding encoder capacity without replicating language model instances is far more cost-efficient. Encoder output caching is a direct consequence of separation — because the encoder is a pure function of the image, its output can be cached and reused across multiple requests for the same image. Swappable components also improve deployment flexibility. Total VRAM usage is not reduced — both components must be loaded when a request arrives.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

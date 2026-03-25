@@ -1,0 +1,164 @@
+---
+moduleId: "8.2"
+title: "Buy vs Build vs Fine-tune"
+description: "Every AI capability involves a make-or-buy decision, but the options are more nuanced than they look. This module gives you a decision framework and total cost of ownership model for each path."
+track: "strategy"
+order: 2
+personas: ["curious", "leader"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Teams choose fine-tuning when the real problem is prompt quality or retrieval quality — fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Every time your organisation wants an AI capability, you face the same decision: buy a product that includes it, build on top of a foundation model using prompt engineering and retrieval, or fine-tune a model to specialise it for your use case. Each path has a different cost profile, a different risk profile, and a different ceiling.
+
+The decision is not primarily technical. It is primarily about where the value lies and what you are willing to own.
+
+- **Buy**: You use an existing AI product or API. You own nothing except the configuration, and you depend on the vendor for quality, availability, and pricing.
+- **Build** (prompt engineering + retrieval): You use a foundation model as a component and build the application logic around it. You own the prompts, the retrieval system, and the integration, but not the model.
+- **Fine-tune**: You take a foundation model and adapt it to your domain by training it further on your data. You own the specialised model, but you also own the data labelling pipeline, the training compute, the hosting, and the ongoing retraining as your domain evolves.
+
+Most organisations should start with buy or build. Fine-tuning is powerful but expensive to do correctly, and it is often chosen for the wrong reasons.
+
+### Why it matters
+
+Choosing the wrong path wastes money and time. Fine-tuning when the problem is prompt quality makes a bad behaviour more consistent. Buying when you need control means you are at the vendor's mercy when pricing changes or a feature disappears.
+
+### Production Gotcha
+
+> **Common Gotcha:** Teams choose fine-tuning when the real problem is prompt quality or retrieval quality — fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning.
+>
+> The assumption that trips teams: "The model doesn't behave the way we want, so we need to train it." Often the model is fine. The prompts are the problem.
+
+---
+
+## Layer 2 — Guided
+
+### Decision framework
+
+Use this as a flowchart, not a rigid rule:
+
+```
+Does a finished product already solve this problem well enough?
+  └─ Yes → BUY. Evaluate vendors. Manage lock-in risk.
+  └─ No ↓
+
+Can a foundation model + good prompting get you to ≥80% of the target quality?
+  └─ Yes → BUILD. Invest in prompt engineering and retrieval (RAG).
+  └─ No ↓
+
+Do you have labelled examples of the exact behaviour you want?
+  └─ Yes → FINE-TUNE. But check first: is the gap a behaviour gap or a knowledge gap?
+         ├─ Knowledge gap (the model doesn't know your facts) → Use RAG, not fine-tuning
+         └─ Behaviour gap (the model doesn't respond the way you want) → Fine-tuning may help
+  └─ No  → Collect data first. Fine-tuning without data is not an option.
+```
+
+### Total cost of ownership
+
+Each path has costs that are easy to underestimate:
+
+| Cost dimension | Buy | Build | Fine-tune |
+|---|---|---|---|
+| **Initial build** | Low (configuration, integration) | Medium (prompts, RAG pipeline) | High (data labelling, training) |
+| **Inference** | Included in subscription or per-call | Per-token at provider rates | Hosting your own model or per-call with hosting provider |
+| **Maintenance** | Low (vendor maintains model) | Medium (prompt tuning, retrieval updates) | High (periodic retraining, model versioning) |
+| **Data ownership** | Your data may train vendor models | Prompts and retrieved docs are yours | Your labelled dataset is a real asset |
+| **Lock-in** | High (proprietary API, features, data formats) | Medium (some portability between providers) | Medium-high (model checkpoint is portable but pipeline is not) |
+| **Time to value** | Fast (days to weeks) | Medium (weeks to months) | Slow (months, including data collection) |
+
+### The knowledge gap vs behaviour gap distinction
+
+This is the most important concept for avoiding premature fine-tuning.
+
+A **knowledge gap** is when the model doesn't know facts specific to your domain: your internal processes, your product catalogue, your historical records. The fix is retrieval — give the model the relevant documents at query time. Fine-tuning on facts is expensive and fragile: facts change, and you cannot retrain the model every time they do.
+
+A **behaviour gap** is when the model knows enough but responds in the wrong way: wrong tone, wrong format, wrong level of detail, inconsistent persona, or wrong decision patterns for your use case. A behaviour gap is what fine-tuning actually addresses.
+
+```python
+# Illustrative distinction — pseudocode
+
+# Knowledge gap: model doesn't know your product prices
+# WRONG approach: fine-tune on product catalogue
+# RIGHT approach: retrieve from catalogue at query time
+response = llm.chat(
+    model="balanced",
+    system="Answer using the provided product information only.",
+    messages=[{
+        "role": "user",
+        "content": f"Context:\n{retrieved_product_info}\n\nQuestion: {user_question}"
+    }],
+    max_tokens=512,
+)
+
+# Behaviour gap: model produces responses that are too long and formal for your support use case
+# RIGHT approach: fine-tune on labelled examples of the target behaviour
+# (requires: 500–5000 labelled input/output pairs of the desired style)
+```
+
+### The hybrid approach
+
+RAG and fine-tuning are not mutually exclusive. The strongest setups for domain-specific applications combine both:
+
+- **Fine-tune for behaviour**: Train the model on examples of how it should respond in your context (tone, format, decision patterns).
+- **RAG for knowledge**: Retrieve current, specific facts at query time so the model doesn't need to memorise them.
+
+This combination gives you a model that behaves correctly for your domain while having access to up-to-date knowledge — without needing to retrain every time facts change.
+
+### Exit planning and lock-in
+
+Every path creates some lock-in. Plan your exit before you commit:
+
+| Path | Lock-in vector | Exit strategy |
+|---|---|---|
+| Buy | Proprietary API, feature set, data formats | Abstract the vendor behind an internal interface; avoid storing data only in vendor formats |
+| Build | Prompt logic tied to one provider's behaviour | Use provider-agnostic abstractions; keep prompts in version control with eval coverage |
+| Fine-tune | Model checkpoint, training data pipeline | Store the training data in a portable format; document the training process so it can be reproduced with a different base model |
+
+---
+
+## Layer 3 — Deep Dive
+
+### Why the build-vs-buy calculus is shifting
+
+Foundation model capabilities improve rapidly. A capability that required fine-tuning in early 2023 can often be achieved with good prompting in 2025. This means the "build" option (prompt engineering + RAG) has become viable for a much wider range of use cases than it was two years ago.
+
+The practical implication: if you fine-tuned a model 18 months ago and the fine-tuned model still out-performs a prompted frontier model on your task, that is likely to change within the next 12–18 months. Budget for reassessment.
+
+Conversely, the "buy" option is expanding: many SaaS products now have AI features baked in. The question is whether the AI feature in your existing tools is good enough, or whether a specialised AI product or custom build provides enough additional value to justify the cost and complexity.
+
+### Fine-tuning economics
+
+Fine-tuning costs have fallen significantly — training a small model on thousands of examples is now measurable in tens to hundreds of dollars of compute. But the full cost of a fine-tuning programme is dominated by data, not compute:
+
+- Data collection and labelling: typically the largest cost
+- Quality control: labelled data needs to be reviewed; poor labels make behaviour worse
+- Evaluation: you need a held-out eval set to measure whether fine-tuning improved anything
+- Retraining cadence: if your domain evolves, you need to retrain periodically; budget for this recurring cost
+
+The rule of thumb: if you cannot sustainably maintain a labelling and retraining pipeline, fine-tuning is a one-time improvement that will decay. Either build the pipeline or use RAG instead.
+
+### Vendor concentration risk in the buy path
+
+Buying AI capabilities from a single vendor creates concentration risk. The risks are real:
+
+- Pricing changes: enterprise AI pricing has been volatile; what is affordable today may not be in 18 months
+- Feature deprecation: providers retire models, change APIs, and alter behaviour with model updates
+- Outages: a vendor outage takes down your AI-dependent features
+- Data policy changes: a vendor changing their training data policy may affect what you can use the product for in regulated contexts
+
+Mitigation: treat AI vendors like any critical infrastructure dependency. Require SLAs, monitor uptime, and maintain at least a theoretical exit path. For mission-critical uses, consider multi-vendor architectures or keeping a fallback that does not depend on the AI feature being available.
+
+### Further reading
+
+- [Fine-tuning documentation — Anthropic](https://docs.anthropic.com/en/docs/build-with-claude/fine-tuning) — Anthropic's current fine-tuning guidance including when it helps and when it doesn't; check for updates as capabilities evolve.
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The original RAG paper; foundational reading for understanding the knowledge gap vs behaviour gap distinction.
+- [The Total Economic Impact of AI Models — Forrester](https://www.forrester.com/report/the-total-economic-impact-of-ai-models) — Framework for total cost of ownership across AI deployment approaches; useful for structuring vendor evaluations.

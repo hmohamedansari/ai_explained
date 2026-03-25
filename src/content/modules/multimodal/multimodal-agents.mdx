@@ -1,0 +1,356 @@
+---
+moduleId: "9.4"
+title: "Multimodal Agents"
+description: "Multimodal agents extend the standard agent loop with perception across images and audio, and with actions that produce visual or spoken output. This module covers GUI agents, vision as a tool call, multimodal memory, and the specific failure modes that multimodal perception introduces into agent systems."
+track: "multimodal"
+order: 4
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Multimodal agents that interact with GUIs are highly sensitive to UI changes — a redesign, font size change, or new modal dialog can cause the agent to fail silently by clicking the wrong element or not finding the expected UI state. Version-pin the UI or build explicit UI state validation into the agent loop."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A standard agent loop has the model read text, reason, and call text-based tools. A multimodal agent has additional perception channels — it can see screenshots, read images, hear audio — and potentially additional output channels: speaking, generating images, clicking UI elements. This broader set of inputs and outputs makes the agent more capable, but each new modality introduces new failure modes.
+
+The most practically important class of multimodal agent today is the GUI agent (also called a computer use agent): an agent that interacts with software user interfaces by seeing the screen, deciding what to do, and executing mouse and keyboard actions. The loop is: take screenshot → send to VLM → receive action instruction (click [x,y], type "text", scroll down) → execute → take new screenshot → repeat.
+
+Grounding is the challenge that unifies most multimodal agent problems: linking a model's language-level output ("click the Submit button") to the specific physical location in an image or timestamp in audio where that entity actually exists. Grounding fails when the model hallucinates the presence of an element that doesn't exist, or when it correctly identifies an element but localises it to the wrong position.
+
+Visual hallucination — describing objects, text, or UI elements that are not present in the image — is more dangerous in agents than in assistants, because an agent acts on what it perceives. If the model says "I see the OK button" when it isn't there, the agent may click the wrong thing or enter an infinite wait loop.
+
+### Why it matters
+
+GUI agents and multimodal automation are among the highest-leverage applications of AI in 2025–2026, but they are also among the highest-failure-rate when deployed carelessly. The surface area for silent failures is larger than for text-only agents: a text agent that misunderstands a tool call typically produces an error; a GUI agent that clicks the wrong button may complete an irreversible action without any error signal.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> GUI agents are brittle to UI changes because they localise elements visually rather than structurally (e.g., by DOM element ID). A button that moves 10 pixels, a dialog that appears on some user accounts but not others, or a responsive layout change on a different browser width can all cause the agent to click the wrong target with high confidence. Version-pinning the UI (a dedicated test environment with a frozen UI version) and adding explicit state assertions ("verify the expected dialog is visible before proceeding") substantially reduces this failure mode.
+
+---
+
+## Layer 2 — Guided
+
+### Vision as a tool call
+
+The cleanest way to add visual perception to an agent is to wrap image analysis as a tool. The agent calls the tool when it needs to see something; the tool returns structured data that the agent can reason about.
+
+```python
+from dataclasses import dataclass
+from typing import Any, Optional
+import base64
+
+
+@dataclass
+class ScreenElement:
+    element_type: str          # "button", "text_field", "label", "link", etc.
+    label: str                 # visible text or accessible name
+    x: int                     # approximate x center coordinate
+    y: int                     # approximate y center coordinate
+    confidence: str            # "high", "medium", "low"
+
+
+@dataclass
+class ScreenAnalysis:
+    description: str
+    elements: list[ScreenElement]
+    page_state: str            # "login", "dashboard", "error", "loading", etc.
+    action_suggestions: list[str]
+
+
+SCREEN_ANALYSIS_PROMPT = """
+Analyse this screenshot and return a JSON object with exactly this structure:
+{
+  "description": "one sentence describing what is shown",
+  "page_state": "one of: login, form, dashboard, error, loading, confirmation, other",
+  "elements": [
+    {
+      "element_type": "button|text_field|label|link|checkbox|dropdown|other",
+      "label": "the visible text or accessible name",
+      "x": integer_x_coordinate,
+      "y": integer_y_coordinate,
+      "confidence": "high|medium|low"
+    }
+  ],
+  "action_suggestions": ["list of possible next actions as strings"]
+}
+Only include interactive elements in 'elements'. Return only the JSON object.
+"""
+
+
+def analyse_screen(screenshot_bytes: bytes) -> ScreenAnalysis:
+    """
+    Tool: analyse a screenshot and return structured UI element information.
+    This function is exposed to the agent as a tool call.
+    """
+    import json
+    b64 = base64.b64encode(screenshot_bytes).decode("utf-8")
+
+    response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": b64},
+                    "detail": "high",
+                },
+                {"type": "text", "text": SCREEN_ANALYSIS_PROMPT},
+            ],
+        }],
+    )
+
+    text = response.text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+
+    data = json.loads(text)
+    elements = [ScreenElement(**e) for e in data.get("elements", [])]
+    return ScreenAnalysis(
+        description=data["description"],
+        elements=elements,
+        page_state=data["page_state"],
+        action_suggestions=data.get("action_suggestions", []),
+    )
+```
+
+### The GUI agent loop
+
+```python
+from dataclasses import dataclass, field
+from enum import Enum
+
+
+class ActionType(str, Enum):
+    CLICK = "click"
+    TYPE = "type"
+    SCROLL = "scroll"
+    WAIT = "wait"
+    DONE = "done"
+    FAIL = "fail"
+
+
+@dataclass
+class AgentAction:
+    action_type: ActionType
+    x: Optional[int] = None         # for click, scroll
+    y: Optional[int] = None         # for click, scroll
+    text: Optional[str] = None      # for type
+    direction: Optional[str] = None # for scroll: "up" or "down"
+    reason: str = ""
+
+
+@dataclass
+class AgentStep:
+    step_num: int
+    screenshot_description: str
+    action_taken: AgentAction
+    outcome: str
+
+
+def decide_next_action(
+    task: str,
+    screen: ScreenAnalysis,
+    history: list[AgentStep],
+) -> AgentAction:
+    """
+    Ask the LLM what to do next given the current screen state.
+    The model receives the task, the screen analysis, and action history.
+    """
+    history_text = "\n".join(
+        f"Step {s.step_num}: {s.action_taken.action_type.value} — {s.action_taken.reason} → {s.outcome}"
+        for s in history[-5:]   # last 5 steps to keep context manageable
+    )
+    elements_text = "\n".join(
+        f"  [{e.element_type}] '{e.label}' at ({e.x},{e.y}) confidence={e.confidence}"
+        for e in screen.elements
+    )
+
+    prompt = f"""
+Task: {task}
+
+Current screen: {screen.description}
+Page state: {screen.page_state}
+
+Interactive elements:
+{elements_text}
+
+Recent action history:
+{history_text if history_text else "No actions taken yet."}
+
+What is the single best next action to make progress toward the task?
+Respond with a JSON object:
+{{
+  "action_type": "click|type|scroll|wait|done|fail",
+  "x": integer_or_null,
+  "y": integer_or_null,
+  "text": "string_or_null",
+  "direction": "up|down|null",
+  "reason": "one sentence explaining why"
+}}
+If the task is complete, use "done". If it is impossible to proceed, use "fail".
+Return only the JSON object.
+"""
+    import json
+    response = llm.chat(
+        model="frontier",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    data = json.loads(response.text.strip())
+    return AgentAction(
+        action_type=ActionType(data["action_type"]),
+        x=data.get("x"),
+        y=data.get("y"),
+        text=data.get("text"),
+        direction=data.get("direction"),
+        reason=data.get("reason", ""),
+    )
+
+
+def run_gui_agent(
+    task: str,
+    take_screenshot: callable,    # () -> bytes
+    execute_action: callable,     # (AgentAction) -> str (outcome description)
+    max_steps: int = 20,
+) -> dict:
+    """
+    Run the GUI agent loop until task completion, failure, or step limit.
+    take_screenshot: function that returns current screen as PNG bytes
+    execute_action: function that performs the action and returns an outcome string
+    """
+    history: list[AgentStep] = []
+
+    for step_num in range(1, max_steps + 1):
+        screenshot = take_screenshot()
+        screen = analyse_screen(screenshot)
+
+        action = decide_next_action(task, screen, history)
+
+        if action.action_type == ActionType.DONE:
+            return {"status": "success", "steps": step_num, "history": history}
+
+        if action.action_type == ActionType.FAIL:
+            return {"status": "failed", "reason": action.reason, "steps": step_num}
+
+        outcome = execute_action(action)
+        history.append(AgentStep(
+            step_num=step_num,
+            screenshot_description=screen.description,
+            action_taken=action,
+            outcome=outcome,
+        ))
+
+    return {"status": "max_steps_reached", "steps": max_steps, "history": history}
+```
+
+### UI state validation
+
+Build explicit assertions into the agent loop to catch UI surprises before they cause wrong actions.
+
+```python
+def assert_ui_state(
+    screen: ScreenAnalysis,
+    expected_state: str,
+    required_elements: list[str],
+) -> tuple[bool, str]:
+    """
+    Validate that the UI is in the expected state before proceeding.
+    Returns (is_valid, error_message).
+    """
+    if screen.page_state != expected_state:
+        return False, (
+            f"Expected page state '{expected_state}', got '{screen.page_state}'. "
+            f"Screen description: {screen.description}"
+        )
+
+    element_labels = {e.label.lower() for e in screen.elements}
+    missing = [req for req in required_elements if req.lower() not in element_labels]
+    if missing:
+        return False, f"Required UI elements not found: {missing}"
+
+    return True, ""
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Grounding: linking language to spatial coordinates
+
+Grounding is the process of mapping a high-level language reference ("the blue Submit button") to a specific location in the image. This is harder than it appears:
+
+- **Referring expression comprehension**: the model must identify which element the description refers to, not just detect that a button exists.
+- **Coordinate precision**: clicking at the right pixel matters. An error of even 20px can result in clicking the wrong element if elements are densely packed.
+- **Out-of-viewport elements**: if the target element has been scrolled off-screen, it does not appear in the screenshot. The model must recognise this and scroll before clicking.
+
+Current VLMs produce bounding box coordinates that have meaningful errors for small targets, densely packed UIs, and scaled/zoomed displays. Strategies to improve grounding accuracy:
+
+| Strategy | How it helps | Tradeoff |
+|---|---|---|
+| Crop and zoom | Crop the region of interest before sending to model | Requires knowing the region in advance |
+| Set-of-mark prompting | Overlay numbered labels on each detected element, ask model to name the number | Requires a preliminary element detection step |
+| Accessibility tree | Parse the DOM/accessibility API instead of relying on vision | Only works for accessible applications |
+| Ensemble grounding | Ask model multiple times, take modal coordinate | Higher latency, higher cost |
+
+### Multimodal memory
+
+Agents that operate over long sessions need to store and retrieve information from prior steps. For multimodal agents, memory includes both text (summaries of observations, action history) and visual references (screenshots of key states, extracted image regions).
+
+```python
+@dataclass
+class MultimodalMemoryEntry:
+    entry_id: str
+    step_num: int
+    text_summary: str              # text description of what was observed
+    screenshot_thumbnail: bytes    # compressed thumbnail for later reference
+    embedding: list[float]         # embedding of the text summary for retrieval
+    tags: list[str]                # e.g., ["login_screen", "error", "confirmation"]
+
+
+def store_observation(
+    screen: ScreenAnalysis,
+    action: AgentAction,
+    step_num: int,
+    memory_store: list[MultimodalMemoryEntry],
+) -> None:
+    """Store a compressed record of this step for later retrieval."""
+    summary = f"Step {step_num}: Saw {screen.description}. Took action: {action.reason}"
+    embedding = llm.embed(model="embedding", input=summary).embedding
+
+    memory_store.append(MultimodalMemoryEntry(
+        entry_id=f"step_{step_num}",
+        step_num=step_num,
+        text_summary=summary,
+        screenshot_thumbnail=b"",   # in production: compress screenshot to thumbnail
+        embedding=embedding,
+        tags=[screen.page_state],
+    ))
+```
+
+### Failure taxonomy for multimodal agents
+
+| Failure mode | Description | Detection strategy |
+|---|---|---|
+| Visual hallucination | Model describes elements not present in the screenshot | Cross-reference with accessibility tree or DOM inspection |
+| Stale screenshot | Agent acts on old screenshot while UI has changed | Add timestamp validation; re-capture before each action |
+| Coordinate drift | Clicks land near but not on the target | Log click vs intended target; verify element change after click |
+| Ambiguous instructions | "Click OK" when multiple OK buttons exist | Require unique element identification |
+| Infinite loop | Agent keeps trying the same failing action | Detect repeated action-state pairs; abort with failure |
+| Resolution sensitivity | Small text, icons unreadable at screenshot resolution | Test at the actual display resolution and DPI |
+
+### Further reading
+
+- [SeeAct: GUI Agents that See, Act, and Plan](https://arxiv.org/abs/2401.01614) — Zheng et al., 2024. A comprehensive GUI agent framework with grounding analysis; directly relevant to the architecture covered here.
+- [Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V](https://arxiv.org/abs/2310.11441) — Yang et al., 2023. The set-of-mark prompting technique for improving coordinate precision in VLMs.
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) — Sumers et al., 2023. A survey of agent memory and reasoning patterns that includes multimodal extensions.

@@ -1,0 +1,326 @@
+---
+moduleId: "9.1"
+title: "How Vision-Language Models Work"
+description: "A vision-language model (VLM) combines a visual encoder with a language model — images are converted to token-like embeddings and fed directly into the same context window as text. Understanding this architecture explains why images cost more tokens than they appear to, and why resolution and tiling choices matter in production."
+track: "multimodal"
+order: 1
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Image token cost is non-obvious — a single high-resolution image can consume as many context tokens as several paragraphs of text, and many API pricing pages quote 'per image' rather than per token. Always test token consumption with your actual image sizes and resolution settings before estimating production costs."
+draft: false
+---
+
+## Layer 1 — Surface
+
+A vision-language model (VLM) is not a separate kind of AI — it is a language model that has been given eyes. The architecture has three parts working in sequence: a visual encoder that converts an image into a list of numerical embeddings, a projection layer that maps those embeddings into the same token-like format the language model already understands, and the language model itself, which processes image embeddings and text tokens together as a single sequence.
+
+The visual encoder is typically a Vision Transformer (ViT), which works by splitting an image into a grid of fixed-size patches — say, 16×16 pixels per patch — and treating each patch like a token. A 512×512 image with 16×16 patches produces a 32×32 grid of 1024 patch embeddings before any tiling or compression is applied.
+
+The key insight from CLIP (Contrastive Language-Image Pre-training, 2021) is that image and text embeddings can be trained to occupy the same geometric space, so that a photo of a dog and the text "a dog" end up near each other in embedding space. This contrastive alignment is what lets a language model reason meaningfully about image content — it was taught that images and their descriptions belong together.
+
+What this means in practice: images consume context-window space. Depending on the model's tiling strategy and resolution settings, a single image may consume anywhere from 256 to over 1500 tokens. High-resolution mode — where the image is split into multiple tiles and each tile is independently encoded — can multiply this cost several times over.
+
+### Why it matters
+
+If you treat images as "free" additions to a prompt, you will be surprised by latency, cost, and context-length overflows. A pipeline that sends 10 high-resolution images per request may be consuming the majority of the context window before any text is added. The architecture also explains why image understanding quality degrades at low resolution: if the image is downscaled too aggressively before encoding, fine-grained text, small objects, and fine detail are lost before the language model ever sees them.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Many teams prototype with small images or low-resolution settings, see fast performance and low costs, then switch to full-resolution production images without recalculating. The model card may say "supports images up to 2048px" without clarifying that processing such an image at high resolution uses over 1000 tokens. Test with production-representative image sizes during capacity planning, not just during correctness testing.
+
+---
+
+## Layer 2 — Guided
+
+### The three-part VLM architecture in code
+
+The following pseudocode models the flow through a VLM at inference time. Real APIs abstract this entirely — you submit an image URL or base64 payload — but understanding the pipeline helps reason about latency and cost.
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class ImageInput:
+    """Represents a preprocessed image ready for encoding."""
+    width: int
+    height: int
+    tile_count: int       # 1 for low-res, up to 35+ for high-res tiling
+    patch_size: int = 14  # pixels per patch edge (ViT-14 patch size)
+
+    def tokens_per_tile(self) -> int:
+        """Number of patch tokens produced by one tile of the image."""
+        tile_w = self.width // self.tile_count
+        tile_h = self.height // self.tile_count
+        patches_w = tile_w // self.patch_size
+        patches_h = tile_h // self.patch_size
+        return patches_w * patches_h
+
+    def total_image_tokens(self) -> int:
+        """
+        Approximate total tokens consumed in the context window.
+        Real models add a thumbnail token and may apply additional compression.
+        """
+        return self.tokens_per_tile() * self.tile_count
+
+
+def estimate_image_cost(
+    width: int,
+    height: int,
+    high_res: bool = True,
+    patch_size: int = 14,
+) -> dict:
+    """
+    Estimate how many tokens an image will consume.
+    high_res=True enables tiling; tiles add resolution but multiply token cost.
+    """
+    if high_res:
+        # Tiling strategy: split image into NxN tiles
+        # Many VLMs use up to a 5x5 or 6x6 tile grid for very large images
+        max_tiles = 35
+        tile_count = min(
+            max_tiles,
+            (width // 336) * (height // 336),  # 336px is a common tile size
+        )
+        tile_count = max(1, tile_count)
+    else:
+        tile_count = 1
+        # Downscale to standard low-res (typically 448x448 or 512x512)
+        width, height = 448, 448
+
+    image = ImageInput(
+        width=width,
+        height=height,
+        tile_count=tile_count,
+        patch_size=patch_size,
+    )
+    tokens = image.total_image_tokens()
+    return {
+        "width": width,
+        "height": height,
+        "tile_count": tile_count,
+        "estimated_tokens": tokens,
+        "context_cost": f"~{tokens} tokens ({tokens / 4096 * 100:.0f}% of a 4096-token context)",
+    }
+
+
+# Low-resolution mode (fast, cheap, loses fine detail)
+low_res = estimate_image_cost(1024, 768, high_res=False)
+print(f"Low-res 1024×768:  {low_res['estimated_tokens']} tokens")
+
+# High-resolution mode (better for text extraction, small objects)
+high_res = estimate_image_cost(1024, 768, high_res=True)
+print(f"High-res 1024×768: {high_res['estimated_tokens']} tokens")
+
+# A document scan (larger image, high-res mode)
+doc = estimate_image_cost(2048, 2048, high_res=True)
+print(f"High-res 2048×2048: {doc['estimated_tokens']} tokens")
+```
+
+### Sending an image to a VLM API
+
+```python
+import base64
+from pathlib import Path
+
+def image_to_base64(path: str) -> str:
+    """Convert a local image file to base64 for API submission."""
+    return base64.b64encode(Path(path).read_bytes()).decode("utf-8")
+
+def describe_image(image_path: str, prompt: str = "Describe this image in detail.") -> str:
+    """
+    Send an image + text prompt to a VLM.
+    Uses vendor-neutral pseudocode — substitute your provider's actual client.
+    """
+    b64 = image_to_base64(image_path)
+
+    response = llm.chat(
+        model="frontier",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": b64,
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": prompt,
+                    },
+                ],
+            }
+        ],
+    )
+    return response.text
+
+
+def compare_resolution_modes(image_path: str, question: str) -> dict:
+    """
+    Send the same image at different resolution settings and compare token usage.
+    In production, the 'detail' parameter controls tiling strategy.
+    """
+    results = {}
+    for mode in ["low", "high"]:
+        response = llm.chat(
+            model="frontier",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {"type": "base64", "media_type": "image/jpeg",
+                                       "data": image_to_base64(image_path)},
+                            "detail": mode,   # "low" or "high" — provider-specific
+                        },
+                        {"type": "text", "text": question},
+                    ],
+                }
+            ],
+        )
+        results[mode] = {
+            "answer": response.text,
+            "input_tokens": response.usage.input_tokens,   # check your provider's field name
+        }
+    return results
+```
+
+### Understanding CLIP alignment
+
+The reason VLMs can understand images at all is contrastive pre-training. CLIP trains two encoders — one for images, one for text — by pulling together embeddings of matching image-text pairs and pushing apart non-matching pairs. After training, "a golden retriever playing fetch" and a photo of a dog playing fetch embed near each other.
+
+```python
+def clip_similarity_concept(image_embedding: list[float], text_embedding: list[float]) -> float:
+    """
+    CLIP measures image-text alignment via cosine similarity.
+    Scores near 1.0 mean the image matches the text description well.
+    Scores near 0.0 mean they are unrelated.
+    This is the alignment mechanism that makes VLMs possible.
+    """
+    import math
+    dot = sum(a * b for a, b in zip(image_embedding, text_embedding))
+    mag_i = math.sqrt(sum(x ** 2 for x in image_embedding))
+    mag_t = math.sqrt(sum(x ** 2 for x in text_embedding))
+    if mag_i == 0 or mag_t == 0:
+        return 0.0
+    return dot / (mag_i * mag_t)
+```
+
+### Before vs. After: resolution misconfiguration
+
+**Naive approach:** send every image in high-resolution mode because "more detail is better."
+
+```python
+# Naive: always high-res — expensive and unnecessary for low-detail tasks
+def extract_document_type_naive(image_path: str) -> str:
+    return llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                              "data": image_to_base64(image_path)}, "detail": "high"},
+                {"type": "text", "text": "Is this a receipt, invoice, or other document? Reply with one word."},
+            ],
+        }],
+    ).text
+```
+
+**Better approach:** match resolution to task complexity.
+
+```python
+def extract_document_type(image_path: str) -> str:
+    """
+    Classification tasks don't need high-res — coarse image content suffices.
+    Save high-res for tasks requiring reading fine text.
+    """
+    return llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                              "data": image_to_base64(image_path)}, "detail": "low"},
+                {"type": "text", "text": "Is this a receipt, invoice, or other document? Reply with one word."},
+            ],
+        }],
+    ).text
+
+
+def extract_document_text(image_path: str) -> str:
+    """
+    Text extraction needs high-res to resolve individual characters.
+    """
+    return llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                              "data": image_to_base64(image_path)}, "detail": "high"},
+                {"type": "text", "text": "Extract all text from this document exactly as it appears."},
+            ],
+        }],
+    ).text
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### ViT architecture and patch tokenisation
+
+The Vision Transformer (ViT) was introduced by Dosovitskiy et al. (2020) as a direct application of the transformer architecture to images. Unlike CNNs that use convolution to hierarchically extract features, ViT splits the image into non-overlapping patches, linearly embeds each patch, and processes the resulting sequence with standard transformer attention.
+
+The patch embedding dimension is fixed (typically 768 or 1024), so a 14×14 patch of pixels becomes a 1024-dimensional vector. This is the "image token" — structurally identical to a text token from the language model's perspective once the projection layer has mapped it into the language model's token space.
+
+### Tiling and resolution strategies
+
+| Resolution Mode | Tile Strategy | Typical Token Range | Best For |
+|---|---|---|---|
+| Low / thumbnail | Single pass, downscaled to ~448px | 256–512 tokens | Classification, coarse description |
+| Standard | Single pass at native or moderate resolution | 512–768 tokens | General scene understanding |
+| High / tiled | Image split into NxN tiles (N up to 6), each encoded independently | 768–2048+ tokens | Document OCR, fine text, small objects |
+| Dynamic tiling | Tile count determined by native aspect ratio | Varies by content | Best quality-cost balance |
+
+Dynamic tiling, used by several current VLMs, selects tile count based on the image's aspect ratio and content — tall narrow images get fewer tiles than wide panoramas of the same pixel count. This is more efficient than fixed-tile strategies but makes token counts harder to predict in advance.
+
+### The projection layer and token space
+
+The projection layer (sometimes called a connector or adapter) is where the image encoder's output is mapped into the language model's embedding space. Common approaches include:
+
+- **Linear projection**: simple matrix multiplication of each patch embedding into LLM token dimension. Fast but less expressive.
+- **MLP resampler (Q-Former, Perceiver Resampler)**: a cross-attention module that reduces a variable number of patch embeddings to a fixed number of output tokens. This decouples image resolution from context cost — you always pay a fixed token count regardless of input resolution.
+
+The tradeoff: linear projection preserves all spatial information but costs more tokens; Perceiver-style resampling is cheaper but compresses information.
+
+### Key architectural reference points
+
+| Model family | Visual encoder | Connector | Approximate image tokens |
+|---|---|---|---|
+| LLaVA-1.5 | CLIP ViT-L/14 | MLP | 576 per image |
+| PaliGemma | SigLIP ViT | Linear | 256 per image (224px) |
+| GPT-4V / GPT-4o | Undisclosed | Undisclosed | 85–1500+ (detail-dependent) |
+| Gemini | Native multimodal | Integrated | Variable |
+
+Model capabilities evolve quickly — check the model's current documentation for precise token budgets before production capacity planning. These figures represent published snapshots that may not reflect current versions.
+
+### Further reading
+
+- [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) — Dosovitskiy et al., 2020. The original ViT paper; explains the patch embedding architecture that underpins virtually all modern visual encoders.
+- [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) — Radford et al., 2021. The CLIP paper; the contrastive alignment approach that made vision-language grounding practical.
+- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485) — Liu et al., 2023. An open-weight VLM architecture that clearly describes the projection layer design and training procedure.
+- [PaliGemma: A versatile 3B VLM for transfer](https://arxiv.org/abs/2407.07726) — Beyer et al., 2024. A compact open-weight VLM with well-documented token costs and benchmark performance.

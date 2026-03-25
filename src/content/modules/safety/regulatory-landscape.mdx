@@ -1,0 +1,295 @@
+---
+moduleId: "7.7"
+title: "Regulatory Landscape"
+description: "The regulatory environment for AI is moving quickly. The EU AI Act introduced risk tiers and mandatory requirements. GDPR has always applied to automated decision-making. The US has the NIST AI RMF. This module maps the landscape for a B2B SaaS product using LLMs — what you likely need to document, what you need to avoid, and where you need legal counsel."
+track: "safety"
+order: 7
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "The EU AI Act's high-risk classification is broader than most teams expect — AI systems used in hiring, credit, education, law enforcement, and critical infrastructure fall into high-risk regardless of the underlying model. Classify your use case before assuming you're in the minimal-risk tier."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Three regulatory frameworks matter most for teams building with LLMs today: the EU AI Act, GDPR, and the NIST AI Risk Management Framework. They approach AI risk from different angles and have different geographic reach — but if you ship to EU users, all three are relevant.
+
+**The frameworks at a glance:**
+
+| Framework | Geography | Approach | Binding? |
+|---|---|---|---|
+| **EU AI Act** | EU (and global if you serve EU users or deploy in EU) | Risk-tier classification with mandatory requirements for high-risk systems | Yes — fines up to 3% or 6% of global turnover |
+| **GDPR** | EU and EEA (and anyone processing EU residents' data) | Data protection principles applied to automated processing | Yes — fines up to 4% of global turnover |
+| **NIST AI RMF** | US (voluntary but referenced by federal contracts) | Risk management framework: Govern, Map, Measure, Manage | No — voluntary, but expected by US government customers |
+| **UK DSIT AI Principles** | UK | Context-specific principles (safety, transparency, fairness, accountability) | No — non-statutory, sector regulators apply existing law |
+
+### Why it matters
+
+Non-compliance can mean fines, but also contract loss (government customers increasingly require AI risk management), reputational damage, and product launches blocked by legal reviews that were not started early enough. Compliance is cheaper to design in than to retrofit.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Teams building a helpful AI feature for HR, lending, or education often assume they are in the "limited risk" or "minimal risk" tier. They are not. The EU AI Act explicitly lists these sectors in Annex III as high-risk use cases. A chatbot that helps a recruiter screen CVs is a high-risk AI system with mandatory documentation, transparency, and human oversight requirements — regardless of how helpful the chatbot is.
+
+---
+
+## Layer 2 — Guided
+
+### EU AI Act: risk tier classification
+
+The EU AI Act classifies AI systems into four tiers. Your tier determines your obligations:
+
+```python
+from enum import Enum
+from dataclasses import dataclass
+
+class EUAIActRiskTier(Enum):
+    UNACCEPTABLE = "unacceptable"   # Prohibited entirely
+    HIGH = "high"                   # Mandatory requirements; conformity assessment
+    LIMITED = "limited"             # Transparency obligations only
+    MINIMAL = "minimal"             # No specific obligations
+
+@dataclass
+class UseCaseClassification:
+    use_case: str
+    tier: EUAIActRiskTier
+    rationale: str
+    primary_obligation: str
+
+# Representative examples — always verify with legal counsel for your specific case
+EU_AI_ACT_EXAMPLES: list[UseCaseClassification] = [
+    UseCaseClassification(
+        use_case="Social scoring of citizens by public authorities",
+        tier=EUAIActRiskTier.UNACCEPTABLE,
+        rationale="Explicitly prohibited under Article 5",
+        primary_obligation="Do not build or deploy",
+    ),
+    UseCaseClassification(
+        use_case="AI-assisted CV screening in recruitment",
+        tier=EUAIActRiskTier.HIGH,
+        rationale="Employment is listed in Annex III",
+        primary_obligation="Conformity assessment, human oversight, logging, transparency notice",
+    ),
+    UseCaseClassification(
+        use_case="Credit scoring or loan eligibility assessment",
+        tier=EUAIActRiskTier.HIGH,
+        rationale="Access to financial services listed in Annex III",
+        primary_obligation="Conformity assessment, right to explanation, audit trail",
+    ),
+    UseCaseClassification(
+        use_case="AI chatbot for customer support (clearly disclosed)",
+        tier=EUAIActRiskTier.LIMITED,
+        rationale="Interacts with humans; must be disclosed as AI",
+        primary_obligation="Disclose AI nature to users",
+    ),
+    UseCaseClassification(
+        use_case="Internal code review assistant",
+        tier=EUAIActRiskTier.MINIMAL,
+        rationale="No direct impact on individuals; internal tool",
+        primary_obligation="None specific (good practice still applies)",
+    ),
+]
+
+def classify_use_case(description: str) -> str:
+    """
+    Helper to prompt an LLM for a preliminary EU AI Act classification.
+    This is a starting point only — legal review is required.
+    """
+    return llm.chat(
+        model="balanced",
+        messages=[{
+            "role": "user",
+            "content": (
+                f"Under the EU AI Act, what risk tier would the following AI use case likely fall into?\n\n"
+                f"Use case: {description}\n\n"
+                f"Reference the EU AI Act Annex III high-risk categories:\n"
+                f"- Biometric identification\n"
+                f"- Critical infrastructure\n"
+                f"- Education and vocational training\n"
+                f"- Employment, workers management, self-employment\n"
+                f"- Access to essential private/public services and benefits\n"
+                f"- Law enforcement\n"
+                f"- Migration, asylum, border control\n"
+                f"- Administration of justice\n\n"
+                f"Provide: likely tier (Unacceptable/High/Limited/Minimal), "
+                f"the specific Annex III category if applicable, and 2-3 sentences of rationale. "
+                f"Note that this is preliminary analysis only and not legal advice."
+            ),
+        }],
+    ).text
+```
+
+### GDPR Article 22: automated decision-making
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class AutomatedDecisionCheck:
+    decision_type: str
+    is_solely_automated: bool
+    has_legal_or_similar_effect: bool
+    requires_article22_compliance: bool
+    required_safeguards: list[str]
+
+def assess_article22_applicability(
+    decision_type: str,
+    human_reviews_decisions: bool,
+    decision_affects_individual: bool,
+    decision_is_legally_significant: bool,
+) -> AutomatedDecisionCheck:
+    """
+    Article 22 applies when: (a) the decision is solely automated,
+    AND (b) it produces legal or similarly significant effects on the individual.
+    """
+    solely_automated = not human_reviews_decisions
+    legal_or_similar = decision_is_legally_significant and decision_affects_individual
+    applies = solely_automated and legal_or_similar
+
+    safeguards = []
+    if applies:
+        safeguards = [
+            "Obtain explicit consent OR have legal basis (contract, law)",
+            "Provide meaningful information about the logic involved",
+            "Allow the data subject to request human review",
+            "Allow the data subject to express their point of view",
+            "Allow the data subject to contest the decision",
+            "Log inputs and outputs for each automated decision",
+        ]
+
+    return AutomatedDecisionCheck(
+        decision_type=decision_type,
+        is_solely_automated=solely_automated,
+        has_legal_or_similar_effect=legal_or_similar,
+        requires_article22_compliance=applies,
+        required_safeguards=safeguards,
+    )
+
+# Example: a hiring screening tool
+hiring_check = assess_article22_applicability(
+    decision_type="CV screening for job application",
+    human_reviews_decisions=False,       # AI makes the pass/fail decision
+    decision_affects_individual=True,
+    decision_is_legally_significant=True,  # Affects employment opportunity
+)
+# Result: Article 22 applies → must have human review option + explanation
+```
+
+### Compliance checklist for a typical B2B SaaS product
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class ComplianceItem:
+    area: str
+    requirement: str
+    applicable_when: str
+    status: str = "todo"
+    notes: str = ""
+
+B2B_SAAS_COMPLIANCE_CHECKLIST: list[ComplianceItem] = [
+    ComplianceItem(
+        area="EU AI Act",
+        requirement="Classify your use case into a risk tier",
+        applicable_when="Always, before launch in EU",
+    ),
+    ComplianceItem(
+        area="EU AI Act",
+        requirement="If high-risk: complete conformity assessment and maintain technical documentation",
+        applicable_when="High-risk systems only",
+    ),
+    ComplianceItem(
+        area="EU AI Act",
+        requirement="Disclose AI nature to users if they interact with an AI system",
+        applicable_when="Always for conversational AI",
+    ),
+    ComplianceItem(
+        area="GDPR",
+        requirement="Sign a Data Processing Agreement with your LLM provider",
+        applicable_when="Always when processing EU personal data via API",
+    ),
+    ComplianceItem(
+        area="GDPR",
+        requirement="Establish a legal basis for processing personal data in prompts",
+        applicable_when="Always",
+    ),
+    ComplianceItem(
+        area="GDPR",
+        requirement="Implement Article 22 safeguards for automated decision-making",
+        applicable_when="When AI decisions have legal/similar effects on individuals",
+    ),
+    ComplianceItem(
+        area="GDPR",
+        requirement="Define and document data retention limits for prompts and logs",
+        applicable_when="Always",
+    ),
+    ComplianceItem(
+        area="NIST AI RMF",
+        requirement="Complete a risk assessment and document risk mitigations",
+        applicable_when="US government customers; best practice otherwise",
+    ),
+    ComplianceItem(
+        area="General",
+        requirement="Maintain an AI SBOM and model provenance records",
+        applicable_when="Best practice; required for some enterprise contracts",
+    ),
+    ComplianceItem(
+        area="General",
+        requirement="Engage legal counsel for use-case-specific compliance review",
+        applicable_when="Before launch in regulated industries or jurisdictions",
+    ),
+]
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### EU AI Act timeline and obligations
+
+The EU AI Act was published in the EU Official Journal in July 2024 and entered into force in August 2024. The obligations phase in over time:
+
+| Date | What becomes applicable |
+|---|---|
+| February 2025 | Prohibited AI practices (Unacceptable tier) |
+| August 2025 | GPAI model obligations (general-purpose AI model providers) |
+| August 2026 | High-risk AI system obligations (Annex III); transparency rules for limited-risk |
+| August 2027 | High-risk AI systems already on market before August 2026 |
+
+For most SaaS products using commercial LLM APIs: the provider (Anthropic, OpenAI, etc.) carries obligations as a GPAI model provider. You, as a deployer, carry obligations for any high-risk use cases you build on top.
+
+### NIST AI RMF structure
+
+The NIST AI Risk Management Framework is organised around four functions:
+
+| Function | What it covers |
+|---|---|
+| **Govern** | Policies, accountability, culture, and workforce (the organisation's AI risk posture) |
+| **Map** | Identify AI risks in context — what can go wrong, for whom, under what conditions |
+| **Measure** | Evaluate and assess risks quantitatively and qualitatively |
+| **Manage** | Prioritise and act on identified risks; monitor and adjust |
+
+The NIST AI RMF is less prescriptive than the EU AI Act — it provides a vocabulary and structure rather than specific rules. US government agencies are increasingly using it as a procurement requirement.
+
+### Where this module ends and legal counsel begins
+
+This module helps you understand the landscape and ask the right questions. It does not constitute legal advice. You need legal counsel when:
+- Your use case touches a regulated domain (healthcare, finance, employment, law enforcement)
+- You have EU users and are uncertain about your GDPR basis
+- You are considering AI-assisted automated decisions
+- A customer's contract requires AI compliance certifications
+
+### Further reading
+
+- [EU AI Act — Full Text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689) — Official Journal of the EU, 2024. The authoritative text; Annex III lists high-risk use cases.
+- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf) — NIST, 2023. The US framework; voluntary but increasingly required by government customers.
+- [ICO Guidance on AI and Automated Decision-Making](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/) — UK ICO, 2023. UK GDPR application to AI systems including Article 22 guidance.

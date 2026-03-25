@@ -1,0 +1,76 @@
+{
+  "title": "Managing AI Risk at the Org Level — Check your understanding",
+  "moduleId": "8.5",
+  "questions": [
+    {
+      "id": "8.5-q1",
+      "type": "multiple-choice",
+      "question": "Six months after a customer-facing AI system was approved and launched, the engineering team upgrades the underlying model version, edits the system prompt to fix a tone issue, and adds a new retrieval source for product information. No governance review is triggered. What risk does this represent?",
+      "options": [
+        "No risk — these are routine engineering changes",
+        "Each change potentially introduces new risks that were not in the original approved risk register; without a change-triggered reassessment, the risk register describes a system that no longer exists",
+        "Operational risk only — model upgrades should go through the release process",
+        "Vendor concentration risk — relying on the vendor to manage model versioning"
+      ],
+      "answer": 1,
+      "explanation": "This is the core production gotcha for AI risk management. Risk registers are typically completed at launch and never updated, but production AI systems are continuously evolving. A model version change can alter safety behaviours. A prompt edit can introduce new failure modes. A new retrieval source can introduce new factual errors or data privacy issues. Each change should trigger a lightweight but real reassessment — not a full approval process, but a structured check of which risk categories the change touches and whether existing controls still hold.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.5-q2",
+      "type": "multiple-choice",
+      "question": "An organisation's primary LLM provider announces a 40% price increase and reduces the deprecation notice period from 12 months to 8 weeks for older model versions. Which risk category does this represent?",
+      "options": [
+        "Model risk — the price increase may affect the quality of model outputs",
+        "Strategic risk — vendor concentration risk, where dependence on a single external provider leaves the organisation exposed to unilateral changes in pricing, policies, and model availability",
+        "Operational risk — pricing changes affect system uptime",
+        "Compliance risk — pricing changes may affect regulatory obligations"
+      ],
+      "answer": 1,
+      "explanation": "Dependence on a single AI provider for mission-critical capabilities is a strategic risk. The provider controls pricing, model availability, deprecation timelines, and data policies — and can change any of these with limited notice. The mitigation is not to avoid using providers, but to manage concentration: abstract vendor integrations so switching is feasible, negotiate contracts with price stability protections where possible, and maintain awareness of alternatives. For the most critical applications, multi-vendor architectures or self-hosted fallbacks provide an additional layer of resilience.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.5-q3",
+      "type": "multiple-choice",
+      "question": "A company produces a comprehensive 60-page AI risk assessment at project launch, gets it signed off by legal and compliance, and files it. No further reviews occur. The system ships and runs in production for two years. Is this adequate risk management?",
+      "options": [
+        "Yes — regulatory requirements are met once the document is signed",
+        "No — this is risk theatre; a document produced once and never updated describes the system at one point in time, not the system as it exists today, and does not provide any ongoing protection against the risks that emerge as the system evolves",
+        "Yes, if the document is comprehensive and covers all foreseeable risks",
+        "Adequate for low-risk applications; additional reviews needed only for high-risk ones"
+      ],
+      "answer": 1,
+      "explanation": "A risk assessment that is completed once and never revisited is risk theatre. The system it describes has changed — new features, updated prompts, different model versions, new data sources — and many of those changes introduced risks not covered by the original document. Real risk management is a continuous operational process: regular register reviews, change-triggered reassessments, production monitoring as a risk signal, and post-mortem integration when incidents occur. The document is an input to the process, not the process itself.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.5-q4",
+      "type": "multiple-choice",
+      "question": "An AI system that assists with employee performance reviews is being deployed at a large organisation. Which risk category demands the most immediate and specific governance attention?",
+      "options": [
+        "Operational risk — the system must be available during the annual review cycle",
+        "Compliance risk — automated decision support in employment contexts is specifically regulated in multiple jurisdictions, and discriminatory AI outputs could expose the organisation to significant legal liability",
+        "Reputational risk — employees may react negatively to AI involvement",
+        "Model risk — AI outputs may not accurately reflect employee performance"
+      ],
+      "answer": 1,
+      "explanation": "Employment decisions are a high-risk AI use case under the EU AI Act and are subject to specific anti-discrimination requirements in many jurisdictions. AI systems that influence hiring, promotion, or performance evaluation face mandatory requirements including human oversight, bias testing, and in some cases regulatory approval. This is not primarily a reputational question (though that matters) — it is a legal exposure. Organisations deploying AI in employment contexts must engage legal counsel early and build compliance evidence into the system design, not as a post-launch addition.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.5-q5",
+      "type": "multiple-choice",
+      "question": "A production monitoring dashboard shows a sudden spike in the AI system's guardrail trigger rate — from 0.5% of requests to 4.5% over 48 hours. What is the most appropriate first interpretation of this signal?",
+      "options": [
+        "The guardrails are too sensitive and need to be relaxed",
+        "A spike in guardrail triggers is a risk signal that warrants investigation — it may indicate a coordinated adversarial attack, a viral user pattern, a change in the user population, or a model behaviour change after an update",
+        "This is normal statistical variation and can be ignored unless it exceeds 10%",
+        "The model provider has changed the model and it is producing more harmful outputs"
+      ],
+      "answer": 1,
+      "explanation": "Guardrail trigger rate spikes are not operational noise — they are risk intelligence. A ninefold increase in 48 hours indicates something has changed: an attack pattern is being tested, a user community has discovered a bypass, the user population has shifted, or a system change has introduced new failure modes. The correct response is to investigate the trigger content, identify the pattern, and determine whether the existing controls are adequate or whether the system needs to be adjusted or temporarily restricted. Treating it as statistical noise or immediately relaxing the guardrails without investigation is the wrong response.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

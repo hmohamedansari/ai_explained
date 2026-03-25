@@ -1,0 +1,325 @@
+---
+moduleId: "9.7"
+title: "Serving Multimodal Models"
+description: "Serving a vision-language model is not the same as serving a text-only LLM — the vision encoder adds VRAM, image preprocessing adds latency, and variable image sizes complicate batching. This module covers the serving stack for VLMs and audio models, including the VRAM estimation mistakes that cause production OOMs."
+track: "multimodal"
+order: 7
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "VRAM estimates for VLMs from model cards typically cover the language model only; the vision encoder adds 1–3GB for most architectures and is loaded separately. In production under concurrent load, the combined VRAM footprint plus KV cache for mixed text+image batches consistently exceeds naïve estimates. Benchmark VRAM under your actual concurrency and image mix before provisioning hardware."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Serving a text-only LLM is hard. Serving a VLM adds two new problems on top of everything from the text serving stack: the vision encoder (a ViT, typically 300MB–3GB depending on size) that must be loaded into VRAM alongside the language model, and an image preprocessing pipeline (decode, resize, tile, encode) that runs before the first token is generated and adds latency.
+
+The VRAM footprint of a VLM is not simply the language model size. It is the language model weights plus the vision encoder weights plus the projection layer plus the KV cache for all active requests — and for VLMs, each image in the context generates many image tokens, each of which requires KV cache entries. An image consuming 768 tokens adds as much KV cache pressure as 768 text tokens per layer, per request.
+
+Batching is harder for VLMs than for text-only models because requests vary in their image payload. A batch of 8 text-only requests has predictable memory requirements. A batch of 8 requests where some have no images, some have one image, and some have multiple high-resolution images has highly variable memory requirements. This makes static VRAM pre-allocation unreliable and makes accurate batch size estimation difficult.
+
+Audio models (Whisper for ASR, various TTS models) are a distinct serving concern. They use encoder-decoder transformer architectures quite different from causal LLMs. Many audio models are small enough to serve on CPU for batch workloads, but latency-sensitive streaming transcription requires GPU. They are often served as separate microservices from the VLM.
+
+### Why it matters
+
+Under-provisioned VLM deployments OOM at unexpected concurrency levels because the model card VRAM estimate does not account for the vision encoder plus KV cache for image-heavy requests. Teams that provision based on language model size alone discover this at the worst time — under production traffic. Accurate estimation requires testing with your actual image mix and concurrency.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The mistake follows a pattern: read the model card ("requires 16GB VRAM"), provision a 24GB GPU for headroom, test with text-only requests and small images, deploy. The first time a batch of requests with high-resolution images arrives, the server OOMs. The vision encoder and tiled image tokens were not in the estimate. Always load-test with representative image sizes and realistic request concurrency, not the text-only baseline.
+
+---
+
+## Layer 2 — Guided
+
+### VRAM estimation for VLMs
+
+```python
+from dataclasses import dataclass
+
+
+@dataclass
+class VLMVRAMEstimate:
+    """
+    Estimate total VRAM required to serve a VLM under concurrent load.
+    All sizes in GB.
+    """
+    # Language model component
+    lm_weights_gb: float          # language model weights
+    lm_dtype: str                 # "float16", "int8", "int4"
+
+    # Vision encoder component
+    vit_weights_gb: float         # ViT encoder weights (typically 0.3–1.5GB)
+    projection_weights_gb: float  # projection/connector layer (typically 0.05–0.3GB)
+
+    # Inference load parameters
+    batch_size: int               # max concurrent requests
+    avg_text_tokens: int          # average text tokens per request
+    avg_image_tokens: int         # average image tokens per request (0 if text-only)
+    num_layers: int               # LLM transformer layers
+    num_kv_heads: int             # KV heads (GQA-aware)
+    head_dim: int                 # attention head dimension
+
+    def weights_gb(self) -> float:
+        """Total weight VRAM."""
+        return self.lm_weights_gb + self.vit_weights_gb + self.projection_weights_gb
+
+    def kv_cache_gb_per_request(self) -> float:
+        """KV cache per request for the sequence length: text + image tokens."""
+        total_tokens = self.avg_text_tokens + self.avg_image_tokens
+        bytes_per_element = 2.0   # float16
+        total_bytes = (
+            2 * self.num_layers * self.num_kv_heads * self.head_dim
+            * total_tokens * bytes_per_element
+        )
+        return total_bytes / (1024 ** 3)
+
+    def total_kv_cache_gb(self) -> float:
+        """Total KV cache for all concurrent requests."""
+        return self.kv_cache_gb_per_request() * self.batch_size
+
+    def total_gb(self, overhead_multiplier: float = 1.2) -> float:
+        """
+        Total estimated VRAM including overhead (activations, framework buffers).
+        overhead_multiplier=1.2 accounts for roughly 20% overhead.
+        """
+        return (self.weights_gb() + self.total_kv_cache_gb()) * overhead_multiplier
+
+    def report(self) -> dict:
+        return {
+            "lm_weights_gb": round(self.lm_weights_gb, 2),
+            "vit_weights_gb": round(self.vit_weights_gb, 2),
+            "projection_weights_gb": round(self.projection_weights_gb, 2),
+            "kv_cache_per_request_gb": round(self.kv_cache_gb_per_request(), 3),
+            "total_kv_cache_gb": round(self.total_kv_cache_gb(), 2),
+            "weights_total_gb": round(self.weights_gb(), 2),
+            "total_estimated_gb": round(self.total_gb(), 2),
+        }
+
+
+# Example: LLaVA-style 7B VLM, 20 concurrent requests, medium-resolution images
+vlm_7b = VLMVRAMEstimate(
+    lm_weights_gb=14.0,       # 7B in FP16
+    lm_dtype="float16",
+    vit_weights_gb=0.9,        # CLIP ViT-L/14
+    projection_weights_gb=0.1,
+    batch_size=20,
+    avg_text_tokens=512,
+    avg_image_tokens=576,      # LLaVA-1.5 standard resolution
+    num_layers=32,
+    num_kv_heads=32,           # standard MHA for 7B
+    head_dim=128,
+)
+report = vlm_7b.report()
+for k, v in report.items():
+    print(f"{k}: {v} GB")
+
+# Compare: same load but text-only requests (no images)
+text_only = VLMVRAMEstimate(
+    lm_weights_gb=14.0,
+    lm_dtype="float16",
+    vit_weights_gb=0.9,        # encoder still loaded even if not used
+    projection_weights_gb=0.1,
+    batch_size=20,
+    avg_text_tokens=512,
+    avg_image_tokens=0,        # no images
+    num_layers=32,
+    num_kv_heads=32,
+    head_dim=128,
+)
+print(f"\nText-only total: {text_only.total_gb():.1f} GB")
+print(f"With images total: {vlm_7b.total_gb():.1f} GB")
+print(f"Image overhead: {vlm_7b.total_gb() - text_only.total_gb():.1f} GB")
+```
+
+### Image preprocessing pipeline latency
+
+```python
+from dataclasses import dataclass
+import time
+
+
+@dataclass
+class PreprocessingTiming:
+    decode_ms: float       # image decoding (JPEG -> pixels)
+    resize_ms: float       # resize to target dimensions
+    tile_ms: float         # split into tiles (high-res mode)
+    encode_ms: float       # ViT encoding (GPU)
+    project_ms: float      # projection to LLM token space (GPU)
+    total_ms: float
+
+
+def measure_preprocessing_latency(
+    image_bytes: bytes,
+    use_gpu: bool = True,
+) -> PreprocessingTiming:
+    """
+    Measure latency of each preprocessing stage.
+    In production, profiling this breakdown helps identify bottlenecks.
+    Requires: pip install Pillow torch torchvision
+    """
+    import io
+    from PIL import Image
+
+    t0 = time.perf_counter()
+    img = Image.open(io.BytesIO(image_bytes))
+    img.load()
+    decode_ms = (time.perf_counter() - t0) * 1000
+
+    t1 = time.perf_counter()
+    img_resized = img.resize((448, 448))
+    resize_ms = (time.perf_counter() - t1) * 1000
+
+    t2 = time.perf_counter()
+    # Tiling: divide into NxN sub-images for high-res mode
+    tile_size = 224
+    tiles = []
+    w, h = img_resized.size
+    for row in range(h // tile_size):
+        for col in range(w // tile_size):
+            tile = img_resized.crop((
+                col * tile_size, row * tile_size,
+                (col + 1) * tile_size, (row + 1) * tile_size,
+            ))
+            tiles.append(tile)
+    tile_ms = (time.perf_counter() - t2) * 1000
+
+    # ViT encoding and projection happen on GPU — placeholder timings
+    encode_ms = 15.0 if use_gpu else 120.0    # GPU vs CPU approximate
+    project_ms = 2.0 if use_gpu else 15.0
+
+    total_ms = decode_ms + resize_ms + tile_ms + encode_ms + project_ms
+
+    return PreprocessingTiming(
+        decode_ms=round(decode_ms, 2),
+        resize_ms=round(resize_ms, 2),
+        tile_ms=round(tile_ms, 2),
+        encode_ms=encode_ms,
+        project_ms=project_ms,
+        total_ms=round(total_ms, 2),
+    )
+```
+
+### Multi-model serving architecture
+
+For systems that serve both vision and language workloads at scale, separating the vision encoder from the language model provides flexibility:
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+import base64
+
+
+@dataclass
+class EncodedImage:
+    """Result of running a ViT encoder on an image."""
+    token_embeddings: list[list[float]]   # shape: [num_tokens, embedding_dim]
+    num_tokens: int
+    resolution_mode: str   # "low" or "high"
+
+
+def encode_image_separate(
+    image_bytes: bytes,
+    resolution: str = "standard",
+) -> EncodedImage:
+    """
+    Step 1: Run vision encoder to produce image embeddings.
+    In a split architecture, this runs on a dedicated vision encoder service.
+    The embeddings are then sent to the language model service.
+
+    Real implementations (e.g., vLLM's vision encoder integration) handle this
+    internally, but some deployments separate them for scaling flexibility.
+    """
+    # Call the vision encoder service
+    response = vision_encoder.encode(
+        image=base64.b64encode(image_bytes).decode(),
+        resolution=resolution,
+    )
+    return EncodedImage(
+        token_embeddings=response.embeddings,
+        num_tokens=response.num_tokens,
+        resolution_mode=resolution,
+    )
+
+
+def generate_with_image_embeddings(
+    image_embedding: EncodedImage,
+    text_prompt: str,
+    system_prompt: str,
+) -> str:
+    """
+    Step 2: Send pre-encoded image embeddings + text to the language model.
+    The LM never sees raw images — only the already-encoded representations.
+    This allows the vision encoder and language model to scale independently.
+    """
+    response = llm.chat(
+        model="frontier",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_embeddings",     # hypothetical field
+                        "embeddings": image_embedding.token_embeddings,
+                    },
+                    {"type": "text", "text": text_prompt},
+                ],
+            },
+        ],
+    )
+    return response.text
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### How image tokens affect KV cache
+
+In a text-only LLM, KV cache size is predictable: it scales with sequence length, batch size, and model depth. In a VLM, image tokens are part of the sequence — a request with one high-resolution image (768 image tokens) plus 200 text tokens has an effective sequence length of 968 for KV cache purposes, indistinguishable from a 968-token text request.
+
+This has two consequences for serving:
+
+1. **VRAM spikes from image-heavy batches**: if a batch happens to contain several high-resolution images, the KV cache requirement spikes sharply compared to text-only batches of the same batch size.
+2. **Scheduling complexity**: a serving scheduler that models all requests as having similar token counts will under-estimate KV cache requirements for image-heavy requests. vLLM's multimodal support handles this by treating image tokens as actual tokens in the scheduler's accounting.
+
+### Serving architecture options
+
+| Architecture | Description | Tradeoffs |
+|---|---|---|
+| Monolithic VLM server | ViT encoder + LLM served as a single process | Simpler; tight coupling means scaling one requires scaling both |
+| Split vision + LLM | Separate ViT encoder service feeds embeddings to LLM service | Scale independently; more complex orchestration; network latency between services |
+| Encoder caching | Cache ViT encoder output for repeated images | Significant speedup for frequently re-submitted images; requires a fast cache with image hash keying |
+| CPU offload for ViT | Run ViT on CPU, LLM on GPU | Reduces GPU VRAM requirement; adds 50–200ms latency per image |
+
+Encoder caching is particularly valuable for document processing pipelines where the same image may be re-submitted with different questions.
+
+### Audio model serving
+
+Whisper and similar audio models use an encoder-decoder architecture that differs from causal LLMs:
+
+| Characteristic | Causal LLM | Whisper / audio encoder-decoder |
+|---|---|---|
+| Architecture | Decoder-only transformer | Encoder-decoder transformer |
+| KV cache | Critical; grows with context | Encoder output cached once per audio file |
+| GPU requirement | High (large models) | Medium; small models run well on CPU |
+| Batching | Continuous batching (variable lengths) | Fixed-length mel spectrogram windows |
+| Primary bottleneck | VRAM for KV cache | Audio preprocessing and encoder throughput |
+
+For high-throughput batch transcription (long audio files, asynchronous), Whisper small or medium models can often be served on CPU with acceptable latency. For real-time streaming transcription (voice assistants), GPU is required to keep decode latency under 200ms per 30-second audio window.
+
+### Further reading
+
+- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485) — Liu et al., 2023. The LLaVA architecture; documents the projection layer design and approximate token counts used as examples here.
+- [vLLM: Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) — Kwon et al., 2023. The vLLM serving system; the PagedAttention and continuous batching that also underlies VLM serving.
+- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — Radford et al., 2022. The Whisper paper; covers the encoder-decoder architecture and model sizes (tiny, base, small, medium, large).
+- [vLLM multimodal documentation](https://docs.vllm.ai/en/latest/models/vlm.html) — vLLM project, 2024. Practical configuration reference for serving VLMs with vLLM; covers image token accounting and batch management.

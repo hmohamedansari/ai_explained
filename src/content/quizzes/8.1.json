@@ -1,0 +1,76 @@
+{
+  "title": "AI ROI: What Actually Gets Measured — Check your understanding",
+  "moduleId": "8.1",
+  "questions": [
+    {
+      "id": "8.1-q1",
+      "type": "multiple-choice",
+      "question": "An AI pilot reduced document review time by 70% and was declared a success. Six months into production deployment, the measured time saving is only 30%. Which factor most commonly explains this gap?",
+      "options": [
+        "The pilot used a newer model version than production",
+        "Pilots run on curated inputs with close human oversight and are compared against the worst-case baseline; production inputs are messier, oversight is reduced, and edge cases accumulate",
+        "The production team failed to follow the pilot methodology correctly",
+        "Time savings always decline after the novelty effect wears off"
+      ],
+      "answer": 1,
+      "explanation": "This is the classic pilot-to-production ROI gap. Pilots are controlled experiments: inputs are selected for clarity, engineers monitor every output, and the comparison baseline is often the slowest or least efficient version of the old process. Production reverses all three conditions — inputs are whatever users send, oversight is minimal, and the comparison should be against a well-run baseline. Always model the production scenario before presenting pilot results as evidence of production ROI.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.1-q2",
+      "type": "multiple-choice",
+      "question": "Your organisation wants to measure the ROI of an AI system that monitors contracts for compliance violations. No compliance failures have occurred in the six months since deployment. A colleague argues this means the system has zero ROI because nothing happened. What is wrong with this reasoning?",
+      "options": [
+        "Nothing — if there were no failures, the system was unnecessary",
+        "Risk reduction ROI is often invisible until a failure occurs; the absence of failures is exactly the value the system delivers, and the correct measure is the estimated cost of failures that were prevented",
+        "Six months is too short to measure compliance ROI",
+        "The system should be compared against a period when failures did occur"
+      ],
+      "answer": 1,
+      "explanation": "Risk reduction is the ROI category most commonly mis-measured. When a system works, nothing happens — and 'nothing happened' looks like zero value to someone measuring activity rather than outcomes. The correct framing: what is the historical rate of compliance failures, what is the estimated cost per failure, and how many failures was the system expected to prevent? That product is the value delivered, regardless of whether any failure occurred in the measurement window.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.1-q3",
+      "type": "multiple-choice",
+      "question": "A team is calculating the three-year ROI of an AI feature. They have included build cost and first-year inference costs. Which cost category are they most likely missing that routinely changes the ROI calculation significantly?",
+      "options": [
+        "User training and onboarding costs",
+        "Ongoing maintenance costs — prompt tuning as model behaviour evolves, model upgrade work when versions are deprecated, integration repairs as upstream systems change, and remediation costs when the AI produces errors",
+        "Marketing costs to communicate the feature to users",
+        "Competitor response costs if they build a similar feature"
+      ],
+      "answer": 1,
+      "explanation": "Maintenance cost is the most consistently underestimated component of AI system TCO. Unlike traditional software where maintenance is relatively predictable, AI systems require ongoing prompt tuning as model behaviour shifts with updates, periodic retraining or adaptation as domain requirements evolve, engineering work when models are deprecated, and human review or correction when the AI produces errors that have downstream consequences. A rough heuristic: budget 20–30% of build cost per year for maintenance.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.1-q4",
+      "type": "multiple-choice",
+      "question": "You want to attribute revenue growth to a newly launched AI recommendation feature. The product team says revenue went up 15% in the quarter after launch. Why is this not sufficient evidence of ROI?",
+      "options": [
+        "15% is too small to be meaningful for an AI investment",
+        "A before/after comparison without a control group cannot separate the AI feature's contribution from other simultaneous changes — market conditions, other product updates, seasonal effects, or marketing spend",
+        "Revenue attribution requires at least 12 months of data",
+        "The measurement should be per-user, not total revenue"
+      ],
+      "answer": 1,
+      "explanation": "Attribution without a control is a story, not evidence. Revenue may have increased for dozens of reasons unrelated to the AI feature. The correct approach is a randomised A/B test — show the AI-powered recommendation to one group and the previous experience to a control group, then measure the difference. When an RCT is not feasible, difference-in-differences against a comparable cohort is the next-best option. A simple before/after comparison does not isolate the AI's contribution.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.1-q5",
+      "type": "multiple-choice",
+      "question": "At what point should an organisation consider stopping or significantly changing an AI investment?",
+      "options": [
+        "Only after the system has been in production for at least 12 months",
+        "When quality metrics decline after pilot conditions are removed, or when maintenance cost is rising faster than value delivered, or when production failure rates make human oversight cheaper",
+        "Only when users complain or there is a public incident",
+        "When a competitor releases a better AI feature"
+      ],
+      "answer": 1,
+      "explanation": "The signals to stop or reassess are operational: quality that cannot be sustained without pilot-level oversight, costs that are growing faster than value, or failure rates that make the AI more expensive than the alternative. Waiting for a public incident or a competitor milestone means you have already missed the optimal decision point. Establish monitoring criteria and review thresholds before launch, and review them on a regular cadence — not just when something breaks.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}

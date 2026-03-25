@@ -1,0 +1,363 @@
+---
+moduleId: "7.8"
+title: "Incident Response for AI Systems"
+description: "An AI incident is not a software incident — it involves model misbehaviour, safety violations, or data leakage, each with distinct root causes and remediation paths. This module covers detection, containment, investigation, and post-mortem structure for AI-specific incidents, and the one logging investment that makes all of it possible."
+track: "safety"
+order: 8
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "AI incidents often cannot be reproduced because prompts and context are not logged. Without a trace of the full input that triggered the misbehaviour, root cause analysis is guesswork. Invest in prompt logging with retention before you need it — retrofitting logging after an incident is too late."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Software incidents are usually about the system being down or slow. AI incidents are different: the system is running fine, but it is saying the wrong thing, leaking data, or taking actions it should not. Detecting these requires different monitoring. Fixing them requires understanding whether the problem is in the model, the prompt, the data, or the configuration.
+
+**AI incident categories:**
+
+| Category | What happened | Example |
+|---|---|---|
+| **Safety violation** | Model produces harmful, hateful, or prohibited content | A customer support bot starts generating offensive responses |
+| **Policy bypass** | Model produces output that violates stated business rules | A chatbot recommends a competitor despite instructions not to |
+| **Data leakage** | PII or confidential data appears in model output | A user receives another user's order history in a response |
+| **Reputational harm** | Model output causes brand damage or user distress | Screenshots of inappropriate responses go viral |
+| **Agentic harm** | An AI agent takes an action that causes real-world damage | An agent deletes production records under a jailbroken instruction |
+
+### Why it matters
+
+AI incidents have a different escalation curve than software bugs. A software bug affects a deterministic subset of users. An AI misbehaviour can affect every user who sends a similar input — potentially thousands of people before the incident is detected. The first priority in an AI incident is always containment, then investigation.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> Teams build prompt logging into the roadmap but it slips to "later". When an incident occurs, the on-call engineer has the timestamp, the user ID, and a screenshot — but not the actual prompt and context that triggered the misbehaviour. Root cause analysis becomes "the model did something bad" without the ability to reproduce it, fix it, or test that the fix works.
+
+---
+
+## Layer 2 — Guided
+
+### Incident detection: what to monitor
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+
+class AlertSeverity(Enum):
+    P1 = "p1"  # Immediate response required
+    P2 = "p2"  # Response within 1 hour
+    P3 = "p3"  # Response within 1 business day
+
+@dataclass
+class MonitoringSignal:
+    name: str
+    description: str
+    detection_method: str
+    severity: AlertSeverity
+    metric_name: str
+
+AI_MONITORING_SIGNALS: list[MonitoringSignal] = [
+    MonitoringSignal(
+        name="safety_classifier_block_rate",
+        description="Spike in output classifier blocks — possible jailbreak wave",
+        detection_method="Block rate > 5x baseline over 10-minute window",
+        severity=AlertSeverity.P1,
+        metric_name="guardrail.output.block_rate",
+    ),
+    MonitoringSignal(
+        name="user_reports_harmful_content",
+        description="Users flagging AI responses as harmful or inappropriate",
+        detection_method="User report rate > 2x baseline; any P1 content flag",
+        severity=AlertSeverity.P1,
+        metric_name="user.report.harmful",
+    ),
+    MonitoringSignal(
+        name="pii_detection_in_output",
+        description="PII detected in model output — potential data leakage",
+        detection_method="PII classifier fires on output before sending to user",
+        severity=AlertSeverity.P1,
+        metric_name="guardrail.pii.output_detected",
+    ),
+    MonitoringSignal(
+        name="anomalous_tool_usage",
+        description="Tool being called with unusual argument patterns",
+        detection_method="Argument value distribution deviates from baseline",
+        severity=AlertSeverity.P2,
+        metric_name="tool.call.anomaly_score",
+    ),
+    MonitoringSignal(
+        name="refusal_rate_spike",
+        description="Model refusing more requests than usual — may indicate attack or misconfiguration",
+        detection_method="Refusal rate > 3x baseline over 30-minute window",
+        severity=AlertSeverity.P2,
+        metric_name="model.refusal_rate",
+    ),
+]
+```
+
+### Prompt logging infrastructure
+
+The prerequisite for any investigation:
+
+```python
+import time
+import uuid
+import hashlib
+from dataclasses import dataclass, field
+from typing import Optional
+
+@dataclass
+class PromptLogEntry:
+    log_id: str
+    timestamp: float
+    user_id: str                    # Hashed in storage for privacy
+    session_id: str
+    model: str
+    system_prompt_hash: str         # Hash, not the prompt itself (protect IP)
+    user_message: str               # The actual input
+    assistant_response: str         # The actual output
+    input_tokens: int
+    output_tokens: int
+    guardrail_decisions: list[dict] # Any guardrail blocks or flags
+    tool_calls: list[dict]          # Tool calls made during this turn
+    latency_ms: float
+    incident_flag: bool = False     # Set true if this entry is part of an incident
+
+def create_log_entry(
+    user_id: str,
+    session_id: str,
+    model: str,
+    system_prompt: str,
+    user_message: str,
+    assistant_response: str,
+    input_tokens: int,
+    output_tokens: int,
+    guardrail_decisions: list[dict],
+    tool_calls: list[dict],
+    latency_ms: float,
+) -> PromptLogEntry:
+    return PromptLogEntry(
+        log_id=str(uuid.uuid4()),
+        timestamp=time.time(),
+        user_id=hashlib.sha256(user_id.encode()).hexdigest()[:16],  # Pseudonymise
+        session_id=session_id,
+        model=model,
+        system_prompt_hash=hashlib.sha256(system_prompt.encode()).hexdigest(),
+        user_message=user_message,       # Retain full text; scrub PII in a separate pass
+        assistant_response=assistant_response,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        guardrail_decisions=guardrail_decisions,
+        tool_calls=tool_calls,
+        latency_ms=latency_ms,
+    )
+```
+
+### Containment options
+
+When an incident is detected, containment comes before investigation:
+
+```python
+from enum import Enum
+
+class ContainmentAction(Enum):
+    RATE_LIMIT_USER = "rate_limit_user"           # Throttle the specific user
+    DISABLE_TOOL = "disable_tool"                 # Remove a specific tool from all sessions
+    TIGHTEN_GUARDRAIL = "tighten_guardrail"       # Lower classifier threshold
+    ROLLBACK_MODEL = "rollback_model"             # Switch to previous model version
+    ROLLBACK_PROMPT = "rollback_prompt"           # Switch to previous system prompt
+    KILL_SWITCH = "kill_switch"                   # Disable the AI system entirely
+    RESTRICT_TO_READ_ONLY = "restrict_to_read_only"  # Disable all write tools
+
+@dataclass
+class ContainmentPlaybook:
+    incident_type: str
+    primary_action: ContainmentAction
+    secondary_actions: list[ContainmentAction]
+    description: str
+
+CONTAINMENT_PLAYBOOKS: list[ContainmentPlaybook] = [
+    ContainmentPlaybook(
+        incident_type="safety_violation",
+        primary_action=ContainmentAction.TIGHTEN_GUARDRAIL,
+        secondary_actions=[ContainmentAction.ROLLBACK_PROMPT],
+        description="Lower classifier threshold immediately; investigate system prompt for misconfiguration",
+    ),
+    ContainmentPlaybook(
+        incident_type="data_leakage",
+        primary_action=ContainmentAction.KILL_SWITCH,
+        secondary_actions=[ContainmentAction.RATE_LIMIT_USER],
+        description="Disable system for investigation; leakage incidents require full stop until root cause found",
+    ),
+    ContainmentPlaybook(
+        incident_type="agentic_harm",
+        primary_action=ContainmentAction.RESTRICT_TO_READ_ONLY,
+        secondary_actions=[ContainmentAction.DISABLE_TOOL],
+        description="Remove all write tools immediately; identify and disable the specific tool involved",
+    ),
+    ContainmentPlaybook(
+        incident_type="jailbreak_wave",
+        primary_action=ContainmentAction.RATE_LIMIT_USER,
+        secondary_actions=[ContainmentAction.TIGHTEN_GUARDRAIL, ContainmentAction.ROLLBACK_PROMPT],
+        description="Rate-limit affected accounts; tighten output classifier; review system prompt",
+    ),
+]
+```
+
+### Root cause analysis framework
+
+```python
+from dataclasses import dataclass
+
+class RootCauseCategory(Enum):
+    MODEL_FAILURE = "model_failure"           # The model behaved unexpectedly
+    PROMPT_FAILURE = "prompt_failure"         # System prompt insufficient or misconfigured
+    DATA_FAILURE = "data_failure"             # Retrieved or tool data caused the problem
+    CONFIGURATION_FAILURE = "configuration"  # Guardrail or tool config misconfigured
+    INFRASTRUCTURE_FAILURE = "infrastructure"  # Logging gap, auth failure, etc.
+
+@dataclass
+class IncidentRCA:
+    incident_id: str
+    incident_type: str
+    root_cause_category: RootCauseCategory
+    root_cause_description: str
+    contributing_factors: list[str]
+    remediation_steps: list[str]
+    regression_test_added: bool
+    recurrence_prevention: str
+
+def reproduce_incident(log_entry: PromptLogEntry, current_system_prompt: str) -> str:
+    """
+    Replay a logged prompt to reproduce the incident.
+    Requires the full prompt log to be available.
+    """
+    return llm.chat(
+        model=log_entry.model,
+        system=current_system_prompt,
+        messages=[{"role": "user", "content": log_entry.user_message}],
+    ).text
+```
+
+### Communication: when and what to disclose
+
+```python
+@dataclass
+class DisclosureRequirement:
+    trigger: str
+    timeline: str
+    audience: str
+    required_content: list[str]
+    regulatory_basis: str
+
+DISCLOSURE_REQUIREMENTS: list[DisclosureRequirement] = [
+    DisclosureRequirement(
+        trigger="Personal data breach (GDPR definition met)",
+        timeline="72 hours from awareness",
+        audience="Supervisory authority (e.g., ICO for UK, lead DPA for EU)",
+        required_content=[
+            "Nature of the breach",
+            "Categories and approximate number of individuals affected",
+            "Likely consequences",
+            "Measures taken or proposed",
+        ],
+        regulatory_basis="GDPR Article 33",
+    ),
+    DisclosureRequirement(
+        trigger="Breach likely to result in high risk to individuals",
+        timeline="Without undue delay",
+        audience="Affected individuals",
+        required_content=[
+            "Nature of the breach in plain language",
+            "DPO contact details",
+            "Likely consequences",
+            "Measures individuals can take to protect themselves",
+        ],
+        regulatory_basis="GDPR Article 34",
+    ),
+    DisclosureRequirement(
+        trigger="Service disruption or safety incident",
+        timeline="Per customer contract SLA",
+        audience="Affected customers",
+        required_content=[
+            "What happened",
+            "Impact on their service",
+            "Actions taken",
+            "Timeline to resolution",
+        ],
+        regulatory_basis="Contract / SLA",
+    ),
+]
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Post-mortem structure for AI incidents
+
+AI post-mortems need fields that a standard software post-mortem does not:
+
+| Section | AI-specific content |
+|---|---|
+| **Timeline** | Include: when monitoring fired, when the incident was first created in production, when it was detected, when containment took effect |
+| **Root cause** | Classify as: model failure / prompt failure / data failure / configuration failure — the fix differs by category |
+| **Reproduction** | Was the incident reproducible from logs? If not, why not? What logging gaps does this reveal? |
+| **Guardrail assessment** | Which guardrails were in place? Which should have caught this? Why did they not? |
+| **Scope** | How many users were affected? Were any regulatory obligations triggered (GDPR breach notification)? |
+| **Regression test** | The specific test case that would have caught this if it had existed |
+| **Blameless finding** | Was this a systemic failure or a human error? If human error, what system change prevents recurrence? |
+
+### Runbook template
+
+A minimal AI incident runbook:
+
+```
+AI Incident Runbook — [System Name]
+
+DETECT
+1. Alert fires on [metric name]
+2. Acknowledge in PagerDuty / on-call system
+3. Check: is this a false positive? Compare to baseline from last 7 days.
+
+CONTAIN (within 15 minutes of P1 alert)
+4. If safety violation: tighten output guardrail (set threshold to 0.3)
+5. If data leakage: enable kill switch in feature flags
+6. If agentic harm: disable write tools via config flag
+7. If uncertain: restrict to read-only as a precaution
+
+INVESTIGATE
+8. Pull prompt logs for affected session IDs
+9. Reproduce the incident in staging using logged inputs
+10. Classify root cause: model / prompt / data / config / infra
+11. Identify blast radius: how many users affected?
+
+REMEDIATE
+12. Apply the appropriate fix (see root cause matrix below)
+13. Test the fix against the reproduction case
+14. Add regression test to eval suite
+15. Roll out fix with monitoring for recurrence
+
+COMMUNICATE
+16. Internal: update incident channel every 30 minutes during P1
+17. Customer: notify per SLA if service was degraded
+18. Regulatory: check GDPR breach notification trigger (72h clock starts at awareness)
+
+POST-MORTEM
+19. Complete post-mortem within 5 business days
+20. Confirm regression test is merged
+21. Present findings to team; share learnings
+```
+
+### Further reading
+
+- [GDPR Article 33 — Notification of a Personal Data Breach](https://gdpr-info.eu/art-33-gdpr/) — Official GDPR text, 2018. The 72-hour breach notification obligation; applies to any personal data breach, including AI-caused leakage.
+- [Incident Review and Postmortem Guide](https://sre.google/workbook/postmortem-culture/) — Google SRE Workbook, 2018. Foundation of blameless post-mortems; applies directly to AI incident reviews.
+- [Llm Monitoring and Observability](https://arxiv.org/abs/2401.13138) — Shankar et al., 2024. Survey of monitoring approaches for production LLM systems; covers the detection layer described in this module.

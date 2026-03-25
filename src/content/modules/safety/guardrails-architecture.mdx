@@ -1,0 +1,309 @@
+---
+moduleId: "7.5"
+title: "Guardrails Architecture"
+description: "Guardrails are controls on inputs, outputs, or both — classifiers, validators, and policy checks that run independently of the model. Designing a guardrails architecture means choosing which controls to apply, how to layer them for coverage and performance, and how to calibrate them so false positives do not kill legitimate use."
+track: "safety"
+order: 5
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "Guardrails set to fail-closed (block on uncertainty) reduce risk but generate false positives that erode user trust. Guardrails set to fail-open reduce false positives but miss real violations. Calibrate on production traffic samples before setting the threshold, and monitor false positive rate as a first-class metric alongside detection rate."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Guardrails are the controls that run alongside your LLM — they do not replace the model's own judgement, they check it from the outside. Like a spell checker that runs independently of your word processor, a guardrail can catch things the model missed, block harmful inputs before they reach the model, and validate that outputs meet your standards.
+
+**Two placement options:**
+
+| Placement | What it does | Trade-off |
+|---|---|---|
+| **Input guardrails** | Screen requests before they reach the model | Fast; cannot see the model's response |
+| **Output guardrails** | Check the model's response before it is sent | Full context; adds to response latency |
+
+**Common guardrail types:**
+
+| Type | Example check |
+|---|---|
+| Topic restriction | Block requests about competitor products |
+| PII detection | Flag or redact personal information |
+| Injection detection | Identify prompt injection attempts |
+| Toxicity classifier | Block hateful or harassing content |
+| Factual consistency | Check that the response is grounded in retrieved context |
+| Format validation | Verify that structured output (JSON, XML) is valid |
+| Policy compliance | Custom business rules ("never recommend a competitor") |
+
+### Why it matters
+
+The model itself is a probabilistic system — it does not have deterministic guarantees about what it will produce. Guardrails provide those guarantees: not "the model will never produce X" but "the system will never send X to the user, because an independent check intercepts it first."
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> A guardrail that blocks too aggressively teaches users to distrust the system and creates support overhead. A guardrail that is too permissive misses real violations. The threshold must be calibrated on representative samples of real traffic — not on a gut feeling about what feels safe. Monitor both your detection rate and your false positive rate; optimising for one at the expense of the other creates problems.
+
+---
+
+## Layer 2 — Guided
+
+### The guardrail interface
+
+Design guardrails as a consistent interface so they can be composed:
+
+```python
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from enum import Enum
+from typing import Optional
+
+class GuardrailDecision(Enum):
+    PASS = "pass"
+    BLOCK = "block"
+    MODIFY = "modify"
+    FLAG = "flag"           # Pass but alert for human review
+
+@dataclass
+class GuardrailResult:
+    decision: GuardrailDecision
+    reason: str
+    modified_content: Optional[str] = None  # Set if decision is MODIFY
+    confidence: float = 1.0
+
+class Guardrail(ABC):
+    name: str
+    fail_open: bool = True  # Default: pass on uncertainty
+
+    @abstractmethod
+    def check(self, content: str, context: dict) -> GuardrailResult:
+        """Check content and return a decision."""
+        ...
+```
+
+### Input guardrail: topic restriction
+
+```python
+import re
+
+class TopicRestrictionGuardrail(Guardrail):
+    name = "topic_restriction"
+
+    def __init__(self, blocked_topics: list[str], fail_open: bool = False):
+        self.blocked_topics = [t.lower() for t in blocked_topics]
+        self.fail_open = fail_open
+
+    def _quick_keyword_check(self, content: str) -> bool:
+        lower = content.lower()
+        return any(topic in lower for topic in self.blocked_topics)
+
+    def _llm_topic_check(self, content: str) -> bool:
+        """Use an LLM for semantic matching — catches paraphrases."""
+        topic_list = ", ".join(self.blocked_topics)
+        response = llm.chat(
+            model="fast",
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Does the following text relate to any of these topics: {topic_list}?\n\n"
+                    f"Text: {content[:1000]}\n\n"
+                    f"Answer only YES or NO."
+                ),
+            }],
+        )
+        return response.text.strip().upper().startswith("YES")
+
+    def check(self, content: str, context: dict) -> GuardrailResult:
+        # Fast keyword check first
+        if self._quick_keyword_check(content):
+            return GuardrailResult(
+                decision=GuardrailDecision.BLOCK,
+                reason=f"Topic restriction: matched blocked keyword",
+                confidence=0.9,
+            )
+
+        # Slower semantic check for borderline cases
+        if self._llm_topic_check(content):
+            return GuardrailResult(
+                decision=GuardrailDecision.BLOCK,
+                reason=f"Topic restriction: semantic match to blocked topic",
+                confidence=0.75,
+            )
+
+        return GuardrailResult(decision=GuardrailDecision.PASS, reason="No blocked topics found")
+```
+
+### Output guardrail: factual consistency
+
+For RAG systems, check that the response is grounded in the retrieved context:
+
+```python
+class FactualConsistencyGuardrail(Guardrail):
+    name = "factual_consistency"
+    fail_open = True  # Flag rather than block on uncertainty
+
+    def check(self, content: str, context: dict) -> GuardrailResult:
+        source_documents = context.get("source_documents", [])
+        if not source_documents:
+            return GuardrailResult(
+                decision=GuardrailDecision.PASS,
+                reason="No source documents to check against",
+            )
+
+        sources = "\n\n".join(source_documents[:3])  # Check against top 3
+
+        response = llm.chat(
+            model="fast",
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Source documents:\n{sources}\n\n"
+                    f"AI response to check:\n{content}\n\n"
+                    f"Does the AI response contain any factual claims that contradict "
+                    f"or are not supported by the source documents?\n"
+                    f"Answer: CONSISTENT, INCONSISTENT, or UNCERTAIN"
+                ),
+            }],
+        )
+        verdict = response.text.strip().upper()
+
+        if "INCONSISTENT" in verdict:
+            return GuardrailResult(
+                decision=GuardrailDecision.FLAG,
+                reason="Response may contain claims inconsistent with source documents",
+                confidence=0.7,
+            )
+
+        return GuardrailResult(decision=GuardrailDecision.PASS, reason="Response consistent with sources")
+```
+
+### Composing a layered guardrail pipeline
+
+Layer multiple guardrails with a single entry point:
+
+```python
+from typing import Callable
+
+@dataclass
+class PipelineResult:
+    allowed: bool
+    final_content: str
+    blocks: list[str]
+    flags: list[str]
+
+class GuardrailPipeline:
+    def __init__(self, input_guardrails: list[Guardrail], output_guardrails: list[Guardrail]):
+        self._input_checks = input_guardrails
+        self._output_checks = output_guardrails
+
+    def run_input(self, user_input: str, context: dict) -> PipelineResult:
+        blocks, flags = [], []
+        current = user_input
+
+        for guardrail in self._input_checks:
+            result = guardrail.check(current, context)
+            if result.decision == GuardrailDecision.BLOCK:
+                blocks.append(f"{guardrail.name}: {result.reason}")
+                return PipelineResult(
+                    allowed=False,
+                    final_content="",
+                    blocks=blocks,
+                    flags=flags,
+                )
+            if result.decision == GuardrailDecision.MODIFY and result.modified_content:
+                current = result.modified_content
+            if result.decision == GuardrailDecision.FLAG:
+                flags.append(f"{guardrail.name}: {result.reason}")
+
+        return PipelineResult(allowed=True, final_content=current, blocks=blocks, flags=flags)
+
+    def run_output(self, model_response: str, context: dict) -> PipelineResult:
+        blocks, flags = [], []
+        current = model_response
+
+        for guardrail in self._output_checks:
+            result = guardrail.check(current, context)
+            if result.decision == GuardrailDecision.BLOCK:
+                blocks.append(f"{guardrail.name}: {result.reason}")
+                return PipelineResult(
+                    allowed=False,
+                    final_content="I cannot provide that response.",
+                    blocks=blocks,
+                    flags=flags,
+                )
+            if result.decision == GuardrailDecision.MODIFY and result.modified_content:
+                current = result.modified_content
+            if result.decision == GuardrailDecision.FLAG:
+                flags.append(f"{guardrail.name}: {result.reason}")
+
+        return PipelineResult(allowed=True, final_content=current, blocks=blocks, flags=flags)
+
+    def process(
+        self,
+        user_input: str,
+        model_fn: Callable[[str], str],
+        context: dict,
+    ) -> PipelineResult:
+        # Input phase
+        input_result = self.run_input(user_input, context)
+        if not input_result.allowed:
+            return input_result
+
+        # Model call with (possibly modified) input
+        raw_response = model_fn(input_result.final_content)
+
+        # Output phase
+        output_result = self.run_output(raw_response, {**context, "user_input": user_input})
+        output_result.flags.extend(input_result.flags)
+        return output_result
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Latency cost and async strategies
+
+Every synchronous guardrail adds latency to the response path. Benchmarks for common approaches:
+
+| Guardrail type | Typical latency | Strategy |
+|---|---|---|
+| Regex classifier | Under 1 ms | Always synchronous |
+| Fast LLM classifier (small model) | 100–400 ms | Synchronous for input; async post-check for output |
+| Frontier LLM classifier | 800–2000 ms | Async post-check only; never in hot path |
+| NER-based PII detector | 20–100 ms | Synchronous |
+| Format validator (JSON schema) | Under 5 ms | Always synchronous |
+
+Async post-processing pattern: send the response to the user immediately, then run the slower checks in the background. If a violation is detected, flag it in your monitoring system and potentially invalidate the session. This trades real-time blocking for lower latency — acceptable for some risk profiles, not for others.
+
+### Tooling landscape
+
+Three open-source frameworks worth knowing:
+
+| Tool | Approach | Best for |
+|---|---|---|
+| **Guardrails AI** | Rails defined as Pydantic validators; runs on input and output | Structured output validation; type-safe outputs |
+| **LLM Guard** | Library of scanners for common threats (injection, PII, toxicity) | Composable scanning pipeline; easy to add individual checks |
+| **NeMo Guardrails** | Colang DSL for defining conversation flows and safety rails | Complex conversational guardrails; dialogue management |
+
+All three are vendor-neutral and integrate with standard LLM APIs. They are starting points — production guardrails always require custom calibration against your actual traffic.
+
+### Calibration process
+
+1. **Sample production traffic**: collect a representative sample of 500–2000 real requests.
+2. **Label a subset**: manually label 100–200 examples as safe/unsafe.
+3. **Run the guardrail**: apply your classifier to the labelled set.
+4. **Measure precision and recall**: precision (of things it blocks, how many were actually unsafe?) and recall (of things actually unsafe, how many did it catch?).
+5. **Adjust threshold**: lower threshold → higher recall, more false positives. Higher threshold → lower recall, fewer false positives.
+6. **Monitor in production**: track false positive rate (user complaints about blocked legitimate requests) as a primary metric.
+
+### Further reading
+
+- [Guardrails AI Documentation](https://docs.guardrailsai.com/) — Guardrails AI, 2023–2024. Reference for the most widely used open-source guardrails library.
+- [LLM Guard](https://llm-guard.com/) — Protect AI, 2023–2024. Composable scanner library for common LLM security threats.
+- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — Bai et al., 2022. The model-level analogue of guardrails; understanding both helps in designing where to place controls.

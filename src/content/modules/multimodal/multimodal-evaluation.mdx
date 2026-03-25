@@ -1,0 +1,392 @@
+---
+moduleId: "9.6"
+title: "Multimodal Evaluation"
+description: "Evaluating multimodal AI is harder than evaluating text — there is no ground truth for 'describe this image', visual hallucinations are invisible without the source image, and labelling image datasets is expensive. This module covers evaluation approaches by task type, reference datasets, hallucination detection, and how to build a practical multimodal eval pipeline."
+track: "multimodal"
+order: 6
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-03-24"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 15
+productionGotcha: "VLM hallucinations on images (describing objects or text that isn't present) are harder to catch than text hallucinations because there is no corpus to cross-reference against — the model confidently describes what it 'sees' and the error is only detectable by someone who can see the image. Build image-grounded verification into your eval pipeline: sample outputs and verify specific claims against the source image."
+draft: false
+---
+
+## Layer 1 — Surface
+
+Text-only evaluation has a well-worn set of tools: exact match, BLEU, semantic similarity, LLM-as-judge. These all rely on the output being evaluable without the original input artefact — a judge model can read both a question and an answer and decide if the answer is correct.
+
+Multimodal evaluation breaks this assumption. To evaluate whether a model correctly described an image, the evaluator must have access to the image. To check whether an object mentioned in the response actually appears in the photo, you need to look at the photo. This makes automated multimodal evaluation fundamentally more difficult: it requires an evaluator that is itself capable of multimodal reasoning.
+
+The evaluation challenge varies by task type. OCR and text extraction can use exact match or fuzzy match against a ground truth transcript — the evaluation is purely textual once you have the reference. Classification (what type of document is this?) uses standard classification metrics. Visual question answering (VQA) evaluates whether the model's answer to a question about an image matches a set of reference answers. Free-form image description is the hardest: there may be many correct descriptions, and any factual claim needs to be verified against the image.
+
+Visual hallucination is the most insidious failure mode. A model that describes an object not present in the image produces a response that looks completely fluent, is grammatically correct, and is plausible — but is factually wrong in a way that is undetectable without the image. Unlike text hallucinations, there is no external corpus to cross-reference against.
+
+### Why it matters
+
+Teams that skip image-grounded verification in their eval pipeline discover VLM hallucinations in production — typically when a downstream system acts on a claim the model made about an image that turned out to be false. A quality pipeline that never checks factual claims against source images is not actually evaluating quality; it is evaluating fluency.
+
+### Production Gotcha
+
+> **Common Gotcha:** {frontmatter.productionGotcha}
+>
+> The gap is that text-only eval infrastructure often gets reused without modification for multimodal tasks. An LLM-as-judge that evaluates a response about an image without seeing the image can only judge fluency, coherence, and plausibility — not factual accuracy. If the model says "the invoice shows a total of $4,520" and the invoice actually shows $4,250, a text-only judge will score this as high quality. Only an evaluator that sees the image can catch the transposition.
+
+---
+
+## Layer 2 — Guided
+
+### Evaluation by task type
+
+```python
+from dataclasses import dataclass
+from typing import Any, Optional
+import re
+
+
+@dataclass
+class EvalResult:
+    score: float              # 0.0 to 1.0
+    passed: bool
+    details: dict[str, Any]
+
+
+def eval_text_extraction(extracted: str, ground_truth: str, fuzzy: bool = True) -> EvalResult:
+    """
+    Evaluate OCR / text extraction against a ground truth string.
+    fuzzy=True: normalise whitespace and punctuation before comparison.
+    fuzzy=False: exact character-level match.
+    """
+    def normalise(text: str) -> str:
+        text = text.lower()
+        text = re.sub(r"\s+", " ", text).strip()
+        text = re.sub(r"[^\w\s]", "", text)
+        return text
+
+    if fuzzy:
+        a, b = normalise(extracted), normalise(ground_truth)
+    else:
+        a, b = extracted, ground_truth
+
+    if a == b:
+        return EvalResult(score=1.0, passed=True, details={"match_type": "exact"})
+
+    # Token-level F1 for partial credit
+    extracted_tokens = set(a.split())
+    truth_tokens = set(b.split())
+    overlap = extracted_tokens & truth_tokens
+    if not overlap:
+        return EvalResult(score=0.0, passed=False, details={"match_type": "none"})
+
+    precision = len(overlap) / len(extracted_tokens)
+    recall = len(overlap) / len(truth_tokens)
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+    return EvalResult(
+        score=f1,
+        passed=f1 >= 0.90,   # 90% token overlap passes — adjust for your requirements
+        details={"match_type": "partial", "f1": f1, "precision": precision, "recall": recall},
+    )
+
+
+def eval_vqa(model_answer: str, reference_answers: list[str]) -> EvalResult:
+    """
+    VQA evaluation: model answer correct if it matches any reference answer.
+    Standard VQA evaluation uses a majority vote from 10 human annotators;
+    here we simplify to a list of acceptable answers.
+    """
+    def normalise_answer(ans: str) -> str:
+        ans = ans.lower().strip()
+        ans = re.sub(r"[^\w\s]", "", ans)
+        ans = re.sub(r"\b(a|an|the)\b", "", ans).strip()
+        return " ".join(ans.split())
+
+    norm_model = normalise_answer(model_answer)
+    norm_refs = [normalise_answer(r) for r in reference_answers]
+
+    if norm_model in norm_refs:
+        return EvalResult(score=1.0, passed=True, details={"matched": model_answer})
+
+    # Partial credit: model answer contains a reference answer or vice versa
+    for ref in norm_refs:
+        if ref in norm_model or norm_model in ref:
+            return EvalResult(
+                score=0.5, passed=False,
+                details={"partial_match": True, "model": model_answer, "refs": reference_answers}
+            )
+
+    return EvalResult(
+        score=0.0, passed=False,
+        details={"no_match": True, "model": model_answer, "refs": reference_answers}
+    )
+```
+
+### VLM-as-judge for image-grounded evaluation
+
+When you need to evaluate free-form image descriptions, you need an evaluator that can see the image.
+
+```python
+import base64
+import json
+
+
+FACTUAL_ACCURACY_PROMPT = """
+You are evaluating whether a model's description of an image is factually accurate.
+You have access to the original image.
+
+Model description: {description}
+
+Evaluate the description on factual accuracy:
+1. Identify specific factual claims made in the description (objects, text, colors, quantities, spatial relationships).
+2. For each claim, verify whether it is accurate based on the image.
+3. Assign a score from 1 to 5:
+   1 = Contains significant factual errors (wrong objects, wrong text, wrong numbers)
+   2 = Mostly inaccurate, one or two correct observations
+   3 = Mix of accurate and inaccurate claims
+   4 = Mostly accurate, minor errors or omissions
+   5 = All factual claims are accurate and complete
+
+Return a JSON object:
+{{
+  "score": integer 1-5,
+  "accurate_claims": ["list of verified accurate claims"],
+  "inaccurate_claims": ["list of incorrect claims with corrections"],
+  "hallucinated_objects": ["objects mentioned that are not present in the image"]
+}}
+Return only the JSON object.
+"""
+
+
+def eval_image_description(
+    image_bytes: bytes,
+    model_description: str,
+) -> dict:
+    """
+    Use a VLM judge to evaluate whether a description is factually accurate.
+    The judge sees the source image and can verify specific claims.
+    """
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+    prompt = FACTUAL_ACCURACY_PROMPT.format(description=model_description)
+
+    response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/jpeg", "data": b64},
+                    "detail": "high",
+                },
+                {"type": "text", "text": prompt},
+            ],
+        }],
+    )
+
+    text = response.text.strip()
+    if text.startswith("```"):
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1] == "```" else lines[1:])
+
+    result = json.loads(text)
+    result["passed"] = result.get("score", 0) >= 4
+    return result
+```
+
+### CHAIR-inspired hallucination detection
+
+The CHAIR (Caption Hallucination Assessment with Image Relevance) metric checks whether objects mentioned in a caption actually appear in the image. The original metric uses COCO object categories; here we implement a VLM-based approximation.
+
+```python
+@dataclass
+class HallucinationCheckResult:
+    hallucination_rate: float        # fraction of mentioned objects not in image
+    mentioned_objects: list[str]
+    present_in_image: list[str]
+    hallucinated: list[str]
+    chair_i: float                   # instance-level: fraction of hallucinated captions
+    chair_s: float                   # sentence-level: fraction of hallucinated sentences
+
+
+OBJECT_EXTRACTION_PROMPT = """
+List all distinct physical objects mentioned in this text.
+Return a JSON array of strings. Example: ["cat", "red chair", "window", "coffee mug"]
+If no physical objects are mentioned, return an empty array [].
+"""
+
+OBJECT_PRESENCE_PROMPT = """
+For each object in the list below, state whether it is visible in this image.
+Objects to check: {objects}
+
+Return a JSON object where keys are object names and values are true (present) or false (absent).
+Only include objects from the provided list.
+"""
+
+
+def check_object_hallucination(image_bytes: bytes, caption: str) -> HallucinationCheckResult:
+    """
+    Check whether objects mentioned in a caption are actually present in the image.
+    """
+    b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+    # Step 1: Extract mentioned objects from the caption
+    extract_response = llm.chat(
+        model="fast",
+        messages=[{
+            "role": "user",
+            "content": OBJECT_EXTRACTION_PROMPT + f"\n\nText: {caption}",
+        }],
+    )
+    try:
+        mentioned = json.loads(extract_response.text.strip())
+    except Exception:
+        mentioned = []
+
+    if not mentioned:
+        return HallucinationCheckResult(
+            hallucination_rate=0.0, mentioned_objects=[], present_in_image=[],
+            hallucinated=[], chair_i=0.0, chair_s=0.0
+        )
+
+    # Step 2: Check which objects are actually in the image
+    check_response = llm.chat(
+        model="frontier",
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+                {"type": "text", "text": OBJECT_PRESENCE_PROMPT.format(objects=", ".join(mentioned))},
+            ],
+        }],
+    )
+
+    try:
+        presence = json.loads(check_response.text.strip())
+    except Exception:
+        # Conservative: assume all are present if we can't parse
+        presence = {obj: True for obj in mentioned}
+
+    present = [obj for obj, is_present in presence.items() if is_present]
+    hallucinated = [obj for obj, is_present in presence.items() if not is_present]
+    rate = len(hallucinated) / max(1, len(mentioned))
+
+    return HallucinationCheckResult(
+        hallucination_rate=rate,
+        mentioned_objects=mentioned,
+        present_in_image=present,
+        hallucinated=hallucinated,
+        chair_i=1.0 if hallucinated else 0.0,
+        chair_s=rate,
+    )
+```
+
+### Building a multimodal eval dataset
+
+```python
+from dataclasses import dataclass, field
+
+
+@dataclass
+class MultimodalEvalCase:
+    case_id: str
+    image_path: str             # path to the source image
+    question: str               # the prompt sent to the model
+    reference_answers: list[str]   # acceptable correct answers
+    task_type: str              # "vqa", "extraction", "description", "classification"
+    annotator_notes: str = ""
+
+
+def run_eval_suite(
+    cases: list[MultimodalEvalCase],
+    model_name: str = "frontier",
+) -> dict:
+    """
+    Run a set of eval cases and aggregate results by task type.
+    """
+    from pathlib import Path
+    results_by_type: dict[str, list[EvalResult]] = {}
+
+    for case in cases:
+        image_bytes = Path(case.image_path).read_bytes()
+        b64 = base64.b64encode(image_bytes).decode("utf-8")
+
+        response = llm.chat(
+            model=model_name,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64}},
+                    {"type": "text", "text": case.question},
+                ],
+            }],
+        )
+        model_answer = response.text
+
+        if case.task_type == "vqa":
+            result = eval_vqa(model_answer, case.reference_answers)
+        elif case.task_type == "extraction":
+            result = eval_text_extraction(model_answer, case.reference_answers[0])
+        else:
+            result = EvalResult(score=0.5, passed=False,
+                                details={"note": "manual review required"})
+
+        if case.task_type not in results_by_type:
+            results_by_type[case.task_type] = []
+        results_by_type[case.task_type].append(result)
+
+    summary = {}
+    for task_type, results in results_by_type.items():
+        summary[task_type] = {
+            "n": len(results),
+            "pass_rate": sum(r.passed for r in results) / len(results),
+            "mean_score": sum(r.score for r in results) / len(results),
+        }
+
+    return summary
+```
+
+---
+
+## Layer 3 — Deep Dive
+
+### Reference benchmarks
+
+| Benchmark | Task type | Focus | Notes |
+|---|---|---|---|
+| DocVQA | VQA on document images | Text-heavy documents: invoices, forms, reports | High-resolution reading; ground truth extracted from real documents |
+| TextVQA | VQA on natural images with text | OCR + scene understanding | Tests whether model reads text in context |
+| MMMU | Multi-discipline VQA | College-level multi-subject questions with images | Measures reasoning + perception jointly |
+| CHAIR | Object hallucination | COCO captions | The reference metric for hallucination in captioning |
+| ScienceQA | Science VQA | K-12 science with diagrams | Good for testing diagram and chart comprehension |
+
+These benchmarks are useful for model selection and regression testing, but benchmark performance does not directly predict performance on your specific domain. A model that scores top-tier on DocVQA may still struggle on your specific document format if it has unusual layout or domain-specific terminology.
+
+### The ground truth construction problem
+
+Building a high-quality multimodal eval dataset is expensive:
+
+- **Image collection**: sourcing representative images requires access to the actual content you want to evaluate, which may be proprietary, PII-sensitive, or domain-specific.
+- **Annotation labour**: annotating image tasks requires human annotators who can see the image. Annotation throughput for VQA (write a question and answer per image) is typically 10–30 items per annotator-hour, compared to 50–100 for text-only tasks.
+- **Annotation consistency**: inter-annotator agreement on free-form image description is much lower than for text tasks. Use structured annotation schemes (bounding boxes, field-level extraction, multiple-choice answers) to increase agreement.
+
+Practical strategies for efficient annotation:
+
+1. **Bootstrapped annotation**: run the current best model, have annotators correct errors rather than write from scratch. Reduces annotation time by 40–60% for extraction tasks.
+2. **Adversarial sampling**: focus annotation effort on cases where models disagree or where the model expressed low confidence. This builds a harder, more informative eval set than random sampling.
+3. **Programmatic labels**: for extraction tasks, generate ground truth programmatically (e.g., render known text into images) to avoid manual annotation entirely.
+
+### Automated multimodal eval bias
+
+Using a strong VLM to judge another VLM's outputs has all the bias caveats of text-only LLM-as-judge, plus an additional one: the judge model and the evaluated model may share similar visual biases from similar training data. Two models trained on similar vision-language corpora may hallucinate the same plausible-but-absent objects, making the judge unable to catch the hallucination.
+
+Mitigation: calibrate the VLM judge against human-scored examples with known hallucinations before using it at scale. Check that the judge's hallucination detection recall on the calibration set is above 0.80 before relying on it for automated monitoring.
+
+### Further reading
+
+- [DocVQA: A Dataset for VQA on Document Images](https://arxiv.org/abs/2007.00398) — Mathew et al., 2021. The primary document VQA benchmark; covers annotation methodology and evaluation protocol.
+- [Evaluating Object Hallucination in Large Vision-Language Models](https://arxiv.org/abs/2305.10355) — Li et al., 2023. Introduces POPE, a VQA-based alternative to CHAIR for hallucination detection that is easier to compute.
+- [MMMU: A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark](https://arxiv.org/abs/2311.16502) — Yue et al., 2024. A comprehensive multimodal benchmark across 57 subjects; useful for understanding general reasoning capability.
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — Zheng et al., 2023. The foundational bias study for LLM-as-judge; the position bias and verbosity bias documented here apply equally to VLM-as-judge.

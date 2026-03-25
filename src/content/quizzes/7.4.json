@@ -1,0 +1,76 @@
+{
+  "title": "Data Privacy and PII — Check your understanding",
+  "moduleId": "7.4",
+  "questions": [
+    {
+      "id": "7.4-q1",
+      "type": "multiple-choice",
+      "question": "A B2B SaaS company builds a CRM assistant. The user types their question in a text box, which is scrubbed for PII before being sent to the LLM API. The assistant retrieves 10 customer records from the CRM to answer the question. Those records are sent to the API without scrubbing. What vulnerability does this represent?",
+      "options": [
+        "Model memorisation — the LLM API will train on the customer records and reproduce them to other users",
+        "RAG pipeline PII leakage — PII scrubbing was applied to user input but not to retrieved documents, so far more PII (customer names, emails, phone numbers, purchase history) is being sent to the API than the user typed; the fix is to apply scrubbing at every point where external data enters the context, not just the user input field",
+        "Cross-user context leakage — customer records from different users are mixed in the context window",
+        "Data residency violation — the records are stored in a different jurisdiction than the API"
+      ],
+      "answer": 1,
+      "explanation": "This is the production gotcha for module 7.4. Teams apply PII controls to the visible user input field but miss the much larger PII surface in their RAG pipeline — retrieved documents, CRM records, tool results. A user may type 50 words with no PII, while the system fetches 10 customer records containing dozens of PII fields and sends them all to an external API. The fix requires scrubbing to be applied at every data entry point into the context: user input, retrieved documents, and tool results.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.4-q2",
+      "type": "multiple-choice",
+      "question": "A company decides to use redaction (replace PII with [REDACTED]) rather than pseudonymisation. A user asks 'What is the status of the order for customer John Smith with email john@example.com?' After redaction: 'What is the status of the order for customer [REDACTED] with email [REDACTED]?' The LLM cannot identify the specific order. What does this reveal about redaction vs pseudonymisation?",
+      "options": [
+        "Redaction is always preferable to pseudonymisation because it removes the data permanently",
+        "Redaction can break semantic coherence when the replaced values are necessary for the task — pseudonymisation replaces PII with consistent tokens (e.g., [EMAIL_A3F2]) that preserve relational context without exposing real values, allowing the model to reason about 'customer X' across the conversation",
+        "The correct fix is to not scrub PII in conversational contexts where the user provided the data themselves",
+        "Pseudonymisation is less secure than redaction because the tokens could be reverse-engineered"
+      ],
+      "answer": 1,
+      "explanation": "Redaction breaks coherence when the redacted values are needed to identify the subject of a query. If 'John Smith' and 'john@example.com' become [REDACTED] and [REDACTED], the system can no longer distinguish this customer from any other customer. Pseudonymisation solves this by replacing each unique value with a consistent token: the same email always maps to [EMAIL_A3F2], so the model can reason about 'the customer with EMAIL_A3F2' consistently across the conversation. The mapping is stored server-side, not sent to the API, and can be reversed if needed. The choice between redaction and pseudonymisation depends on whether the anonymised value needs to be referenced later.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "7.4-q3",
+      "type": "multiple-choice",
+      "question": "A startup signs a contract with an LLM provider that includes a Data Processing Agreement (DPA). A lawyer asks whether the DPA is sufficient for GDPR compliance. What does the module say about DPAs and GDPR?",
+      "options": [
+        "A signed DPA with the provider constitutes full GDPR compliance for processing personal data via the API",
+        "A DPA is necessary but not sufficient — you also need a legal basis for processing the personal data you send (consent, contract, legitimate interest, etc.); the DPA covers the provider's role as processor but does not create a legal basis for your data processing",
+        "DPAs are only required for healthcare and financial data, not for general personal data",
+        "A DPA from the provider means you are not a data controller and have no GDPR obligations"
+      ],
+      "answer": 1,
+      "explanation": "A DPA establishes the provider's obligations as a data processor — it covers how they handle the data you send them, whether they use it for training, their breach notification obligations, etc. It does not create a legal basis for your data processing. Under GDPR, you still need to identify your lawful basis for processing each category of personal data you send: consent, contractual necessity, legal obligation, or legitimate interest. Without a lawful basis, sending personal data to the API is a GDPR violation regardless of whether a DPA is in place.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.4-q4",
+      "type": "multiple-choice",
+      "question": "An AI assistant helps HR managers review job applications. The system automatically scores each application and the HR manager sees only the top 10 candidates. No human reviews the rejected applications. Under GDPR, what obligation does this trigger?",
+      "options": [
+        "No specific obligation — the HR manager reviews the shortlisted applications so a human is involved",
+        "GDPR Article 22 applies — the system makes a solely automated decision (rejecting applications) that has a significant effect on individuals (employment); affected applicants have the right to human review, an explanation of the logic, and the ability to contest the decision",
+        "GDPR Article 17 applies — applicants have the right to erasure of their application data",
+        "No GDPR obligation is triggered because the applicants consented by submitting applications"
+      ],
+      "answer": 1,
+      "explanation": "Article 22 applies when a decision is solely automated AND produces legal or similarly significant effects on individuals. Automated rejection of a job application meets both criteria — employment opportunity is considered 'similarly significant'. The HR manager reviewing the shortlist does not help the rejected applicants, who never received human review. The required safeguards include: a lawful basis (or explicit consent) for the automated processing, the right to request human review, the ability to express their point of view, and a meaningful explanation of the logic. Designing out Article 22 compliance after launch is expensive — it should be a design requirement from the start.",
+      "personas": ["leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "7.4-q5",
+      "type": "multiple-choice",
+      "question": "A researcher shows that your LLM provider's model can reproduce near-verbatim text from its training data when given a specific prefix. Your application sends customer support tickets to that provider for summarisation. What is the primary risk this creates?",
+      "options": [
+        "Copyright risk — the model may reproduce copyrighted content from its training data",
+        "Training data memorisation leakage — if customer data from your (or another customer's) tickets was included in training data, the model may reproduce it in responses to other users; this is a data residency and GDPR risk if personal data from one user surfaces in another user's session",
+        "Model inference latency — reproducing memorised content takes more compute than generation",
+        "Prompt injection risk — memorised content could contain injected instructions from a previous user"
+      ],
+      "answer": 1,
+      "explanation": "Training data memorisation means the model retains and can reproduce fragments of its training data when prompted. If customer support tickets containing personal data were included in training data (yours or another provider customer's), the model could reproduce that data in responses. This creates a cross-user PII leakage risk: a user's personal data from a support ticket could surface in a response to a completely different user. The practical mitigations are: confirm with your provider whether your data is used for training (and opt out), review the DPA for breach notification obligations, and scrub PII before sending tickets to the API.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

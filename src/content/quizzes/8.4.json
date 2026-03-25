@@ -1,0 +1,76 @@
+{
+  "title": "Team Structure and AI Capability — Check your understanding",
+  "moduleId": "8.4",
+  "questions": [
+    {
+      "id": "8.4-q1",
+      "type": "multiple-choice",
+      "question": "An organisation builds a central AI Centre of Excellence with eight engineers and a mandate to support all AI projects across the company. Eighteen months later, business teams report that AI projects take too long to start and the AI team is backlogged. What is the primary structural failure?",
+      "options": [
+        "The AI team has too few engineers and needs to double in size",
+        "A centralised model becomes a bottleneck as demand grows; the team becomes the constraint rather than the enabler, because a single team cannot serve multiple domains at the pace those domains need",
+        "The business teams are requesting projects that are too complex",
+        "The AI team should have focused only on infrastructure, not on applications"
+      ],
+      "answer": 1,
+      "explanation": "Centralised AI teams optimise for expertise concentration and standards consistency, but they scale poorly. As the number of AI use cases grows across the organisation, a single team becomes a queue. The demand from business units grows faster than the team can be hired. The solution is typically a hybrid model: a central team owns shared infrastructure, standards, and governance, while engineers embedded in business teams own domain-specific features and move at the speed of their product teams.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.4-q2",
+      "type": "multiple-choice",
+      "question": "An AI team at a financial services firm can build impressive demos of AI features but has never shipped a production AI system. When asked why, the team cites the difficulty of getting model outputs to be 'perfect'. What is the most likely root cause of their inability to ship?",
+      "options": [
+        "The models they have access to are not powerful enough for production use",
+        "An engineering maturity gap — without evaluation suites, deployment pipelines, and practices for handling model uncertainty gracefully, perfection becomes a proxy goal because there is no other way to know when the system is ready to ship",
+        "Financial services regulations prohibit most AI production deployments",
+        "The team needs more headcount before they can take on the operational overhead of production"
+      ],
+      "answer": 1,
+      "explanation": "Waiting for perfect outputs is a symptom of not having evaluation infrastructure. Without an eval suite that defines what 'good enough' looks like, teams either over-engineer (waiting for perfection) or under-engineer (shipping without measurement). The gap between demo and production is not a model capability gap — it is the absence of the practices that let you know a system is reliable: eval suites, deployment pipelines, monitoring, and incident response. These are engineering discipline problems, not model problems.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.4-q3",
+      "type": "multiple-choice",
+      "question": "Which combination of roles is strictly necessary for a team shipping a customer-facing AI feature?",
+      "options": [
+        "Chief AI Officer, AI Strategist, Data Scientist, and Prompt Engineer",
+        "AI Engineer (to build and ship), AI Product Manager (to define requirements and success criteria), and at minimum a red-team function (to adversarially test before launch)",
+        "ML Engineer and Data Scientist only — the core AI work requires these specialisations",
+        "Any software engineer can ship an AI feature; no specialist roles are required"
+      ],
+      "answer": 1,
+      "explanation": "The minimum set for a customer-facing AI feature: someone who can build and ship it (AI Engineer), someone who can define what it should do and how to measure whether it works (AI Product Manager), and adversarial testing before it reaches users. The ML Engineer role is only needed if you are training or fine-tuning models — if you are building on foundation model APIs, this is optional. The roles in option A add overhead without adding the capability to ship safely.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.4-q4",
+      "type": "multiple-choice",
+      "question": "An AI governance committee reviews all AI projects before launch. Reviews take 6–12 weeks and consist of checking that a documentation template has been completed. AI teams report that reviews do not catch real problems; they just delay projects. What should change?",
+      "options": [
+        "The documentation template should be longer and more detailed",
+        "Replace documentation reviews with evidence-based reviews: require eval results, red-team findings, and monitoring plans rather than documentation — this catches real problems in less time",
+        "Remove the review committee entirely; governance adds no value",
+        "Increase the committee's authority so teams take reviews more seriously"
+      ],
+      "answer": 1,
+      "explanation": "Documentation reviews are risk theatre if they check whether systems have been described correctly rather than whether they behave correctly. A review that requires eval evidence (how does the system perform on representative inputs?), red-team findings (what failure modes were found?), and a monitoring plan (how will you know if it degrades in production?) catches actual risks in the time it currently takes to produce documentation. The goal is real risk reduction, not compliance with a process.",
+      "personas": ["curious", "leader"]
+    },
+    {
+      "id": "8.4-q5",
+      "type": "multiple-choice",
+      "question": "Which single signal most reliably indicates that an AI team has reached production-level engineering maturity?",
+      "options": [
+        "They have deployed at least five AI features in the past year",
+        "They can diagnose and remediate a production failure within 24 hours — because this requires logging, monitoring, eval suites to reproduce the failure, and a deployment process to push a fix",
+        "They have a dedicated AI ethics and governance team",
+        "Their models achieve above-industry-average accuracy on published benchmarks"
+      ],
+      "answer": 1,
+      "explanation": "The ability to diagnose and fix a production failure quickly is the best single proxy for engineering maturity. It requires every component of a mature AI operation: comprehensive logging (you can see what happened), monitoring (you knew something was wrong), eval suites (you can reproduce the failure and verify the fix), and a deployment process (you can push a fix safely). Teams that lack any of these components cannot debug failures reliably — and therefore either never discover them or take weeks to fix them.",
+      "personas": ["curious", "leader"]
+    }
+  ]
+}
