@@ -140,6 +140,7 @@ html:not(.dark) .bg-white\/15  { background-color: rgb(0 0 0 / 0.1);  }
 html:not(.dark) .bg-white\/20  { background-color: rgb(0 0 0 / 0.12); }
 html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgb(0 0 0 / 0.04); }
 html:not(.dark) .hover\:bg-white\/15:hover { background-color: rgb(0 0 0 / 0.09); }
+html:not(.dark) .hover\:text-white:hover   { color: #0f172a; }
 
 /* Card */
 html:not(.dark) .card {

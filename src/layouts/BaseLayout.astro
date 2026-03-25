@@ -23,15 +23,17 @@ const siteName = 'AI Explained';
     <!-- Theme init — runs before CSS paints to prevent flash -->
     <script is:inline>
       (function () {
-        var stored = localStorage.getItem('theme');
-        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        if (stored === 'dark' || (!stored && prefersDark) || (!stored && !prefersDark)) {
-          // Default to dark when no stored preference, regardless of system setting.
-          // User can switch to light via the toggle.
+        try {
+          var stored = localStorage.getItem('theme');
+          if (stored === 'light') {
+            // User explicitly chose light — leave dark class off
+          } else {
+            // Default to dark (no preference, or explicit dark choice)
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {
+          // Storage restricted — default to dark
           document.documentElement.classList.add('dark');
-        }
-        if (stored === 'light') {
-          document.documentElement.classList.remove('dark');
         }
       })();
     </script>

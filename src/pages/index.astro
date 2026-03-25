@@ -40,7 +40,7 @@ const publishedModules = await getCollection('modules', ({ data }) =>
         <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white
                    leading-tight tracking-tight mb-5 sm:mb-6">
           AI Engineering<br />
-          <span class="text-brand-400">Explained Properly.</span>
+          <span class="text-brand-400">Explained Properly</span>
         </h1>
 
         <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
@@ -50,10 +50,10 @@ const publishedModules = await getCollection('modules', ({ data }) =>
 
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
           <a href="/onboarding" class="btn-primary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            Start Learning Path →
+            Find my learning path →
           </a>
           <a href="/learn" class="btn-secondary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            View Curriculum
+            Browse all tracks
           </a>
         </div>
       </div>
@@ -63,11 +63,8 @@ const publishedModules = await getCollection('modules', ({ data }) =>
     <section class="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
       <div class="flex items-end justify-between mb-8 sm:mb-10">
         <div>
-          <p class="text-xs font-mono text-brand-500 uppercase tracking-widest mb-2">Core Knowledge Tracks</p>
-          <h2 class="text-2xl font-semibold text-white">
-            9 tracks, {publishedModules.length} modules published.
-          </h2>
-          <p class="text-slate-400 mt-1">Start anywhere — every module stands alone.</p>
+          <h2 class="text-2xl font-semibold text-white mb-2">Learning Tracks</h2>
+          <p class="text-slate-400">9 tracks, {publishedModules.length} modules published. Start anywhere.</p>
         </div>
         <a href="/learn" class="text-sm text-brand-400 hover:text-brand-300 transition-colors shrink-0 ml-4">
           All tracks →
@@ -103,10 +100,7 @@ const publishedModules = await getCollection('modules', ({ data }) =>
     <!-- ── Audience strip ────────────────────────────────────── -->
     <section class="border-t border-white/10 bg-surface-1">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <p class="text-xs font-mono text-brand-500 uppercase tracking-widest text-center mb-3">Your Path to Architect Status</p>
-        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">
-          Built for every role
-        </h2>
+        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">Built for every role</h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           {[
             { emoji: '🌱', role: 'Curious Beginner', desc: 'No code required',                href: '/paths/curious-beginner' },
