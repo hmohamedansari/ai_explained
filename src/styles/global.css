@@ -20,6 +20,8 @@
 
   body {
     @apply bg-surface text-slate-200 font-sans antialiased;
+    overflow-wrap: break-word;
+    word-break: break-word;
   }
 
   /* Flex column body: prevent flex children from overflowing the viewport.
@@ -80,15 +82,22 @@
   }
 }
 
-/* Prose tables: horizontal scroll on mobile */
+/* Prose tables: wrap cells on mobile instead of overflowing */
 .prose-lesson table {
-  display: block;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  table-layout: fixed;
+  word-break: break-word;
 }
 
-/* Prose pre: ensure code blocks scroll horizontally instead of overflowing */
+.prose-lesson td,
+.prose-lesson th {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Code blocks: rely on Shiki wrap:true (white-space: pre-wrap).
+   Ensure long tokens wrap instead of overflowing. */
 .prose-lesson pre {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
