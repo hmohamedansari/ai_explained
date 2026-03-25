@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    --color-brand: 79 98 250;
-    --color-bg: 15 17 23;
+    --color-brand: 16 185 129;
+    --color-bg: 8 14 9;
   }
 
   * {
@@ -24,9 +24,6 @@
     word-break: break-word;
   }
 
-  /* Flex column body: prevent flex children from overflowing the viewport.
-     min-width: auto (the default) lets flex items grow past the container width.
-     min-width: 0 forces them to shrink and stay within bounds. */
   body > * {
     min-width: 0;
   }
@@ -35,7 +32,7 @@
     @apply bg-brand-500/40 text-white;
   }
 
-  /* Scrollbar */
+  /* Dark mode scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { @apply bg-surface-1; }
   ::-webkit-scrollbar-thumb { @apply bg-white/20 rounded-full; }
@@ -82,6 +79,12 @@
   }
 }
 
+/* Circuit board hero background */
+.circuit-bg {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><pattern id='p' width='100' height='100' patternUnits='userSpaceOnUse'><line x1='50' y1='0' x2='50' y2='35' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='50' y1='65' x2='50' y2='100' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='0' y1='50' x2='35' y2='50' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='65' y1='50' x2='100' y2='50' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><circle cx='50' cy='50' r='2' fill='%2310b981' opacity='0.3'/><circle cx='0' cy='0' r='1' fill='%2310b981' opacity='0.15'/><circle cx='100' cy='100' r='1' fill='%2310b981' opacity='0.15'/><circle cx='100' cy='0' r='1' fill='%2310b981' opacity='0.15'/><circle cx='0' cy='100' r='1' fill='%2310b981' opacity='0.15'/><path d='M 0 25 L 25 25 L 25 50' stroke='%2310b981' stroke-width='0.4' fill='none' opacity='0.12'/><path d='M 75 50 L 75 75 L 100 75' stroke='%2310b981' stroke-width='0.4' fill='none' opacity='0.12'/><circle cx='25' cy='25' r='1' fill='%2310b981' opacity='0.2'/><circle cx='75' cy='75' r='1' fill='%2310b981' opacity='0.2'/></pattern></defs><rect width='100' height='100' fill='url(%23p)'/></svg>");
+  background-size: 100px 100px;
+}
+
 /* Prose tables: wrap cells on mobile instead of overflowing */
 .prose-lesson table {
   width: 100%;
@@ -95,9 +98,114 @@
   word-break: break-word;
 }
 
-/* Code blocks: rely on Shiki wrap:true (white-space: pre-wrap).
-   Ensure long tokens wrap instead of overflowing. */
+/* Code blocks: rely on Shiki wrap:true (white-space: pre-wrap) */
 .prose-lesson pre {
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* =============================================================
+   LIGHT MODE OVERRIDES
+   These are outside @layer so they win over layered Tailwind
+   utilities without needing !important.
+   ============================================================= */
+
+html:not(.dark) body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Surfaces */
+html:not(.dark) .bg-surface    { background-color: #ffffff; }
+html:not(.dark) .bg-surface-1  { background-color: #f8fafc; }
+html:not(.dark) .bg-surface-2  { background-color: #f1f5f9; }
+html:not(.dark) .bg-surface-3  { background-color: #e2e8f0; }
+
+/* Text */
+html:not(.dark) .text-white    { color: #0f172a; }
+html:not(.dark) .text-slate-200 { color: #1e293b; }
+html:not(.dark) .text-slate-300 { color: #334155; }
+html:not(.dark) .text-slate-400 { color: #64748b; }
+html:not(.dark) .text-slate-500 { color: #94a3b8; }
+html:not(.dark) .text-slate-600 { color: #94a3b8; }
+
+/* Borders */
+html:not(.dark) .border-white\/10 { border-color: rgb(0 0 0 / 0.08); }
+html:not(.dark) .border-white\/5  { border-color: rgb(0 0 0 / 0.05); }
+
+/* Alpha backgrounds */
+html:not(.dark) .bg-white\/5   { background-color: rgb(0 0 0 / 0.04); }
+html:not(.dark) .bg-white\/10  { background-color: rgb(0 0 0 / 0.07); }
+html:not(.dark) .bg-white\/15  { background-color: rgb(0 0 0 / 0.1);  }
+html:not(.dark) .bg-white\/20  { background-color: rgb(0 0 0 / 0.12); }
+html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgb(0 0 0 / 0.04); }
+html:not(.dark) .hover\:bg-white\/15:hover { background-color: rgb(0 0 0 / 0.09); }
+
+/* Card */
+html:not(.dark) .card {
+  background-color: #ffffff;
+  border-color: rgb(0 0 0 / 0.08);
+}
+html:not(.dark) .card:hover {
+  background-color: #f8fafc;
+  border-color: rgb(5 150 105 / 0.3);
+}
+
+/* Buttons */
+html:not(.dark) .btn-secondary {
+  background-color: rgb(0 0 0 / 0.06);
+  color: #0f172a;
+  border-color: rgb(0 0 0 / 0.1);
+}
+html:not(.dark) .btn-secondary:hover {
+  background-color: rgb(0 0 0 / 0.1);
+}
+
+/* Header */
+html:not(.dark) header.sticky {
+  background-color: rgb(255 255 255 / 0.85);
+  border-bottom-color: rgb(0 0 0 / 0.08);
+}
+
+/* Sidebar */
+html:not(.dark) aside[aria-label="Track navigation"] {
+  background-color: #f8fafc;
+  border-right-color: rgb(0 0 0 / 0.08);
+}
+html:not(.dark) aside[aria-label="Track navigation"] .text-slate-400 { color: #475569; }
+html:not(.dark) aside[aria-label="Track navigation"] .hover\:text-white:hover { color: #0f172a; }
+
+/* Prose (module content) */
+html:not(.dark) .prose-lesson {
+  --tw-prose-body: #334155;
+  --tw-prose-headings: #0f172a;
+  --tw-prose-code: #047857;
+  --tw-prose-pre-bg: #f1f5f9;
+}
+html:not(.dark) .prose-lesson code { background-color: #f1f5f9; color: #047857; }
+html:not(.dark) .prose-lesson pre  { background-color: #f1f5f9; border-color: rgb(0 0 0 / 0.08); }
+html:not(.dark) .prose-lesson th   { background-color: #f1f5f9; color: #1e293b; }
+html:not(.dark) .prose-lesson td   { color: #334155; }
+html:not(.dark) .prose-lesson blockquote { background-color: rgb(5 150 105 / 0.06); }
+
+/* Badge */
+html:not(.dark) .badge { color: #334155; }
+html:not(.dark) .bg-brand-950\/30 { background-color: rgb(5 150 105 / 0.08); }
+html:not(.dark) .bg-brand-950\/50 { background-color: rgb(5 150 105 / 0.1);  }
+html:not(.dark) .bg-brand-600\/20 { background-color: rgb(5 150 105 / 0.12); }
+html:not(.dark) .text-brand-300   { color: #047857; }
+html:not(.dark) .text-brand-400   { color: #059669; }
+
+/* Scrollbar */
+html:not(.dark) ::-webkit-scrollbar-track { background-color: #f1f5f9; }
+html:not(.dark) ::-webkit-scrollbar-thumb { background-color: rgb(0 0 0 / 0.15); }
+html:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: rgb(0 0 0 / 0.25); }
+
+/* Mobile nav drawer in light mode */
+html:not(.dark) #mobile-menu {
+  background-color: rgb(255 255 255 / 0.97);
+  border-top-color: rgb(0 0 0 / 0.08);
+}
+
+/* Progress dots in sidebar */
+html:not(.dark) .bg-white\/20 { background-color: rgb(0 0 0 / 0.15); }

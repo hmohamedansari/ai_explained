@@ -15,20 +15,32 @@ const publishedModules = await getCollection('modules', ({ data }) =>
   <Header />
 
   <main class="flex-1">
-    <!-- Hero -->
-    <section class="relative overflow-hidden">
-      <div class="absolute inset-0 bg-[linear-gradient(rgba(79,98,250,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(79,98,250,0.03)_1px,transparent_1px)] bg-[size:48px_48px]" />
-      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] sm:w-[600px] h-[300px] sm:h-[400px] bg-brand-600/10 rounded-full blur-3xl" />
 
-      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/30 text-brand-300 text-xs font-medium mb-6 sm:mb-8">
+    <!-- ── Hero ─────────────────────────────────────────────── -->
+    <section class="relative overflow-hidden bg-surface">
+      <!-- Circuit board pattern -->
+      <div class="circuit-bg absolute inset-0 opacity-70" />
+
+      <!-- Radial green glow -->
+      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
+                  w-[500px] sm:w-[800px] h-[300px] sm:h-[500px]
+                  bg-brand-500/8 rounded-full blur-[80px] pointer-events-none" />
+
+      <!-- Bottom fade into next section -->
+      <div class="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-surface to-transparent" />
+
+      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-32 pb-20 sm:pb-28 text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
+                    border border-brand-500/30 bg-brand-950/30 text-brand-400
+                    text-xs font-medium mb-6 sm:mb-8">
           <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
           Open source · Community driven
         </div>
 
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white leading-tight tracking-tight mb-5 sm:mb-6">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white
+                   leading-tight tracking-tight mb-5 sm:mb-6">
           AI Engineering<br />
-          <span class="text-brand-400">Explained Properly</span>
+          <span class="text-brand-400">Explained Properly.</span>
         </h1>
 
         <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
@@ -38,23 +50,26 @@ const publishedModules = await getCollection('modules', ({ data }) =>
 
         <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
           <a href="/onboarding" class="btn-primary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            Find my learning path →
+            Start Learning Path →
           </a>
           <a href="/learn" class="btn-secondary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            Browse all tracks
+            View Curriculum
           </a>
         </div>
       </div>
     </section>
 
-    <!-- Tracks preview -->
+    <!-- ── Learning Tracks ───────────────────────────────────── -->
     <section class="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
       <div class="flex items-end justify-between mb-8 sm:mb-10">
         <div>
-          <h2 class="text-2xl font-semibold text-white mb-2">Learning Tracks</h2>
-          <p class="text-slate-400">9 tracks, {publishedModules.length} modules published. Start anywhere.</p>
+          <p class="text-xs font-mono text-brand-500 uppercase tracking-widest mb-2">Core Knowledge Tracks</p>
+          <h2 class="text-2xl font-semibold text-white">
+            9 tracks, {publishedModules.length} modules published.
+          </h2>
+          <p class="text-slate-400 mt-1">Start anywhere — every module stands alone.</p>
         </div>
-        <a href="/learn" class="text-sm text-brand-400 hover:text-brand-300 transition-colors">
+        <a href="/learn" class="text-sm text-brand-400 hover:text-brand-300 transition-colors shrink-0 ml-4">
           All tracks →
         </a>
       </div>
@@ -65,44 +80,48 @@ const publishedModules = await getCollection('modules', ({ data }) =>
             <span class="text-3xl">{track.data.icon}</span>
             <div>
               <p class="text-xs font-mono text-slate-600 mb-1">Track {track.data.order}</p>
-              <h3 class="font-semibold text-white group-hover:text-brand-300 transition-colors mb-1">
+              <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors mb-1">
                 {track.data.title}
               </h3>
               <p class="text-sm text-slate-400 leading-relaxed">{track.data.description}</p>
             </div>
-            <div class="mt-auto pt-3 border-t border-white/5 text-xs text-brand-400">
+            <div class="mt-auto pt-3 border-t border-white/5 text-xs text-brand-500
+                        group-hover:text-brand-400 transition-colors">
               Explore track →
             </div>
           </a>
         ))}
 
-        <!-- See all card -->
-        <a href="/learn" class="card group flex flex-col items-center justify-center gap-3 border-dashed opacity-60 hover:opacity-100">
-          <span class="text-3xl">+</span>
+        <a href="/learn"
+           class="card group flex flex-col items-center justify-center gap-3 border-dashed opacity-60 hover:opacity-100">
+          <span class="text-3xl text-brand-500">+</span>
           <p class="text-sm text-slate-400 group-hover:text-white transition-colors">3 more tracks</p>
         </a>
       </div>
     </section>
 
-    <!-- Audience strip -->
+    <!-- ── Audience strip ────────────────────────────────────── -->
     <section class="border-t border-white/10 bg-surface-1">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">Built for every role</h2>
+        <p class="text-xs font-mono text-brand-500 uppercase tracking-widest text-center mb-3">Your Path to Architect Status</p>
+        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">
+          Built for every role
+        </h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           {[
-            { emoji: '🌱', role: 'Curious Beginner', desc: 'No code required' },
-            { emoji: '🏛️', role: 'Tech Leader',      desc: 'Mental models, not boilerplate' },
-            { emoji: '🌿', role: 'Junior Dev',        desc: 'Step-by-step with working code' },
-            { emoji: '⚙️', role: 'Senior Dev',        desc: 'Protocol internals + trade-offs' },
-            { emoji: '🔧', role: 'SRE',               desc: 'Deploy, monitor, secure' },
+            { emoji: '🌱', role: 'Curious Beginner', desc: 'No code required',                href: '/paths/curious-beginner' },
+            { emoji: '🏛️', role: 'Tech Leader',      desc: 'Mental models, not boilerplate', href: '/paths/tech-leader' },
+            { emoji: '🌿', role: 'Junior Dev',        desc: 'Step-by-step with working code', href: '/paths/new-dev' },
+            { emoji: '⚙️', role: 'Senior Dev',        desc: 'Protocol internals + trade-offs', href: '/paths/experienced-dev' },
+            { emoji: '🔧', role: 'SRE',               desc: 'Deploy, monitor, secure',        href: '/paths/sre-devops' },
           ].map(item => (
             <a
-              href="/onboarding"
-              class="text-center p-5 rounded-xl border border-white/10 hover:border-brand-500/30
-                     hover:bg-surface-2 transition-all group"
+              href={item.href}
+              class="text-center p-4 sm:p-5 rounded-xl border border-white/10
+                     hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
             >
               <div class="text-3xl mb-3">{item.emoji}</div>
-              <p class="font-medium text-white text-sm mb-1 group-hover:text-brand-300 transition-colors">
+              <p class="font-medium text-white text-sm mb-1 group-hover:text-brand-400 transition-colors">
                 {item.role}
               </p>
               <p class="text-xs text-slate-500">{item.desc}</p>
@@ -111,6 +130,7 @@ const publishedModules = await getCollection('modules', ({ data }) =>
         </div>
       </div>
     </section>
+
   </main>
 
   <Footer />

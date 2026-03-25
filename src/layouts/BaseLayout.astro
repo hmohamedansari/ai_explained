@@ -18,8 +18,24 @@ const siteName = 'AI Explained';
 ---
 
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
+    <!-- Theme init — runs before CSS paints to prevent flash -->
+    <script is:inline>
+      (function () {
+        var stored = localStorage.getItem('theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (stored === 'dark' || (!stored && prefersDark) || (!stored && !prefersDark)) {
+          // Default to dark when no stored preference, regardless of system setting.
+          // User can switch to light via the toggle.
+          document.documentElement.classList.add('dark');
+        }
+        if (stored === 'light') {
+          document.documentElement.classList.remove('dark');
+        }
+      })();
+    </script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
