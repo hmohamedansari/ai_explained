@@ -111,13 +111,13 @@ const badge = VOLATILITY_BADGE[volatility];
           </article>
 
           <!-- Mark as read -->
-          <div class="mt-12 pt-6 border-t border-white/10 flex items-center justify-between">
+          <div class="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
             <MarkAsRead moduleId={moduleId} client:load />
             <a
               href={editUrl}
               target="_blank"
               rel="noopener noreferrer"
-              class="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-brand-400 transition-colors"
+              class="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-brand-400 transition-colors w-full sm:w-auto"
             >
               ✏ Suggest an edit on GitHub
             </a>

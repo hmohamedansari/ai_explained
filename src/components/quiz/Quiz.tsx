@@ -57,10 +57,10 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-white">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-white min-w-0">{title}</h2>
         {showResults && (
-          <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300">
+          <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0">
             {score} / {questions.length} correct
           </div>
         )}
