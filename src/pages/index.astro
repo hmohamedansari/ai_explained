@@ -18,29 +18,29 @@ const publishedModules = await getCollection('modules', ({ data }) =>
     <!-- Hero -->
     <section class="relative overflow-hidden">
       <div class="absolute inset-0 bg-[linear-gradient(rgba(79,98,250,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(79,98,250,0.03)_1px,transparent_1px)] bg-[size:48px_48px]" />
-      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-brand-600/10 rounded-full blur-3xl" />
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] sm:w-[600px] h-[300px] sm:h-[400px] bg-brand-600/10 rounded-full blur-3xl" />
 
-      <div class="relative max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/30 text-brand-300 text-xs font-medium mb-8">
+      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-14 sm:pb-20 text-center">
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/30 text-brand-300 text-xs font-medium mb-6 sm:mb-8">
           <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
           Open source · Community driven
         </div>
 
-        <h1 class="text-5xl sm:text-6xl font-semibold text-white leading-tight tracking-tight mb-6">
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white leading-tight tracking-tight mb-5 sm:mb-6">
           AI Engineering<br />
           <span class="text-brand-400">Explained Properly</span>
         </h1>
 
-        <p class="text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+        <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
           Not hype, not magic — concrete mental models, real protocols, and working code.
           9 tracks for every role, from curious beginner to production SRE.
         </p>
 
-        <div class="flex items-center justify-center gap-4 flex-wrap">
-          <a href="/onboarding" class="btn-primary text-base px-7 py-3">
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+          <a href="/onboarding" class="btn-primary text-base px-7 py-3 w-full sm:w-auto justify-center">
             Find my learning path →
           </a>
-          <a href="/learn" class="btn-secondary text-base px-7 py-3">
+          <a href="/learn" class="btn-secondary text-base px-7 py-3 w-full sm:w-auto justify-center">
             Browse all tracks
           </a>
         </div>
@@ -48,8 +48,8 @@ const publishedModules = await getCollection('modules', ({ data }) =>
     </section>
 
     <!-- Tracks preview -->
-    <section class="max-w-5xl mx-auto px-6 py-20">
-      <div class="flex items-end justify-between mb-10">
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+      <div class="flex items-end justify-between mb-8 sm:mb-10">
         <div>
           <h2 class="text-2xl font-semibold text-white mb-2">Learning Tracks</h2>
           <p class="text-slate-400">9 tracks, {publishedModules.length} modules published. Start anywhere.</p>
@@ -86,9 +86,9 @@ const publishedModules = await getCollection('modules', ({ data }) =>
 
     <!-- Audience strip -->
     <section class="border-t border-white/10 bg-surface-1">
-      <div class="max-w-5xl mx-auto px-6 py-16">
-        <h2 class="text-2xl font-semibold text-white text-center mb-10">Built for every role</h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">Built for every role</h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
           {[
             { emoji: '🌱', role: 'Curious Beginner', desc: 'No code required' },
             { emoji: '🏛️', role: 'Tech Leader',      desc: 'Mental models, not boilerplate' },

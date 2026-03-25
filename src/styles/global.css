@@ -72,3 +72,16 @@
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
 }
+
+/* Prose tables: horizontal scroll on mobile */
+.prose-lesson table {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prose pre: ensure code blocks scroll horizontally instead of overflowing */
+.prose-lesson pre {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
