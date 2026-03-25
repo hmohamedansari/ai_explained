@@ -34,7 +34,7 @@ export default {
           css: {
             '--tw-prose-body': theme('colors.slate[300]'),
             '--tw-prose-headings': theme('colors.white'),
-            '--tw-prose-code': theme('colors.brand[300]'),
+            '--tw-prose-code': theme('colors.slate[300]'),
             '--tw-prose-pre-bg': theme('colors.surface[2]'),
           },
         },

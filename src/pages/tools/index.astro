@@ -147,7 +147,7 @@ const breadcrumb = {
 
   <Header />
 
-  <main class="flex-1 max-w-4xl mx-auto px-6 py-16">
+  <main class="flex-1 w-full max-w-4xl mx-auto px-6 py-16">
 
     <div class="mb-12">
       <h1 class="text-4xl font-semibold text-white mb-4">Free AI Tools</h1>
@@ -181,7 +181,7 @@ const breadcrumb = {
     <!-- Per-track sections -->
     {tracks.map(t => (
       <section id={`track-${t.order}`} class="mb-16 scroll-mt-20">
-        <div class="flex items-center gap-3 mb-5">
+        <div class="flex flex-wrap items-center gap-3 mb-5">
           <span class="text-3xl">{t.icon}</span>
           <div>
             <p class="text-xs text-slate-500 font-mono mb-0.5">Track {t.order}</p>
@@ -189,7 +189,7 @@ const breadcrumb = {
           </div>
           <a
             href={`/learn/${t.slug}`}
-            class="ml-auto text-xs text-slate-600 hover:text-brand-400 transition-colors"
+            class="w-full sm:w-auto sm:ml-auto text-xs text-slate-600 hover:text-brand-400 transition-colors"
           >
             Go to track →
           </a>
