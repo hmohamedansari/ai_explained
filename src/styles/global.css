@@ -133,8 +133,9 @@ html:not(.dark) .text-white    { color: #0f172a; }
 html:not(.dark) .text-slate-200 { color: #1e293b; }
 html:not(.dark) .text-slate-300 { color: #334155; }
 html:not(.dark) .text-slate-400 { color: #64748b; }
-html:not(.dark) .text-slate-500 { color: #94a3b8; }
-html:not(.dark) .text-slate-600 { color: #94a3b8; }
+html:not(.dark) .text-slate-500 { color: #64748b; }
+html:not(.dark) .text-slate-600 { color: #475569; }
+html:not(.dark) .text-white\/20  { color: rgb(0 0 0 / 0.25); }
 
 /* Borders */
 html:not(.dark) .border-white\/10 { border-color: rgb(0 0 0 / 0.08); }
@@ -191,26 +192,33 @@ html:not(.dark) aside[aria-label="Track navigation"] {
 html:not(.dark) aside[aria-label="Track navigation"] .text-slate-400 { color: #475569; }
 html:not(.dark) aside[aria-label="Track navigation"] .hover\:text-white:hover { color: #0f172a; }
 
-/* Prose (module content) */
-html:not(.dark) .prose-lesson {
-  --tw-prose-body: #334155;
-  --tw-prose-headings: #0f172a;
-  --tw-prose-code: #475569;
-  --tw-prose-pre-bg: #f1f5f9;
-}
-html:not(.dark) .prose-lesson code { background-color: transparent; color: #334155; }
+/* Prose (module content)
+   prose-headings:text-white etc. compile to direct color values inside @layer components.
+   CSS variable overrides don't beat them — explicit unlayered selectors do. */
+html:not(.dark) .prose-lesson h1,
+html:not(.dark) .prose-lesson h2,
+html:not(.dark) .prose-lesson h3,
+html:not(.dark) .prose-lesson h4,
+html:not(.dark) .prose-lesson h5,
+html:not(.dark) .prose-lesson h6 { color: #0f172a; }
+html:not(.dark) .prose-lesson p          { color: #334155; }
+html:not(.dark) .prose-lesson strong     { color: #0f172a; }
+html:not(.dark) .prose-lesson a          { color: #047857; }
+html:not(.dark) .prose-lesson blockquote { color: #64748b; background-color: rgb(5 150 105 / 0.06); }
+html:not(.dark) .prose-lesson code { background-color: transparent; color: #475569; }
 html:not(.dark) .prose-lesson pre  { background-color: #f1f5f9; border-color: rgb(0 0 0 / 0.08); }
 html:not(.dark) .prose-lesson th   { background-color: #f1f5f9; color: #1e293b; }
 html:not(.dark) .prose-lesson td   { color: #334155; }
-html:not(.dark) .prose-lesson blockquote { background-color: rgb(5 150 105 / 0.06); }
 
 /* Badge */
 html:not(.dark) .badge { color: #334155; }
+html:not(.dark) .bg-brand-950\/20 { background-color: rgb(5 150 105 / 0.06); }
 html:not(.dark) .bg-brand-950\/30 { background-color: rgb(5 150 105 / 0.08); }
 html:not(.dark) .bg-brand-950\/50 { background-color: rgb(5 150 105 / 0.1);  }
 html:not(.dark) .bg-brand-600\/20 { background-color: rgb(5 150 105 / 0.12); }
 html:not(.dark) .text-brand-300   { color: #047857; }
-html:not(.dark) .text-brand-400   { color: #059669; }
+html:not(.dark) .text-brand-400   { color: #047857; }
+html:not(.dark) .text-brand-500   { color: #047857; }
 
 /* Scrollbar */
 html:not(.dark) ::-webkit-scrollbar-track { background-color: #f1f5f9; }
