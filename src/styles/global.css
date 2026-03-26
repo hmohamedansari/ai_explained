@@ -175,6 +175,14 @@ html:not(.dark) header.sticky {
   border-bottom-color: rgb(0 0 0 / 0.08);
 }
 
+/* Homepage hero: remove "drop shadow" look in light mode */
+html:not(.dark) .home-hero-glow {
+  opacity: 0;
+}
+html:not(.dark) .home-hero-circuit {
+  opacity: 0.2;
+}
+
 /* Sidebar */
 html:not(.dark) aside[aria-label="Track navigation"] {
   background-color: #f8fafc;
