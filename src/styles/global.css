@@ -90,17 +90,18 @@
   background-color: transparent;
 }
 
-/* Prose tables: wrap cells on mobile instead of overflowing */
+/* Prose tables: scroll horizontally on mobile — avoids mid-word breaks in code cells */
 .prose-lesson table {
-  width: 100%;
-  table-layout: fixed;
-  word-break: break-word;
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .prose-lesson td,
 .prose-lesson th {
-  overflow-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 /* Code blocks: horizontal scroll, no forced wrapping */
