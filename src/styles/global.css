@@ -193,15 +193,36 @@ html:not(.dark) aside[aria-label="Track navigation"] .text-slate-400 { color: #4
 html:not(.dark) aside[aria-label="Track navigation"] .hover\:text-white:hover { color: #0f172a; }
 
 /* Prose (module content)
-   prose-headings:text-white etc. compile to direct color values inside @layer components.
-   CSS variable overrides don't beat them — explicit unlayered selectors do. */
+   Two-layer strategy:
+   1. CSS variables: fix li/em/::marker and all elements that inherit from prose-invert variables.
+   2. Explicit selectors: override prose-headings:text-white etc. which compile to direct color
+      values inside @layer components and ignore variable changes. */
+html:not(.dark) .prose-lesson {
+  --tw-prose-body:          #334155;
+  --tw-prose-headings:      #0f172a;
+  --tw-prose-lead:          #475569;
+  --tw-prose-links:         #047857;
+  --tw-prose-bold:          #0f172a;
+  --tw-prose-counters:      #64748b;
+  --tw-prose-bullets:       #94a3b8;
+  --tw-prose-hr:            rgb(0 0 0 / 0.1);
+  --tw-prose-quotes:        #334155;
+  --tw-prose-quote-borders: #047857;
+  --tw-prose-captions:      #64748b;
+  --tw-prose-code:          #475569;
+  --tw-prose-pre-bg:        #f1f5f9;
+  --tw-prose-th-borders:    rgb(0 0 0 / 0.1);
+  --tw-prose-td-borders:    rgb(0 0 0 / 0.07);
+}
 html:not(.dark) .prose-lesson h1,
 html:not(.dark) .prose-lesson h2,
 html:not(.dark) .prose-lesson h3,
 html:not(.dark) .prose-lesson h4,
 html:not(.dark) .prose-lesson h5,
-html:not(.dark) .prose-lesson h6 { color: #0f172a; }
-html:not(.dark) .prose-lesson p          { color: #334155; }
+html:not(.dark) .prose-lesson h6  { color: #0f172a; }
+html:not(.dark) .prose-lesson p   { color: #334155; }
+html:not(.dark) .prose-lesson li  { color: #334155; }
+html:not(.dark) .prose-lesson em  { color: inherit; }
 html:not(.dark) .prose-lesson strong     { color: #0f172a; }
 html:not(.dark) .prose-lesson a          { color: #047857; }
 html:not(.dark) .prose-lesson blockquote { color: #64748b; background-color: rgb(5 150 105 / 0.06); }
