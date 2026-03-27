@@ -1,7 +1,7 @@
 ---
 moduleId: "9.5"
 title: "Multimodal Safety"
-description: "Images and audio introduce attack surfaces that text-only safety systems do not cover — injected instructions inside images, adversarial visual inputs, deepfakes, and PII embedded in non-text modalities. This module covers the threat model for multimodal inputs and the defensive patterns that close the gaps."
+description: "Images and audio introduce attack surfaces that text-only safety systems do not cover: injected instructions inside images, adversarial visual inputs, deepfakes, and PII embedded in non-text modalities. This module covers the threat model for multimodal inputs and the defensive patterns that close the gaps."
 track: "multimodal"
 order: 5
 personas: ["leader", "senior", "sre"]
@@ -12,21 +12,21 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Text-based content filters and prompt injection defences do not apply to instructions embedded in images — a user who cannot inject via the text field can often inject via an image containing text. Extend your injection detection to include OCR of submitted images, and treat extracted text with the same distrust as direct user input."
+productionGotcha: "Text-based content filters and prompt injection defences do not apply to instructions embedded in images: a user who cannot inject via the text field can often inject via an image containing text. Extend your injection detection to include OCR of submitted images, and treat extracted text with the same distrust as direct user input."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Every safety measure you built for text-only AI has a gap when you add image or audio inputs. Text-based prompt injection filters check the user's text field — they do not scan for instructions written on a whiteboard in a photo. PII scrubbers remove names and phone numbers from text — they do not recognise a face in an image or a voice on an audio file. Content moderation classifiers trained on text cannot act on slurs written in a decorative font inside a meme image.
+Every safety measure you built for text-only AI has a gap when you add image or audio inputs. Text-based prompt injection filters check the user's text field, they do not scan for instructions written on a whiteboard in a photo. PII scrubbers remove names and phone numbers from text, they do not recognise a face in an image or a voice on an audio file. Content moderation classifiers trained on text cannot act on slurs written in a decorative font inside a meme image.
 
 The multimodal threat model adds three categories on top of text-only risks:
 
-**Injection via non-text modality** — instructions embedded in images (text on a sign, in a screenshot, or as a watermark) or in audio (whispered commands) that bypass text-based safety checks and reach the model's reasoning layer as if they were legitimate instructions.
+**Injection via non-text modality**: instructions embedded in images (text on a sign, in a screenshot, or as a watermark) or in audio (whispered commands) that bypass text-based safety checks and reach the model's reasoning layer as if they were legitimate instructions.
 
-**Adversarial inputs** — images or audio crafted to cause specific model behaviours. Unlike injection attacks (which use human-readable text), adversarial examples often use imperceptible pixel-level modifications. They are harder to detect and harder to filter.
+**Adversarial inputs**: images or audio crafted to cause specific model behaviours. Unlike injection attacks (which use human-readable text), adversarial examples often use imperceptible pixel-level modifications. They are harder to detect and harder to filter.
 
-**Synthetic media / deepfakes** — AI-generated images, video, or audio that impersonate real people. Detection is increasingly unreliable as generation quality improves. The primary defence has shifted from detection to provenance (did this content come from a verified source?) and watermarking.
+**Synthetic media / deepfakes**: AI-generated images, video, or audio that impersonate real people. Detection is increasingly unreliable as generation quality improves. The primary defence has shifted from detection to provenance (did this content come from a verified source?) and watermarking.
 
 Additionally, multimodal inputs carry PII that text systems miss: faces in images, voices in audio, and documents photographed in the background of an image may all contain personal information that requires handling under privacy regulations.
 
@@ -38,11 +38,11 @@ The consequence of ignoring multimodal safety is not theoretical. Systems with b
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams often add careful text input sanitisation and prompt injection detection, then add image support and assume they are still protected. The assumption fails because all text in an image is invisible to text-based filters — it reaches the model's context window as token embeddings produced by the vision encoder, not as sanitised user text. OCR of submitted images and treating that extracted text as untrusted user input closes this gap.
+> Teams often add careful text input sanitisation and prompt injection detection, then add image support and assume they are still protected. The assumption fails because all text in an image is invisible to text-based filters: it reaches the model's context window as token embeddings produced by the vision encoder, not as sanitised user text. OCR of submitted images and treating that extracted text as untrusted user input closes this gap.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Image-based prompt injection detection
 
@@ -310,7 +310,7 @@ def moderate_image(image_bytes: bytes) -> ContentModerationResult:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The injection attack surface in multimodal systems
 
@@ -355,7 +355,7 @@ Using a general VLM for content moderation is less reliable than purpose-built m
 
 ### Further reading
 
-- [Ignore Previous Prompt: Attack Techniques For Language Models](https://arxiv.org/abs/2211.09527) — Perez & Ribeiro, 2022. The foundational prompt injection taxonomy; the multimodal extension of these attacks follows the same logic.
-- [InstructPix2Pix: Learning to Follow Image Editing Instructions](https://arxiv.org/abs/2211.09800) — Brooks et al., 2022. Relevant background on how image-conditioned instruction following works and its safety implications.
-- [FakeBench: Uncover the Achilles' Heels of Fake Images](https://arxiv.org/abs/2404.13306) — Li et al., 2024. A survey of deepfake detection benchmarks and current performance ceilings.
-- [C2PA Technical Specification](https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html) — Coalition for Content Provenance and Authenticity, 2024. The content provenance standard being adopted by major platforms and camera manufacturers.
+- [Ignore Previous Prompt: Attack Techniques For Language Models](https://arxiv.org/abs/2211.09527); Perez & Ribeiro, 2022. The foundational prompt injection taxonomy; the multimodal extension of these attacks follows the same logic.
+- [InstructPix2Pix: Learning to Follow Image Editing Instructions](https://arxiv.org/abs/2211.09800); Brooks et al., 2022. Relevant background on how image-conditioned instruction following works and its safety implications.
+- [FakeBench: Uncover the Achilles' Heels of Fake Images](https://arxiv.org/abs/2404.13306); Li et al., 2024. A survey of deepfake detection benchmarks and current performance ceilings.
+- [C2PA Technical Specification](https://c2pa.org/specifications/specifications/2.0/specs/C2PA_Specification.html); Coalition for Content Provenance and Authenticity, 2024. The content provenance standard being adopted by major platforms and camera manufacturers.

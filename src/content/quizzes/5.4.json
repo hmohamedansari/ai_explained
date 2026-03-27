@@ -1,5 +1,5 @@
 {
-  "title": "Batching & Throughput — Check your understanding",
+  "title": "Batching & Throughput: Check your understanding",
   "moduleId": "5.4",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A team benchmarks their inference server and reports: 'Our serving achieves 4,800 tokens/sec throughput.' Their SRE then measures p99 TTFT as 9.2 seconds for interactive users. Are these measurements in conflict, and what does this reveal about their benchmarking approach?",
       "options": [
-        "No conflict — high throughput and high TTFT are always correlated; this is expected behavior",
+        "No conflict: high throughput and high TTFT are always correlated; this is expected behavior",
         "These measurements reveal a collapsed benchmark: the throughput number was measured at a large batch size that maximizes GPU utilization, but that same large batch means each request waits longer before its first token; reporting a single performance number hides the throughput-latency tension and produces a configuration unusable for interactive workloads",
         "The p99 TTFT is a network measurement issue, not a serving issue",
         "High throughput means the server is healthy; the p99 TTFT measurement is probably incorrect"
       ],
       "answer": 1,
-      "explanation": "Throughput and latency are in direct tension. A large batch size amortizes GPU compute across many requests simultaneously, increasing tokens/sec — but every request in the batch must wait for the prefill of all requests in the batch before generating its first token, increasing TTFT. Reporting only throughput or only latency conceals this tradeoff. A server configured for 4,800 tok/s throughput may have a p99 TTFT of 9 seconds, which is unusable for interactive chat. Production serving configurations must be benchmarked separately for throughput (batch jobs, maximize tok/s) and latency (interactive, minimize TTFT p95/p99).",
+      "explanation": "Throughput and latency are in direct tension. A large batch size amortizes GPU compute across many requests simultaneously, increasing tokens/sec, but every request in the batch must wait for the prefill of all requests in the batch before generating its first token, increasing TTFT. Reporting only throughput or only latency conceals this tradeoff. A server configured for 4,800 tok/s throughput may have a p99 TTFT of 9 seconds, which is unusable for interactive chat. Production serving configurations must be benchmarked separately for throughput (batch jobs, maximize tok/s) and latency (interactive, minimize TTFT p95/p99).",
       "personas": ["senior", "sre"]
     },
     {
@@ -21,10 +21,10 @@
       "type": "multiple-choice",
       "question": "In a static batching system with batch_size=8, requests arrive one per second. The first request waits 7 seconds for the batch to fill before processing begins. In a continuous batching system with max_concurrent=8, the same first request starts processing immediately. What latency component does continuous batching eliminate?",
       "options": [
-        "Decode latency — continuous batching speeds up token generation",
-        "Queue wait time — in static batching, requests wait for the batch to fill before processing begins; in continuous batching, each request starts processing (prefill phase) as soon as a slot is available, eliminating the artificial delay caused by waiting for a full batch",
-        "Prefill latency — continuous batching processes the prompt faster",
-        "Network latency — continuous batching reduces the round-trip time to the server"
+        "Decode latency: continuous batching speeds up token generation",
+        "Queue wait time: in static batching, requests wait for the batch to fill before processing begins; in continuous batching, each request starts processing (prefill phase) as soon as a slot is available, eliminating the artificial delay caused by waiting for a full batch",
+        "Prefill latency: continuous batching processes the prompt faster",
+        "Network latency: continuous batching reduces the round-trip time to the server"
       ],
       "answer": 1,
       "explanation": "Static batching forces requests to wait until the batch reaches its target size before any processing begins. A request that arrives first waits for N-1 more requests to arrive before the batch executes. This introduces artificial queue wait time that has nothing to do with model computation. Continuous batching eliminates this: each request begins its prefill phase as soon as a concurrent slot is available. The decode phase overlaps with other requests' decode phases via iteration-level scheduling. The improvement in TTFT for early-arriving requests can be dramatic at low-to-medium concurrency levels.",
@@ -36,12 +36,12 @@
       "question": "A serving configuration processes a batch of 16 requests. One request has a 8,000-token prompt (long prefill). During the prefill step for this one request, the other 15 requests in the batch must wait. What optimization addresses this specific problem?",
       "options": [
         "Increase the batch size to dilute the impact of the long prefill",
-        "Chunked prefill — split the 8,000-token prompt into fixed-size chunks (e.g., 512 tokens each) processed interleaved with decode steps for the other 15 requests, preventing a single long prefill from blocking all decode progress",
+        "Chunked prefill: split the 8,000-token prompt into fixed-size chunks (e.g., 512 tokens each) processed interleaved with decode steps for the other 15 requests, preventing a single long prefill from blocking all decode progress",
         "Reduce the max context length so long prompts are rejected",
         "Use a separate GPU for prefill and a separate GPU for decode"
       ],
       "answer": 1,
-      "explanation": "A long prefill in continuous batching creates a 'prefill spike' — the server must process all 8,000 input tokens in one pass before returning to decode steps for other requests. During this time, all 15 other requests experience increased TTFT. Chunked prefill addresses this by breaking the long prompt into small chunks (e.g., 512 tokens) and interleaving chunk processing with decode steps for other requests. The long-context request takes slightly longer to reach its first token (TTFT increases modestly), but the other 15 requests don't experience a latency spike. This is now the default behavior in recent vLLM versions.",
+      "explanation": "A long prefill in continuous batching creates a 'prefill spike': the server must process all 8,000 input tokens in one pass before returning to decode steps for other requests. During this time, all 15 other requests experience increased TTFT. Chunked prefill addresses this by breaking the long prompt into small chunks (e.g., 512 tokens) and interleaving chunk processing with decode steps for other requests. The long-context request takes slightly longer to reach its first token (TTFT increases modestly), but the other 15 requests don't experience a latency spike. This is now the default behavior in recent vLLM versions.",
       "personas": ["senior", "sre"]
     },
     {
@@ -50,12 +50,12 @@
       "question": "During the decode phase, increasing batch size from 1 to 32 increases total token throughput significantly but only modestly increases per-token decode time. Why does decode throughput scale with batch size in this way?",
       "options": [
         "Larger batches allow the GPU to pipeline requests across different transformer layers",
-        "The decode phase is memory-bandwidth-bound — each decode step requires reading all model weights from VRAM once regardless of batch size; at batch size 1, that bandwidth is amortized over 1 token; at batch size 32, it is amortized over 32 tokens, so throughput scales nearly linearly while per-token latency increases only modestly from memory contention",
+        "The decode phase is memory-bandwidth-bound: each decode step requires reading all model weights from VRAM once regardless of batch size; at batch size 1, that bandwidth is amortized over 1 token; at batch size 32, it is amortized over 32 tokens, so throughput scales nearly linearly while per-token latency increases only modestly from memory contention",
         "Larger batches use flash attention which is faster per token",
         "The decode phase parallelizes across the tokens in the batch"
       ],
       "answer": 1,
-      "explanation": "The decode phase generates one new token per request per forward pass. That forward pass reads all model weights from VRAM — the same bandwidth cost regardless of batch size. At batch size 1, those weights are read to generate one token. At batch size 32, the same weight read generates 32 tokens. This is why decode throughput (tokens/sec aggregate) scales nearly linearly with batch size at low-to-moderate concurrency — you are amortizing a fixed bandwidth cost across more output tokens. The modest per-token latency increase comes from memory bandwidth contention as the batch size grows. This is fundamentally different from the compute-bound prefill phase.",
+      "explanation": "The decode phase generates one new token per request per forward pass. That forward pass reads all model weights from VRAM, the same bandwidth cost regardless of batch size. At batch size 1, those weights are read to generate one token. At batch size 32, the same weight read generates 32 tokens. This is why decode throughput (tokens/sec aggregate) scales nearly linearly with batch size at low-to-moderate concurrency, you are amortizing a fixed bandwidth cost across more output tokens. The modest per-token latency increase comes from memory bandwidth contention as the batch size grows. This is fundamentally different from the compute-bound prefill phase.",
       "personas": ["senior", "sre"]
     },
     {
@@ -65,11 +65,11 @@
       "options": [
         "Mix all requests in a single continuous batch and let the scheduler handle priorities",
         "Separate queue lanes with different scheduling policies: the chat queue gets lower max_concurrent and lower TTFT priority (process immediately, small batch); the batch classification queue uses a higher batch size and throughput-optimized settings; this prevents batch jobs from occupying all batch slots and spiking chat TTFT",
-        "Process batch jobs first, then chat — serializing workloads avoids contention",
+        "Process batch jobs first, then chat: serializing workloads avoids contention",
         "Increase total batch size to accommodate both workloads simultaneously"
       ],
       "answer": 1,
-      "explanation": "Mixing interactive and batch workloads in a single queue allows batch jobs to fill batch slots and increase TTFT for interactive users. The correct approach is queue separation with different scheduling policies. The chat queue prioritizes low TTFT: requests start processing immediately with low batch overhead. The batch queue prioritizes throughput: larger batches, more buffering, latency-insensitive. This is a standard pattern in production inference serving — many frameworks support request priority tiers or separate queue configurations. Serializing workloads (option C) wastes GPU capacity during chat-only periods.",
+      "explanation": "Mixing interactive and batch workloads in a single queue allows batch jobs to fill batch slots and increase TTFT for interactive users. The correct approach is queue separation with different scheduling policies. The chat queue prioritizes low TTFT: requests start processing immediately with low batch overhead. The batch queue prioritizes throughput: larger batches, more buffering, latency-insensitive. This is a standard pattern in production inference serving: many frameworks support request priority tiers or separate queue configurations. Serializing workloads (option C) wastes GPU capacity during chat-only periods.",
       "personas": ["senior", "sre"]
     }
   ]

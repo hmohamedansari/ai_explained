@@ -5,7 +5,7 @@ interface Question {
   id: string;
   type: 'multiple-choice';
   question: string;
-  options: string[];  // required — multiple-choice only
+  options: string[];  // required: multiple-choice only
   answer: number;     // index into options[]
   explanation: string;
   read_more?: string;
@@ -173,7 +173,7 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
               ? "Perfect score. You've got this."
               : score >= questions.length * 0.7
               ? 'Solid understanding. Review the explanations for the ones you missed.'
-              : 'Keep at it — re-read the lesson and try again.'}
+              : 'Keep at it: re-read the lesson and try again.'}
           </p>
           <button onClick={handleRetry} className="btn-secondary text-sm">
             Retry

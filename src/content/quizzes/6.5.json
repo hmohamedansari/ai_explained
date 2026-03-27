@@ -1,5 +1,5 @@
 {
-  "title": "Cost Attribution & Token Budgets — Check your understanding",
+  "title": "Cost Attribution & Token Budgets: Check your understanding",
   "moduleId": "6.5",
   "questions": [
     {
@@ -8,7 +8,7 @@
       "question": "A team builds a report generation feature that produces 3000-token outputs from 800-token inputs, using a frontier model. A separate classification feature processes 400-token inputs and produces 15-token outputs using the same model. The team tracks only input tokens for cost monitoring. Which feature will dominate the bill, and will the team's monitoring detect it?",
       "options": [
         "Classification will dominate because it handles higher request volume; input-token monitoring will detect this",
-        "Report generation will dominate because output tokens cost 3–5x more than input tokens at most providers — even though its input count looks reasonable, 3000 output tokens per request means output cost dwarfs input cost; input-only monitoring will miss this entirely and the team will be surprised at invoice time",
+        "Report generation will dominate because output tokens cost 3–5x more than input tokens at most providers: even though its input count looks reasonable, 3000 output tokens per request means output cost dwarfs input cost; input-only monitoring will miss this entirely and the team will be surprised at invoice time",
         "Both features cost similarly because the frontier model charges equally for input and output tokens",
         "Classification will dominate because each classification request is faster and thus more requests complete per unit time"
       ],
@@ -21,10 +21,10 @@
       "type": "multiple-choice",
       "question": "A team wants to identify which product features are driving their LLM API costs. They have one cost entry per request but no metadata attached. What is the minimum tagging required to answer 'which feature is our most expensive?'",
       "options": [
-        "The model_id and request timestamp — this allows cost to be broken down by model version and time period",
-        "The feature_id tagged on every request — without feature attribution, all requests look identical regardless of which product feature generated them; aggregating by feature_id is the only way to answer which feature drives spend",
-        "The user_id — cost can be aggregated per user and mapped to features in post-processing",
-        "The input and output token counts — these uniquely identify the request type"
+        "The model_id and request timestamp: this allows cost to be broken down by model version and time period",
+        "The feature_id tagged on every request: without feature attribution, all requests look identical regardless of which product feature generated them; aggregating by feature_id is the only way to answer which feature drives spend",
+        "The user_id: cost can be aggregated per user and mapped to features in post-processing",
+        "The input and output token counts: these uniquely identify the request type"
       ],
       "answer": 1,
       "explanation": "Feature attribution requires a feature_id tag on every LLM request at the time it is made. Token counts and model IDs tell you how much each request costs, but without feature_id they cannot be grouped by feature. Post-processing via user_id is unreliable because users interact with multiple features, and mapping from user to feature requires joining with application logs that may not be available or consistent. The correct approach is to tag every call at the call site with the feature_id, then aggregate.",
@@ -35,13 +35,13 @@
       "type": "multiple-choice",
       "question": "A team audits their input prompt token distribution and finds: system prompt = 200 tokens (8%), retrieved context = 1800 tokens (72%), conversation history = 400 tokens (16%), user message = 100 tokens (4%). They need to reduce input token costs. Which component offers the highest leverage?",
       "options": [
-        "User message — reducing what users can send would have the largest impact",
-        "Retrieved context — at 72% of total input tokens, even a 30% reduction in context size saves more tokens than eliminating any other component entirely; strategies include reducing chunk size, using a more selective retriever, or trimming lower-relevance chunks",
-        "System prompt — it is the most controllable component and any reduction directly saves tokens",
-        "Conversation history — trimming old turns is always safe because the model rarely needs early context"
+        "User message: reducing what users can send would have the largest impact",
+        "Retrieved context: at 72% of total input tokens, even a 30% reduction in context size saves more tokens than eliminating any other component entirely; strategies include reducing chunk size, using a more selective retriever, or trimming lower-relevance chunks",
+        "System prompt: it is the most controllable component and any reduction directly saves tokens",
+        "Conversation history: trimming old turns is always safe because the model rarely needs early context"
       ],
       "answer": 1,
-      "explanation": "Reducing the largest component has the highest absolute impact. Retrieved context at 72% of input tokens means that a 30% reduction (from 1800 to 1260 tokens) saves 540 tokens — more than removing the entire conversation history (400 tokens) or the entire system prompt (200 tokens). Strategies include: using a more selective retrieval step that returns fewer but more relevant chunks, reducing chunk size in the vector store, and applying a re-ranking step to drop low-relevance chunks. The system prompt is the most controllable but represents only 8% of input tokens, so its impact is limited.",
+      "explanation": "Reducing the largest component has the highest absolute impact. Retrieved context at 72% of input tokens means that a 30% reduction (from 1800 to 1260 tokens) saves 540 tokens: more than removing the entire conversation history (400 tokens) or the entire system prompt (200 tokens). Strategies include: using a more selective retrieval step that returns fewer but more relevant chunks, reducing chunk size in the vector store, and applying a re-ranking step to drop low-relevance chunks. The system prompt is the most controllable but represents only 8% of input tokens, so its impact is limited.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -50,7 +50,7 @@
       "question": "A team implements a hard token limit: requests with more than 4000 input tokens are rejected. A user submits a valid, high-value query that is 4200 tokens due to a long conversation history. The request is rejected. What would a better approach be?",
       "options": [
         "Increase the hard limit to 6000 tokens to accommodate larger inputs",
-        "Use a soft limit with truncation: before hitting the hard limit, apply a history truncation strategy that removes the oldest conversation turns until the total fits within the budget — the user's current query is served, the budget is respected, and the oldest context (which is typically least relevant) is dropped first",
+        "Use a soft limit with truncation: before hitting the hard limit, apply a history truncation strategy that removes the oldest conversation turns until the total fits within the budget: the user's current query is served, the budget is respected, and the oldest context (which is typically least relevant) is dropped first",
         "Log the oversized request and route it to a human reviewer",
         "Switch to a model with a larger context window so the limit is never triggered"
       ],
@@ -64,12 +64,12 @@
       "question": "A cost anomaly detector using z-score alerts fires on a request that cost $0.12 when the feature's rolling mean is $0.02 with a standard deviation of $0.03. The z-score is approximately 3.3. The engineer dismisses it as a one-off. An hour later, 200 more requests arrive at similar cost, totaling $24 in unexpected spend. What was the correct response to the initial alert?",
       "options": [
         "The alert was a false positive because a single request anomaly is not significant",
-        "The alert was a true signal that should have triggered immediate investigation — a z-score of 3.3 (above the 2-sigma threshold) on cost indicates the request was significantly more expensive than baseline, potentially due to a prompt change, model routing error, or unexpected long output; investigating immediately would have identified the cause before the anomaly replicated across 200 requests",
+        "The alert was a true signal that should have triggered immediate investigation: a z-score of 3.3 (above the 2-sigma threshold) on cost indicates the request was significantly more expensive than baseline, potentially due to a prompt change, model routing error, or unexpected long output; investigating immediately would have identified the cause before the anomaly replicated across 200 requests",
         "The alert threshold should be raised to 4-sigma to reduce noise",
         "Cost anomaly detection should only alert on aggregate hourly cost, not individual requests"
       ],
       "answer": 1,
-      "explanation": "A z-score of 3.3 on a cost metric means the request cost is 3.3 standard deviations above the rolling mean — a statistically significant anomaly. The correct response is to investigate immediately: look at what made this request more expensive than typical. Was it an unusually long output? A wrong model being routed? A new code path that constructs a much longer prompt? Dismissing the first alert allowed 200 subsequent requests at the same elevated cost to accumulate before the pattern was visible in aggregate dashboards. The anomaly detector exists precisely to catch these signals before they compound.",
+      "explanation": "A z-score of 3.3 on a cost metric means the request cost is 3.3 standard deviations above the rolling mean: a statistically significant anomaly. The correct response is to investigate immediately: look at what made this request more expensive than typical. Was it an unusually long output? A wrong model being routed? A new code path that constructs a much longer prompt? Dismissing the first alert allowed 200 subsequent requests at the same elevated cost to accumulate before the pattern was visible in aggregate dashboards. The anomaly detector exists precisely to catch these signals before they compound.",
       "read_more": "https://opentelemetry.io/docs/",
       "personas": ["junior", "senior", "sre"]
     }

@@ -1,5 +1,5 @@
 {
-  "title": "How Vision-Language Models Work — Check your understanding",
+  "title": "How Vision-Language Models Work: Check your understanding",
   "moduleId": "9.1",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "A team builds a document processing pipeline and sends 10 high-resolution A4 scans per API request. In testing with a single small image, costs are acceptable. In production with full-size scans, costs are 8x higher than estimated. What is the most likely cause?",
       "options": [
         "The API charges a flat fee per request that scales with number of images, not image content",
-        "High-resolution images in tiled mode generate hundreds of image tokens each — 10 large images at 800 tokens each adds 8,000 tokens to the context per request, far more than the single small test image; many APIs charge per input token, so actual costs scale with image token count, not image count",
+        "High-resolution images in tiled mode generate hundreds of image tokens each: 10 large images at 800 tokens each adds 8,000 tokens to the context per request, far more than the single small test image; many APIs charge per input token, so actual costs scale with image token count, not image count",
         "The API rate-limits high-resolution requests and charges a premium for priority processing",
         "The pipeline is sending duplicate images due to a caching bug"
       ],
       "answer": 1,
-      "explanation": "VLMs convert images into token-like embeddings that consume context window space and are billed like tokens. A single high-resolution image in tiled mode can generate 768–2048 tokens depending on resolution settings. Ten such images per request adds up to tens of thousands of tokens — far more than text-only testing would suggest. The fix is to test token consumption with production-representative image sizes and to use low-resolution mode for tasks that do not require fine detail.",
+      "explanation": "VLMs convert images into token-like embeddings that consume context window space and are billed like tokens. A single high-resolution image in tiled mode can generate 768–2048 tokens depending on resolution settings. Ten such images per request adds up to tens of thousands of tokens: far more than text-only testing would suggest. The fix is to test token consumption with production-representative image sizes and to use low-resolution mode for tasks that do not require fine detail.",
       "personas": ["senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "A VLM uses a Perceiver Resampler connector rather than a linear projection. What is the key difference in how this affects production cost and capability?",
       "options": [
         "The Perceiver Resampler uses more VRAM than a linear projection, making it slower but more accurate",
-        "A Perceiver Resampler compresses a variable number of patch embeddings into a fixed number of output tokens regardless of image resolution — this decouples image resolution from context cost, so a higher-resolution image costs the same number of context tokens as a low-resolution one, unlike linear projection where more patches means more tokens",
+        "A Perceiver Resampler compresses a variable number of patch embeddings into a fixed number of output tokens regardless of image resolution: this decouples image resolution from context cost, so a higher-resolution image costs the same number of context tokens as a low-resolution one, unlike linear projection where more patches means more tokens",
         "The Perceiver Resampler only supports JPEG images; PNG images fall back to linear projection",
         "Linear projection is deprecated and all modern VLMs use Perceiver Resampler"
       ],
       "answer": 1,
-      "explanation": "With linear projection, each image patch produces one image token — so higher resolution means more tokens and higher cost. A Perceiver Resampler uses cross-attention to compress the full set of patch embeddings to a fixed output count (e.g., always 64 or 256 tokens), regardless of how many patches the image produced. This is a significant advantage for high-resolution image processing because you can increase image quality without proportionally increasing context cost. The tradeoff is information compression — some spatial detail is lost.",
+      "explanation": "With linear projection, each image patch produces one image token, so higher resolution means more tokens and higher cost. A Perceiver Resampler uses cross-attention to compress the full set of patch embeddings to a fixed output count (e.g., always 64 or 256 tokens), regardless of how many patches the image produced. This is a significant advantage for high-resolution image processing because you can increase image quality without proportionally increasing context cost. The tradeoff is information compression, some spatial detail is lost.",
       "personas": ["senior", "sre"]
     },
     {
@@ -35,13 +35,13 @@
       "type": "multiple-choice",
       "question": "A team sends low-resolution thumbnails of product photos for classification tasks (cheap) and then realises the model is missing fine text like model numbers on product labels. They switch all requests to high-resolution mode. What is the correct resolution strategy?",
       "options": [
-        "Always use high-resolution mode — the quality improvement always outweighs the cost",
+        "Always use high-resolution mode: the quality improvement always outweighs the cost",
         "Match resolution to task requirements: use low-resolution for coarse classification where overall image content matters, and high-resolution only for tasks requiring fine text or small object detection; this minimises token cost without sacrificing accuracy for tasks that do not need high detail",
         "Use medium resolution for all tasks as a universal compromise",
-        "Resolution does not matter — VLMs normalise image quality during encoding"
+        "Resolution does not matter; VLMs normalise image quality during encoding"
       ],
       "answer": 1,
-      "explanation": "Different tasks require different levels of image detail. Classifying whether an image is a product photo vs a landscape does not require reading 6-point text on a label — low-resolution mode is sufficient and saves significant token cost. Reading a model number or extracting text from a document scan requires high-resolution mode for the ViT to resolve individual characters. The correct strategy is to select resolution based on what information the task requires, not to apply a universal setting. This can easily reduce costs by 50–70% for mixed workloads.",
+      "explanation": "Different tasks require different levels of image detail. Classifying whether an image is a product photo vs a landscape does not require reading 6-point text on a label: low-resolution mode is sufficient and saves significant token cost. Reading a model number or extracting text from a document scan requires high-resolution mode for the ViT to resolve individual characters. The correct strategy is to select resolution based on what information the task requires, not to apply a universal setting. This can easily reduce costs by 50–70% for mixed workloads.",
       "personas": ["senior", "sre"]
     },
     {
@@ -50,12 +50,12 @@
       "question": "CLIP contrastive training aligns image and text embeddings. What does this alignment enable in a VLM, and what is one thing it does not guarantee?",
       "options": [
         "CLIP alignment guarantees that the model can read any text in an image; the limitation is that it only works in English",
-        "CLIP alignment enables the language model to reason meaningfully about image content because matching images and text descriptions are close in embedding space — but it does not guarantee accurate spatial reasoning (where exactly objects are) or fine-grained text recognition, which require higher-resolution processing and additional training",
+        "CLIP alignment enables the language model to reason meaningfully about image content because matching images and text descriptions are close in embedding space, but it does not guarantee accurate spatial reasoning (where exactly objects are) or fine-grained text recognition, which require higher-resolution processing and additional training",
         "CLIP alignment allows VLMs to generate images from text; it does not support audio inputs",
         "CLIP alignment is only used during training; at inference time the model does not use embeddings"
       ],
       "answer": 1,
-      "explanation": "CLIP's contrastive training creates a shared embedding space where semantically related images and text are close together. This is what allows the language model to understand that a description of a scene corresponds to the image — they embed near each other. However, CLIP-aligned embeddings are trained on image-caption pairs that capture high-level semantics, not fine spatial layout or character-level text. Strong text recognition (OCR) and precise spatial grounding require either higher resolution processing or additional specialised training beyond basic CLIP alignment.",
+      "explanation": "CLIP's contrastive training creates a shared embedding space where semantically related images and text are close together. This is what allows the language model to understand that a description of a scene corresponds to the image: they embed near each other. However, CLIP-aligned embeddings are trained on image-caption pairs that capture high-level semantics, not fine spatial layout or character-level text. Strong text recognition (OCR) and precise spatial grounding require either higher resolution processing or additional specialised training beyond basic CLIP alignment.",
       "personas": ["senior", "sre"]
     },
     {
@@ -64,7 +64,7 @@
       "question": "A model card states a VLM supports images up to 2048px. A team sends 2048x2048 images in high-resolution mode and finds context windows are being exceeded. What is happening?",
       "options": [
         "2048px exceeds the model's actual limit and the API is silently truncating images",
-        "High-resolution tiling at 2048x2048 generates a large number of tiles (potentially 35+), each producing hundreds of image tokens; the model card's resolution limit describes the image size it can physically accept, not the context token cost — at high resolution, a 2048x2048 image can consume over 1000 context tokens, leaving little room for text",
+        "High-resolution tiling at 2048x2048 generates a large number of tiles (potentially 35+), each producing hundreds of image tokens; the model card's resolution limit describes the image size it can physically accept, not the context token cost: at high resolution, a 2048x2048 image can consume over 1000 context tokens, leaving little room for text",
         "The model requires images to be sent as URLs, not base64, for large files",
         "Context overflow only happens when sending multiple images in the same request"
       ],

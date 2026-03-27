@@ -183,6 +183,9 @@ html:not(.dark) .home-hero-glow {
 html:not(.dark) .home-hero-circuit {
   opacity: 0.2;
 }
+html:not(.dark) .home-hero-bottom-fade {
+  display: none;
+}
 
 /* Sidebar */
 html:not(.dark) aside[aria-label="Track navigation"] {

@@ -1,5 +1,5 @@
 {
-  "title": "Production RAG Checklist — Check your understanding",
+  "title": "Production RAG Checklist: Check your understanding",
   "moduleId": "2.8",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "Six months after launch, users report your RAG system gives confident but wrong answers about your product's pricing. The pricing page was updated three months ago. Which production failure mode does this represent?",
       "options": [
-        "Retrieval miss — the pricing chunks are not indexed",
-        "Context confusion — the model is ignoring the retrieved pricing chunks",
-        "Stale knowledge — the index contains the old pricing page; the model faithfully cites outdated information",
-        "Generation failure — the model is hallucinating prices not present in any document"
+        "Retrieval miss: the pricing chunks are not indexed",
+        "Context confusion: the model is ignoring the retrieved pricing chunks",
+        "Stale knowledge: the index contains the old pricing page; the model faithfully cites outdated information",
+        "Generation failure: the model is hallucinating prices not present in any document"
       ],
       "answer": 2,
-      "explanation": "The model is giving confident, grounded-sounding answers — which means retrieval and generation are working correctly. The problem is that the retrieved chunks accurately reflect the old pricing that was indexed before the update. This is the stale knowledge failure mode: the system is technically functioning, but the knowledge base hasn't been refreshed. The fix is a document refresh pipeline with staleness monitoring — not retrieval or prompting changes.",
+      "explanation": "The model is giving confident, grounded-sounding answers, which means retrieval and generation are working correctly. The problem is that the retrieved chunks accurately reflect the old pricing that was indexed before the update. This is the stale knowledge failure mode: the system is technically functioning, but the knowledge base hasn't been refreshed. The fix is a document refresh pipeline with staleness monitoring, not retrieval or prompting changes.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "You are launching a RAG system for a multi-tenant SaaS product where each company's documents should only be accessible to their own users. How should you enforce this isolation?",
       "options": [
         "Add a system prompt instruction: 'Only show documents belonging to the current user's company'",
-        "Enforce access control at retrieval time using metadata filtering — filter by tenant ID before similarity search, never relying on the model to enforce data boundaries",
+        "Enforce access control at retrieval time using metadata filtering: filter by tenant ID before similarity search, never relying on the model to enforce data boundaries",
         "Store each tenant's documents in a separate vector database instance",
-        "Encrypt each tenant's chunks — the model cannot read encrypted content"
+        "Encrypt each tenant's chunks: the model cannot read encrypted content"
       ],
       "answer": 1,
-      "explanation": "System prompt instructions are not a security boundary — a jailbreak or confused retrieval can bypass them. The model must never be the sole enforcer of data access. Enforce isolation at the retrieval layer: filter by tenant_id in the metadata query before similarity search runs. A shared index with strict metadata filtering is a common production pattern; per-tenant indexes are also valid but have higher operational cost. Either approach keeps access control out of the model's hands.",
+      "explanation": "System prompt instructions are not a security boundary: a jailbreak or confused retrieval can bypass them. The model must never be the sole enforcer of data access. Enforce isolation at the retrieval layer: filter by tenant_id in the metadata query before similarity search runs. A shared index with strict metadata filtering is a common production pattern; per-tenant indexes are also valid but have higher operational cost. Either approach keeps access control out of the model's hands.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -36,12 +36,12 @@
       "question": "What is the correct approach when you want to upgrade the embedding model in a production RAG system?",
       "options": [
         "Update the query embedding model first, then re-index documents incrementally",
-        "Re-embed and re-index the full document corpus with the new model before switching queries to it — mixing old and new embeddings produces meaningless similarity scores",
+        "Re-embed and re-index the full document corpus with the new model before switching queries to it: mixing old and new embeddings produces meaningless similarity scores",
         "Run both models in parallel for two weeks, then switch when users report better results",
         "Embedding model upgrades don't require re-indexing if both models have the same output dimension"
       ],
       "answer": 1,
-      "explanation": "Embedding models define their own vector spaces — documents embedded with model A and queries embedded with model B produce meaningless similarity scores (this is the production gotcha from module 2.2). An upgrade requires re-embedding the full corpus with the new model before any query uses it. The correct sequence: re-index all documents → validate recall@k on eval set → switch queries to new model → deprecate old index. Dimension matching is irrelevant — two different models with the same output dimension still produce incompatible vector spaces.",
+      "explanation": "Embedding models define their own vector spaces, documents embedded with model A and queries embedded with model B produce meaningless similarity scores (this is the production gotcha from module 2.2). An upgrade requires re-embedding the full corpus with the new model before any query uses it. The correct sequence: re-index all documents → validate recall@k on eval set → switch queries to new model → deprecate old index. Dimension matching is irrelevant, two different models with the same output dimension still produce incompatible vector spaces.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -51,7 +51,7 @@
       "options": [
         "Reduce embedding API calls by caching common query embeddings",
         "Switch from a managed vector database to a self-hosted solution to eliminate retrieval costs",
-        "Reduce the number of retrieved chunks from 10 to 3–5 and evaluate whether a fast/balanced model handles the task — generation input and output tokens dominate RAG costs",
+        "Reduce the number of retrieved chunks from 10 to 3–5 and evaluate whether a fast/balanced model handles the task: generation input and output tokens dominate RAG costs",
         "Compress chunk text before passing to the model to reduce input token count"
       ],
       "answer": 2,
@@ -61,7 +61,7 @@
     {
       "id": "2.8-q5",
       "type": "multiple-choice",
-      "question": "Which of the following is a P0 — must-have before launching a production RAG system?",
+      "question": "Which of the following is a P0: must-have before launching a production RAG system?",
       "options": [
         "Re-ranker configured and tested",
         "RAGAS faithfulness scoring running on 100% of production traffic",

@@ -1,7 +1,7 @@
 ---
 moduleId: "6.4"
 title: "Tracing & Structured Logging"
-description: "Learn to instrument LLM systems with structured traces that make debugging and performance analysis practical — what to log, how to structure it, and how to avoid PII liability."
+description: "Learn to instrument LLM systems with structured traces that make debugging and performance analysis practical: what to log, how to structure it, and how to avoid PII liability."
 track: "evaluation"
 order: 4
 personas: ["junior", "senior", "sre"]
@@ -12,17 +12,17 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Logging full prompts and responses is invaluable for debugging but creates a PII liability if user data appears in prompts. Establish a scrubbing policy before logging goes live — retrofitting PII scrubbing onto existing logs is expensive and error-prone, and a prompt that contains a user's name, email, or health data is a data breach waiting to be discovered."
+productionGotcha: "Logging full prompts and responses is invaluable for debugging but creates a PII liability if user data appears in prompts. Establish a scrubbing policy before logging goes live: retrofitting PII scrubbing onto existing logs is expensive and error-prone, and a prompt that contains a user's name, email, or health data is a data breach waiting to be discovered."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 When an LLM system fails in production, the first question is always: what did it receive, and what did it return? Without structured logging, answering this question means manual reconstruction from fragments. With structured logging, it means querying a trace store.
 
-An LLM trace is a structured record of a single request's lifecycle: the prompt that went in, the model that handled it, the tokens consumed, the latency at each step, the tool calls made, and the final output. A trace is composed of spans — one for the overall request, one for each LLM call, one for each tool call, one for each retrieval operation.
+An LLM trace is a structured record of a single request's lifecycle: the prompt that went in, the model that handled it, the tokens consumed, the latency at each step, the tool calls made, and the final output. A trace is composed of spans: one for the overall request, one for each LLM call, one for each tool call, one for each retrieval operation.
 
-Good tracing makes the difference between debugging in minutes and debugging in days. It also enables continuous quality measurement — if every response is logged with a correlation ID, you can later route a sample of responses to an LLM judge and get continuous quality metrics without blocking any real requests.
+Good tracing makes the difference between debugging in minutes and debugging in days. It also enables continuous quality measurement: if every response is logged with a correlation ID, you can later route a sample of responses to an LLM judge and get continuous quality metrics without blocking any real requests.
 
 ### Why it matters
 
@@ -36,7 +36,7 @@ Define your scrubbing policy in the design phase. Build a scrubbing step into th
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The span model
 
@@ -183,7 +183,7 @@ def estimate_cost(model_id: str, input_tokens: int, output_tokens: int) -> float
 
 ### What to log for debugging
 
-When debugging is needed, richer logs are invaluable — but they carry a PII obligation:
+When debugging is needed, richer logs are invaluable, but they carry a PII obligation:
 
 ```python
 import re
@@ -239,7 +239,7 @@ def build_debug_log(
 
 ### Structured logging format
 
-All logs should be JSON lines — one JSON object per line, with consistent field names:
+All logs should be JSON lines: one JSON object per line, with consistent field names:
 
 ```python
 import json
@@ -303,7 +303,7 @@ def extract_trace_context(incoming_headers: dict) -> tuple[str, str | None]:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### OpenTelemetry as the vendor-neutral standard
 
@@ -325,9 +325,9 @@ Both extremes create problems:
 
 | | Over-logging | Under-logging |
 |---|---|---|
-| Storage cost | High — full prompts can be kilobytes each; at scale, terabytes per month | Low |
-| PII liability | High — prompts often contain user data | Low |
-| Debugging capability | High | Low — "what did it receive?" can't be answered |
+| Storage cost | High: full prompts can be kilobytes each; at scale, terabytes per month | Low |
+| PII liability | High: prompts often contain user data | Low |
+| Debugging capability | High | Low: "what did it receive?" can't be answered |
 | Latency impact | Low-medium (async writes) | None |
 
 The practical balance: log request metadata (tokens, cost, latency, model, feature) always; log full prompt/response only for a configurable sample (typically 1–10%) with PII scrubbing applied. Keep sampled debug logs for a shorter retention window (7–30 days) than metric logs (90+ days).
@@ -350,7 +350,7 @@ def should_log_debug(request_id: str, sample_rate: float = 0.05) -> bool:
 
 Traces are typically stored in two places with different access patterns:
 
-**Time-series / metrics store** (Prometheus, InfluxDB, CloudWatch Metrics): aggregated metrics derived from traces — p50/p95/p99 latency, error rates, cost per feature per hour. Fast to query; no raw data.
+**Time-series / metrics store** (Prometheus, InfluxDB, CloudWatch Metrics): aggregated metrics derived from traces: p50/p95/p99 latency, error rates, cost per feature per hour. Fast to query; no raw data.
 
 **Trace store** (Jaeger, Grafana Tempo, Langfuse): raw span trees, queryable by trace_id, model_id, feature_id, time range. Slower to query; full context for debugging.
 
@@ -369,6 +369,6 @@ WHERE error IS NOT NULL AND feature_id = "support_chat" AND ts > NOW() - 1h
 
 ### Further reading
 
-- [OpenTelemetry Semantic Conventions for Generative AI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) — OpenTelemetry, 2024. The canonical attribute names for LLM tracing; use these to ensure compatibility with any OTel backend.
-- [Distributed Systems Observability](https://www.oreilly.com/library/view/distributed-systems-observability/9781492033431/) — Majors, 2018. Foundational text on observability; the three pillars (logs, metrics, traces) apply directly to LLM systems.
-- [Langfuse — Open Source LLM Engineering Platform](https://langfuse.com/docs) — Langfuse, 2024. An open-source tracing and eval platform with first-class LLM support; useful as a reference implementation of the trace model described in this module.
+- [OpenTelemetry Semantic Conventions for Generative AI](https://opentelemetry.io/docs/specs/semconv/gen-ai/); OpenTelemetry, 2024. The canonical attribute names for LLM tracing; use these to ensure compatibility with any OTel backend.
+- [Distributed Systems Observability](https://www.oreilly.com/library/view/distributed-systems-observability/9781492033431/); Majors, 2018. Foundational text on observability; the three pillars (logs, metrics, traces) apply directly to LLM systems.
+- [Langfuse, Open Source LLM Engineering Platform](https://langfuse.com/docs), Langfuse, 2024. An open-source tracing and eval platform with first-class LLM support; useful as a reference implementation of the trace model described in this module.

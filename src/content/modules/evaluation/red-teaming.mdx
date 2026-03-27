@@ -1,7 +1,7 @@
 ---
 moduleId: "6.8"
 title: "Red-teaming & Adversarial Evaluation"
-description: "Learn to systematically discover failure modes in LLM systems before attackers do — how to run a red-team session, categorize findings, and convert every confirmed vulnerability into a permanent regression test."
+description: "Learn to systematically discover failure modes in LLM systems before attackers do: how to run a red-team session, categorize findings, and convert every confirmed vulnerability into a permanent regression test."
 track: "evaluation"
 order: 8
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,23 +12,23 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Red-team findings that aren't converted into regression tests are forgotten — the same vulnerability gets re-introduced in a later release. Every confirmed red-team finding must be committed as a named eval case before the fix is merged. A finding without a regression test is a vulnerability that will recur."
+productionGotcha: "Red-team findings that aren't converted into regression tests are forgotten: the same vulnerability gets re-introduced in a later release. Every confirmed red-team finding must be committed as a named eval case before the fix is merged. A finding without a regression test is a vulnerability that will recur."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Standard evaluation measures how well a system handles the cases it was designed for. Red-teaming asks a different question: how does the system fail when someone is actively trying to make it fail?
 
-These are fundamentally different exercises. Standard eval measures average-case performance over a representative distribution. Red-teaming probes the tail of adversarial inputs — cases specifically constructed to extract unsafe behavior, bypass restrictions, cause the model to hallucinate, or compromise the system's integrity.
+These are fundamentally different exercises. Standard eval measures average-case performance over a representative distribution. Red-teaming probes the tail of adversarial inputs: cases specifically constructed to extract unsafe behavior, bypass restrictions, cause the model to hallucinate, or compromise the system's integrity.
 
-Red-teaming is not optional for systems that handle sensitive tasks, interact with real users, or take actions in the world. It is the practice that discovers the failure modes your eval set was never designed to find — the ones that matter most when they occur.
+Red-teaming is not optional for systems that handle sensitive tasks, interact with real users, or take actions in the world. It is the practice that discovers the failure modes your eval set was never designed to find: the ones that matter most when they occur.
 
 The output of a red-team session is not a report. It is a set of named eval cases, severity classifications, and confirmed fixes. Every finding that is not converted into a regression test is a vulnerability that will recur.
 
 ### Why it matters
 
-LLM systems have a unique attack surface: the model itself can be manipulated through its input. Prompt injection, goal hijacking, and jailbreaks are real failure modes that appear in production. Red-teaming is the only systematic way to discover these before users — or adversaries — do.
+LLM systems have a unique attack surface: the model itself can be manipulated through its input. Prompt injection, goal hijacking, and jailbreaks are real failure modes that appear in production. Red-teaming is the only systematic way to discover these before users, or adversaries, do.
 
 ### Production Gotcha
 
@@ -38,7 +38,7 @@ Make it policy: no red-team finding may be closed until the corresponding regres
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Red-team case taxonomy
 
@@ -370,7 +370,7 @@ def generate_adversarial_cases(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Red-team cadence and scope
 
@@ -396,7 +396,7 @@ Light-touch sessions (50–100 cases, automated) can run on every deploy. Full s
 | Medium | Behavioral anomaly; minor bypass; unexpected output format | Fix within 2 sprints |
 | Low | Cosmetic or minor unexpected behavior | Add to backlog |
 
-Critical and High findings block the deployment. Medium and Low findings are tracked but do not block — they must still be converted to regression cases.
+Critical and High findings block the deployment. Medium and Low findings are tracked but do not block: they must still be converted to regression cases.
 
 ### Defense layers that red-teaming validates
 
@@ -413,7 +413,7 @@ Red-teaming is most useful when it validates specific defense mechanisms you hav
 
 ### Further reading
 
-- [Red Teaming Language Models to Reduce Harms: Methods, Scaling Behaviors, and Lessons Learned](https://arxiv.org/abs/2209.07858) — Ganguli et al., 2022 (Anthropic). The foundational paper on systematic LLM red-teaming methodology; directly informs the taxonomy and severity framework in this module.
-- [Prompt Injection Attacks against LLM-integrated Applications](https://arxiv.org/abs/2306.05499) — Greshake et al., 2023. Comprehensive taxonomy of prompt injection — the distinction between direct and indirect injection is drawn from this work.
-- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043) — Zou et al., 2023. Automated adversarial suffix generation; relevant background for understanding why automated red-teaming cannot fully replace human red-teamers.
-- [Microsoft AI Red Team Building Future of Safer AI](https://www.microsoft.com/en-us/security/blog/2023/08/07/microsoft-ai-red-team-building-future-of-safer-ai/) — Microsoft, 2023. Practical red-team process from a large-scale deployment context; the session structure and severity classification are informed by this approach.
+- [Red Teaming Language Models to Reduce Harms: Methods, Scaling Behaviors, and Lessons Learned](https://arxiv.org/abs/2209.07858); Ganguli et al., 2022 (Anthropic). The foundational paper on systematic LLM red-teaming methodology; directly informs the taxonomy and severity framework in this module.
+- [Prompt Injection Attacks against LLM-integrated Applications](https://arxiv.org/abs/2306.05499), Greshake et al., 2023. Comprehensive taxonomy of prompt injection, the distinction between direct and indirect injection is drawn from this work.
+- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043); Zou et al., 2023. Automated adversarial suffix generation; relevant background for understanding why automated red-teaming cannot fully replace human red-teamers.
+- [Microsoft AI Red Team Building Future of Safer AI](https://www.microsoft.com/en-us/security/blog/2023/08/07/microsoft-ai-red-team-building-future-of-safer-ai/); Microsoft, 2023. Practical red-team process from a large-scale deployment context; the session structure and severity classification are informed by this approach.

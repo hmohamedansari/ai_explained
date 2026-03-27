@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries — the performance gap between benchmark and production is routinely 15–30 percentage points."
+productionGotcha: "Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries: the performance gap between benchmark and production is routinely 15–30 percentage points."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-When you procure AI capabilities, you are making a decision that will be very difficult to reverse. The vendor's model will become embedded in your prompts, your retrieval system, your integrations, and your team's mental model of how things work. Switching vendors 18 months in is not a simple API swap — it is a project.
+When you procure AI capabilities, you are making a decision that will be very difficult to reverse. The vendor's model will become embedded in your prompts, your retrieval system, your integrations, and your team's mental model of how things work. Switching vendors 18 months in is not a simple API swap: it is a project.
 
 The evaluation criteria that matter most are not the ones vendors lead with. Published benchmarks show how a model performs on standard academic tasks. Your use case is not an academic task. The first rule of AI procurement: test on your data before you commit.
 
@@ -32,17 +32,17 @@ Beyond model quality, there are five dimensions that determine whether a vendor 
 
 ### Why it matters
 
-Organisations that evaluate vendors primarily on benchmark performance and price sign contracts they later regret — either because production quality is lower than expected, data policies are problematic, or the relationship has no exit path.
+Organisations that evaluate vendors primarily on benchmark performance and price sign contracts they later regret: either because production quality is lower than expected, data policies are problematic, or the relationship has no exit path.
 
 ### Production Gotcha
 
-> **Common Gotcha:** Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries — the performance gap between benchmark and production is routinely 15–30 percentage points.
+> **Common Gotcha:** Vendor benchmarks measure average-case performance on general tasks. Your use case is not average. Before signing an enterprise contract, run your own evaluation on a representative sample of your production queries: the performance gap between benchmark and production is routinely 15–30 percentage points.
 >
 > The assumption: "If this model is top-rated on the leaderboard, it will be the best for our use case." The reality: leaderboards measure general tasks; your specific use case may favour a different model entirely.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The full vendor evaluation framework
 
@@ -131,9 +131,9 @@ Exit planning question to answer before signing: if this vendor became unavailab
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
-### The benchmark vs production gap — why it happens
+### The benchmark vs production gap: why it happens
 
 Published benchmarks use carefully curated datasets designed to test specific capabilities in a controlled way. Production AI use cases differ in several dimensions that benchmarks do not capture:
 
@@ -142,9 +142,9 @@ Published benchmarks use carefully curated datasets designed to test specific ca
 - **Failure mode relevance**: Benchmarks measure average performance; your use case may care disproportionately about specific failure modes that are rare in the benchmark distribution but common in yours.
 - **Latency under load**: Benchmarks measure quality, not latency. Your production requirement is both.
 
-The performance gap between benchmark and production is consistently larger than organisations expect. Running your own evaluation before committing is not optional diligence — it is the only way to know what you are actually buying.
+The performance gap between benchmark and production is consistently larger than organisations expect. Running your own evaluation before committing is not optional diligence: it is the only way to know what you are actually buying.
 
-### Data processing agreement — what to push back on
+### Data processing agreement: what to push back on
 
 A well-structured DPA should give you:
 
@@ -172,6 +172,6 @@ Practical mitigations: diversify across vendors for critical use cases; maintain
 
 ### Further reading
 
-- [AI Procurement Guidelines — UK Government](https://www.gov.uk/guidance/buying-ai-products-and-services) — Government guidance on AI procurement; practical checklist covering quality, data, and governance considerations.
-- [Data Processing Agreements — European Data Protection Board](https://edpb.europa.eu/our-work-tools/documents/public-consultations/2020/guidelines-202001-controller-processor-and_en) — EDPB guidelines on processor relationships; defines what a compliant DPA must contain under GDPR.
-- [AI Model Evaluation Best Practices — Hugging Face](https://huggingface.co/docs/evaluate) — Practical guidance on evaluation methodology; useful for structuring your own vendor evaluation process.
+- [AI Procurement Guidelines, UK Government](https://www.gov.uk/guidance/buying-ai-products-and-services), Government guidance on AI procurement; practical checklist covering quality, data, and governance considerations.
+- [Data Processing Agreements, European Data Protection Board](https://edpb.europa.eu/our-work-tools/documents/public-consultations/2020/guidelines-202001-controller-processor-and_en), EDPB guidelines on processor relationships; defines what a compliant DPA must contain under GDPR.
+- [AI Model Evaluation Best Practices, Hugging Face](https://huggingface.co/docs/evaluate), Practical guidance on evaluation methodology; useful for structuring your own vendor evaluation process.

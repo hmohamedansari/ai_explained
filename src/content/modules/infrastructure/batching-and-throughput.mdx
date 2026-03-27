@@ -1,7 +1,7 @@
 ---
 moduleId: "5.4"
 title: "Batching & Throughput"
-description: "Throughput and latency are in direct tension in LLM serving — understanding how batching works, why continuous batching is the production default, and how to separate throughput benchmarks from latency benchmarks prevents the common mistake of optimizing one while silently destroying the other."
+description: "Throughput and latency are in direct tension in LLM serving: understanding how batching works, why continuous batching is the production default, and how to separate throughput benchmarks from latency benchmarks prevents the common mistake of optimizing one while silently destroying the other."
 track: "infrastructure"
 order: 4
 personas: ["senior", "sre"]
@@ -12,39 +12,39 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Optimizing for throughput (large batches) degrades tail latency for individual requests — TTFT spikes under high batch sizes. A benchmark that shows 5,000 tokens/sec throughput may correspond to a p99 TTFT of 8 seconds, which is unusable for interactive workloads. Separate throughput benchmarks from latency benchmarks; never collapse them into one number, and never tune serving configuration against only one dimension."
+productionGotcha: "Optimizing for throughput (large batches) degrades tail latency for individual requests; TTFT spikes under high batch sizes. A benchmark that shows 5,000 tokens/sec throughput may correspond to a p99 TTFT of 8 seconds, which is unusable for interactive workloads. Separate throughput benchmarks from latency benchmarks; never collapse them into one number, and never tune serving configuration against only one dimension."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-A GPU is most efficient when doing many things in parallel. When it processes a single LLM request, most of its compute capacity sits idle. Batching is the practice of processing multiple requests together in a single GPU forward pass — the GPU does the same amount of work per pass, but the work covers many requests simultaneously. Throughput goes up.
+A GPU is most efficient when doing many things in parallel. When it processes a single LLM request, most of its compute capacity sits idle. Batching is the practice of processing multiple requests together in a single GPU forward pass: the GPU does the same amount of work per pass, but the work covers many requests simultaneously. Throughput goes up.
 
 The catch: batched requests share the forward pass timeline. A short request that finishes in 50 tokens must wait for a 500-token request to complete before the batch step is done. Tail latency for the short request increases.
 
-This tension — throughput up, latency up — is the fundamental tradeoff of batching. Every batching decision is a point on the throughput-latency curve; there is no free lunch.
+This tension, throughput up, latency up, is the fundamental tradeoff of batching. Every batching decision is a point on the throughput-latency curve; there is no free lunch.
 
 **The batching strategies in order of sophistication:**
 
-1. **Static batching** — collect N requests, run them all together, return results, start next batch
-2. **Dynamic batching** — admit requests as they arrive up to a max batch size or timeout
-3. **Continuous batching** — individual requests join and leave the batch mid-generation; completed requests free slots immediately
+1. **Static batching**: collect N requests, run them all together, return results, start next batch
+2. **Dynamic batching**: admit requests as they arrive up to a max batch size or timeout
+3. **Continuous batching**: individual requests join and leave the batch mid-generation; completed requests free slots immediately
 
 Continuous batching is the production default in modern serving frameworks (vLLM, TGI) because it keeps GPU utilization high without forcing every request to wait for the slowest member.
 
 ### Why it matters
 
-At low traffic, batching doesn't matter much — there are few requests to batch. At high traffic, batching determines whether you can serve 10 concurrent users or 200 on the same hardware. Getting batching right is the difference between your GPU running at 20% utilization and 80%.
+At low traffic, batching doesn't matter much: there are few requests to batch. At high traffic, batching determines whether you can serve 10 concurrent users or 200 on the same hardware. Getting batching right is the difference between your GPU running at 20% utilization and 80%.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The mistake is reporting a single "performance" number that combines throughput and latency. A tuning change that increases throughput by 3x while tripling p99 TTFT is not an improvement for interactive workloads — it is a regression. Always report throughput (tokens/sec server-wide) and latency (TTFT, TBT per request) as separate metrics with separate SLAs.
+> The mistake is reporting a single "performance" number that combines throughput and latency. A tuning change that increases throughput by 3x while tripling p99 TTFT is not an improvement for interactive workloads: it is a regression. Always report throughput (tokens/sec server-wide) and latency (TTFT, TBT per request) as separate metrics with separate SLAs.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Static vs dynamic vs continuous batching
 
@@ -252,17 +252,17 @@ Output tokens per second is the most meaningful throughput metric because output
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Why the decode phase is memory-bandwidth-bound
 
-During the prefill phase, the GPU computes attention across all input tokens simultaneously — this is highly parallelizable and uses GPU cores efficiently. During the decode phase, each new token requires one full forward pass through the model to predict the next token. At batch size 1, this reads all model weights from VRAM but uses only a tiny fraction of GPU compute capacity, because there is no parallelism across a single-token input.
+During the prefill phase, the GPU computes attention across all input tokens simultaneously: this is highly parallelizable and uses GPU cores efficiently. During the decode phase, each new token requires one full forward pass through the model to predict the next token. At batch size 1, this reads all model weights from VRAM but uses only a tiny fraction of GPU compute capacity, because there is no parallelism across a single-token input.
 
-The bottleneck shifts from compute to memory bandwidth. More GPU cores don't help; faster VRAM does. This is why memory bandwidth (GB/s) matters as much as FLOPs for decode throughput, and why larger batches improve utilization — they amortize the weight-reading cost across multiple requests simultaneously.
+The bottleneck shifts from compute to memory bandwidth. More GPU cores don't help; faster VRAM does. This is why memory bandwidth (GB/s) matters as much as FLOPs for decode throughput, and why larger batches improve utilization: they amortize the weight-reading cost across multiple requests simultaneously.
 
 ### Chunked prefill
 
-Standard continuous batching prioritizes decode steps (to maintain low tail latency) but must occasionally process prefill requests. A long prefill (e.g., 8K token context) blocks all decode steps for that duration — a latency spike for all active requests.
+Standard continuous batching prioritizes decode steps (to maintain low tail latency) but must occasionally process prefill requests. A long prefill (e.g., 8K token context) blocks all decode steps for that duration: a latency spike for all active requests.
 
 Chunked prefill splits long prompts into fixed-size chunks (e.g., 512 tokens) processed interleaved with decode steps. TTFT for the long-context request increases slightly, but other requests don't experience the latency spike. This is the default behavior in recent vLLM versions.
 
@@ -279,6 +279,6 @@ Separate queue lanes for interactive and batch workloads, with different schedul
 
 ### Further reading
 
-- [Orca: A Distributed Serving System for Transformer-Based Generative Models](https://www.usenix.org/conference/osdi22/presentation/yu) — Yu et al., OSDI 2022. The paper that introduced iteration-level scheduling (continuous batching); the theoretical basis for how vLLM and TGI schedule decode steps.
-- [Sarathi-Serve: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills](https://arxiv.org/abs/2403.02310) — Agrawal et al., 2024. The chunked prefill paper; explains how interleaving prefill chunks with decode steps reduces tail latency.
-- [vLLM documentation — Engine Arguments](https://docs.vllm.ai/en/latest/serving/engine_args.html) — vLLM project. Reference for the concrete serving configuration parameters discussed in this module.
+- [Orca: A Distributed Serving System for Transformer-Based Generative Models](https://www.usenix.org/conference/osdi22/presentation/yu); Yu et al., OSDI 2022. The paper that introduced iteration-level scheduling (continuous batching); the theoretical basis for how vLLM and TGI schedule decode steps.
+- [Sarathi-Serve: Efficient LLM Inference by Piggybacking Decodes with Chunked Prefills](https://arxiv.org/abs/2403.02310); Agrawal et al., 2024. The chunked prefill paper; explains how interleaving prefill chunks with decode steps reduces tail latency.
+- [vLLM documentation, Engine Arguments](https://docs.vllm.ai/en/latest/serving/engine_args.html), vLLM project. Reference for the concrete serving configuration parameters discussed in this module.

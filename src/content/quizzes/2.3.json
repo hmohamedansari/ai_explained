@@ -1,15 +1,15 @@
 {
-  "title": "Chunking and Indexing — Check your understanding",
+  "title": "Chunking and Indexing: Check your understanding",
   "moduleId": "2.3",
   "questions": [
     {
       "id": "2.3-q1",
       "type": "multiple-choice",
-      "question": "Your RAG system retrieves the correct document but the answer quality is poor — the model says it can't find the specific information even though it's clearly in the document. What chunking issue most likely caused this?",
+      "question": "Your RAG system retrieves the correct document but the answer quality is poor: the model says it can't find the specific information even though it's clearly in the document. What chunking issue most likely caused this?",
       "options": [
-        "The chunk size is too small — the answer is split across two chunks and neither contains the full context needed to answer",
-        "The chunk size is too large — the model is overwhelmed by the document length",
-        "The overlap is too high — duplicate content confuses the model",
+        "The chunk size is too small: the answer is split across two chunks and neither contains the full context needed to answer",
+        "The chunk size is too large: the model is overwhelmed by the document length",
+        "The overlap is too high: duplicate content confuses the model",
         "The embedding model can't handle documents of that length"
       ],
       "answer": 0,
@@ -22,7 +22,7 @@
       "question": "What is the purpose of chunk overlap?",
       "options": [
         "To improve embedding quality by giving the model more context per vector",
-        "To prevent information from being lost at split boundaries — consecutive chunks share some content so a sentence cut at the edge of one chunk appears in the next",
+        "To prevent information from being lost at split boundaries: consecutive chunks share some content so a sentence cut at the edge of one chunk appears in the next",
         "To reduce the number of chunks needed to cover a document",
         "To allow the vector database to deduplicate similar chunks automatically"
       ],
@@ -35,10 +35,10 @@
       "type": "multiple-choice",
       "question": "You are building a RAG system over a Python codebase. Which chunking strategy produces the most useful retrieval units?",
       "options": [
-        "Fixed-size chunking at 512 tokens — consistent size ensures uniform retrieval quality",
-        "Recursive chunking on whitespace — respects indentation in Python code",
-        "Function and class boundary chunking — each function or class is one retrieval unit, preserving its complete signature, body, and docstring",
-        "Sentence-level chunking — each line of code is indexed separately for maximum precision"
+        "Fixed-size chunking at 512 tokens: consistent size ensures uniform retrieval quality",
+        "Recursive chunking on whitespace: respects indentation in Python code",
+        "Function and class boundary chunking: each function or class is one retrieval unit, preserving its complete signature, body, and docstring",
+        "Sentence-level chunking: each line of code is indexed separately for maximum precision"
       ],
       "answer": 2,
       "explanation": "Code has natural semantic units: functions, classes, and methods. A function split in the middle loses its signature (making it unretrievable by function name) or its return type (making the retrieved chunk incomplete). Fixed-size and sentence-level chunking both cut through these natural boundaries. Chunking on function/class boundaries ensures each retrieval unit is a self-contained, meaningful piece of code.",
@@ -49,9 +49,9 @@
       "type": "multiple-choice",
       "question": "You store 50,000 chunks without any metadata. A user asks 'What does the 2025 pricing policy say about enterprise discounts?' and gets a wrong answer. Why is debugging this difficult, and what metadata would have helped?",
       "options": [
-        "Without metadata you cannot run the embedding model — all embedding APIs require document IDs",
+        "Without metadata you cannot run the embedding model: all embedding APIs require document IDs",
         "Without source and date metadata, you cannot tell which document was retrieved, filter to the 2025 policy, or verify the answer came from the right source",
-        "Metadata is only needed for access control — it doesn't affect retrieval quality",
+        "Metadata is only needed for access control: it doesn't affect retrieval quality",
         "The lack of metadata caused the vector database to return random results"
       ],
       "answer": 1,
@@ -63,13 +63,13 @@
       "type": "multiple-choice",
       "question": "How should you determine the right chunk size for your RAG system?",
       "options": [
-        "Use 512 tokens — this is the standard that works for all document types",
+        "Use 512 tokens: this is the standard that works for all document types",
         "Use the maximum size your embedding model supports to capture as much context as possible",
         "Build a retrieval evaluation set with representative queries, measure recall@k at different chunk sizes, and pick the size that maximises recall on your specific content",
         "Match the chunk size to the model's context window divided by the number of chunks you plan to retrieve"
       ],
       "answer": 2,
-      "explanation": "Chunk size is a hyperparameter with no universal right answer — it depends on your content type, query patterns, and what information users need per answer. The only reliable method is empirical: take representative queries, label which chunks contain the correct answer, measure retrieval recall at different chunk sizes, and pick the winner. 512 tokens is a tutorial default, not a calibrated value for your specific data.",
+      "explanation": "Chunk size is a hyperparameter with no universal right answer: it depends on your content type, query patterns, and what information users need per answer. The only reliable method is empirical: take representative queries, label which chunks contain the correct answer, measure retrieval recall at different chunk sizes, and pick the winner. 512 tokens is a tutorial default, not a calibrated value for your specific data.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

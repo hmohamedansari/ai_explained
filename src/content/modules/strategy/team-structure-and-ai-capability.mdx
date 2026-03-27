@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap — fix the practices, not the headcount."
+productionGotcha: "Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap: fix the practices, not the headcount."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 The question "do we have AI capability?" is really three questions: Can we evaluate whether AI is working? Can we ship AI to production? Can we keep it working after it ships?
 
-Most organisations in the early phases of AI adoption can answer "yes" to the first and struggle with the second and third. The gap is not usually about the people — it is about the engineering practices, the deployment infrastructure, and the accountability structures around AI work.
+Most organisations in the early phases of AI adoption can answer "yes" to the first and struggle with the second and third. The gap is not usually about the people: it is about the engineering practices, the deployment infrastructure, and the accountability structures around AI work.
 
 There are three broad ways to organise an AI function:
 
@@ -36,13 +36,13 @@ The wrong org structure creates bottlenecks (centralised teams that can't keep u
 
 ### Production Gotcha
 
-> **Common Gotcha:** Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap — fix the practices, not the headcount.
+> **Common Gotcha:** Many organisations build an AI team that produces demos and prototypes but lacks the infrastructure, deployment practices, and evaluation discipline to ship production systems. The gap between demo capability and production capability is an engineering maturity gap, not a model capability gap: fix the practices, not the headcount.
 >
-> The assumption: "We need better engineers." The reality: most teams have capable engineers who have never been expected to ship and maintain production AI — because the organisation never built the discipline around it.
+> The assumption: "We need better engineers." The reality: most teams have capable engineers who have never been expected to ship and maintain production AI: because the organisation never built the discipline around it.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Structure comparison
 
@@ -53,19 +53,19 @@ The wrong org structure creates bottlenecks (centralised teams that can't keep u
 | **Domain knowledge** | Low (generalists serve many domains) | High (embedded in the domain) | Medium-high |
 | **Infrastructure reuse** | High | Low (duplication risk) | High |
 | **Scales with demand** | Poorly | Well | Well |
-| **Safety and governance** | Easier to enforce | Harder to enforce | Moderate — needs explicit policy |
+| **Safety and governance** | Easier to enforce | Harder to enforce | Moderate: needs explicit policy |
 
 ### The roles that actually matter
 
 AI job title inflation has created confusion about what roles are needed. Strip away the hype:
 
-**AI Engineer** — builds and ships AI-powered features. Owns prompts, retrieval systems, API integrations, evaluation suites, and deployment. This is the core production role. Not a researcher. Not a data scientist. An engineer who specialises in building systems that use AI models.
+**AI Engineer**: builds and ships AI-powered features. Owns prompts, retrieval systems, API integrations, evaluation suites, and deployment. This is the core production role. Not a researcher. Not a data scientist. An engineer who specialises in building systems that use AI models.
 
-**ML Engineer** — owns model training, fine-tuning pipelines, and model serving infrastructure. Needed when you are training or fine-tuning models. Not needed when you are only using foundation model APIs.
+**ML Engineer**: owns model training, fine-tuning pipelines, and model serving infrastructure. Needed when you are training or fine-tuning models. Not needed when you are only using foundation model APIs.
 
-**AI Product Manager** — defines what the AI feature should do, what "good" looks like, and how success is measured. Works with engineers to define eval criteria. Bridges user needs and technical constraints. This role is often missing; without it, AI features get built to the spec of whoever wrote the first prompt.
+**AI Product Manager**: defines what the AI feature should do, what "good" looks like, and how success is measured. Works with engineers to define eval criteria. Bridges user needs and technical constraints. This role is often missing; without it, AI features get built to the spec of whoever wrote the first prompt.
 
-**AI Safety / Red Team** — adversarially tests AI systems for failure modes, safety gaps, and misuse vectors before they ship. May be a dedicated role or a shared responsibility distributed across the team. Essential for any customer-facing AI system.
+**AI Safety / Red Team**: adversarially tests AI systems for failure modes, safety gaps, and misuse vectors before they ship. May be a dedicated role or a shared responsibility distributed across the team. Essential for any customer-facing AI system.
 
 **Roles that are often hype:**
 
@@ -84,7 +84,7 @@ If no, the bottleneck is usually one of: no deployment pipeline for AI features,
 If no, you lack observability: no logging of model inputs and outputs, no alert on quality degradation, no way to replay a failure. This is a tooling gap.
 
 **3. Do you have eval suites that run in CI?**
-If no, prompt changes and model upgrades ship without regression testing. This is a practices gap. Eval suites are not sophisticated — a 50-example dataset and a pass/fail threshold are enough to start.
+If no, prompt changes and model upgrades ship without regression testing. This is a practices gap. Eval suites are not sophisticated: a 50-example dataset and a pass/fail threshold are enough to start.
 
 ```python
 # Capability maturity self-assessment — pseudocode
@@ -128,17 +128,17 @@ def maturity_level(m: AICapabilityMaturity) -> str:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The maturity model in more detail
 
 Organisations typically evolve through three phases:
 
-**Phase 1 — Exploration**: Individual teams experiment with AI tools and APIs. No shared standards, no production deployments. Value: learning. Risk: divergent practices that are hard to standardise later.
+**Phase 1; Exploration**: Individual teams experiment with AI tools and APIs. No shared standards, no production deployments. Value: learning. Risk: divergent practices that are hard to standardise later.
 
-**Phase 2 — Institutionalisation**: First production deployments. A central team or function emerges to hold standards. Evaluation practices, deployment pipelines, and cost monitoring are built. Value: reproducibility. Risk: the central team becomes a bottleneck.
+**Phase 2; Institutionalisation**: First production deployments. A central team or function emerges to hold standards. Evaluation practices, deployment pipelines, and cost monitoring are built. Value: reproducibility. Risk: the central team becomes a bottleneck.
 
-**Phase 3 — Scale**: AI capability is distributed across teams operating against common standards. The central function shifts from doing to enabling — providing infrastructure, tooling, and standards while embedded teams own products. Value: speed and quality at scale. Challenge: maintaining standards as the organisation moves fast.
+**Phase 3, Scale**: AI capability is distributed across teams operating against common standards. The central function shifts from doing to enabling, providing infrastructure, tooling, and standards while embedded teams own products. Value: speed and quality at scale. Challenge: maintaining standards as the organisation moves fast.
 
 Most organisations underestimate how long it takes to move from Phase 1 to Phase 3. Two years is a realistic minimum for a mid-sized organisation starting from scratch; most factors that slow it are organisational, not technical.
 
@@ -153,6 +153,6 @@ An AI-ready engineering culture has a few characteristics that distinguish it fr
 
 ### Further reading
 
-- [AI Product Management — Pragmatic Institute](https://www.pragmaticinstitute.com/resources/articles/product/ai-product-management/) — Practical overview of the AI PM role and how it differs from traditional PM.
-- [The State of AI in Enterprise — McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai) — Annual survey data on AI org structures, talent, and maturity across industries.
-- [Team Topologies — Matthew Skelton and Manuel Pais](https://teamtopologies.com/book) — Not AI-specific, but the stream-aligned vs enabling team model maps directly to the hybrid AI org structure; highly recommended for leaders designing AI functions.
+- [AI Product Management, Pragmatic Institute](https://www.pragmaticinstitute.com/resources/articles/product/ai-product-management/), Practical overview of the AI PM role and how it differs from traditional PM.
+- [The State of AI in Enterprise, McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai), Annual survey data on AI org structures, talent, and maturity across industries.
+- [Team Topologies, Matthew Skelton and Manuel Pais](https://teamtopologies.com/book), Not AI-specific, but the stream-aligned vs enabling team model maps directly to the hybrid AI org structure; highly recommended for leaders designing AI functions.

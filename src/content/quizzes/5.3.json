@@ -1,5 +1,5 @@
 {
-  "title": "Inference Serving — Check your understanding",
+  "title": "Inference Serving: Check your understanding",
   "moduleId": "5.3",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A 70B INT4 model is deployed on a 2 × 40GB GPU instance (80GB total VRAM). The model weights occupy approximately 35GB. In single-request testing, performance is excellent. Under production load with 40 concurrent requests at 4K token contexts, the server OOMs repeatedly. What is causing this?",
       "options": [
-        "The model was not loaded into VRAM correctly — a restart will fix it",
+        "The model was not loaded into VRAM correctly: a restart will fix it",
         "KV cache memory is the dominant VRAM consumer at inference time; with 40 concurrent requests at 4K context each, the KV cache requires far more VRAM than the 45GB headroom left after model weights, causing OOM under concurrent load even though single requests work fine",
         "INT4 models use more VRAM during inference than the weight size suggests due to dequantization buffers",
         "40 concurrent requests exceeds the maximum batch size supported by the serving framework"
       ],
       "answer": 1,
-      "explanation": "This is the classic KV cache OOM pattern. The 35GB model weights leave 45GB for KV cache and overhead across 2 GPUs. But KV cache scales with batch size: 40 requests at 4K tokens each with a multi-layer model can require dozens of GB of KV cache — far exceeding the available headroom. Single requests work because their KV cache is small. The fix is either to reduce max concurrency, use a model with Grouped Query Attention (smaller KV cache per request), shorten the max context, or add more VRAM. This is why production load-testing at realistic concurrency is essential before deployment.",
+      "explanation": "This is the classic KV cache OOM pattern. The 35GB model weights leave 45GB for KV cache and overhead across 2 GPUs. But KV cache scales with batch size: 40 requests at 4K tokens each with a multi-layer model can require dozens of GB of KV cache: far exceeding the available headroom. Single requests work because their KV cache is small. The fix is either to reduce max concurrency, use a model with Grouped Query Attention (smaller KV cache per request), shorten the max context, or add more VRAM. This is why production load-testing at realistic concurrency is essential before deployment.",
       "personas": ["senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "Before vLLM's PagedAttention, inference servers pre-allocated a contiguous VRAM block for each request based on the maximum possible context length. A server has 40GB of KV cache VRAM. Each request is pre-allocated 2GB for a 4K max context. What is the maximum concurrency this server can handle, and what is the key inefficiency?",
       "options": [
         "Maximum 20 concurrent requests; the inefficiency is that each request uses exactly its pre-allocated memory",
-        "Maximum 20 concurrent requests; the inefficiency is that most requests use far less than 4K tokens but the full 2GB is reserved regardless — VRAM is wasted on unused context space for every request",
+        "Maximum 20 concurrent requests; the inefficiency is that most requests use far less than 4K tokens but the full 2GB is reserved regardless; VRAM is wasted on unused context space for every request",
         "Maximum 40 concurrent requests if all requests are short; the allocation is dynamic",
         "Maximum concurrency is limited by CPU, not VRAM, in this design"
       ],
       "answer": 1,
-      "explanation": "With 40GB and 2GB per request, the server can hold at most 20 requests concurrently. The key inefficiency is internal fragmentation: a request that only generates 200 tokens still occupies the full 2GB pre-allocated block. The other 1.8GB is wasted. PagedAttention solves this by allocating KV cache in small fixed-size pages (like OS virtual memory) only as tokens are generated — a request using 200 tokens uses approximately 200/4096 of what the pre-allocated approach would reserve. This allows significantly higher concurrency from the same VRAM budget.",
+      "explanation": "With 40GB and 2GB per request, the server can hold at most 20 requests concurrently. The key inefficiency is internal fragmentation: a request that only generates 200 tokens still occupies the full 2GB pre-allocated block. The other 1.8GB is wasted. PagedAttention solves this by allocating KV cache in small fixed-size pages (like OS virtual memory) only as tokens are generated: a request using 200 tokens uses approximately 200/4096 of what the pre-allocated approach would reserve. This allows significantly higher concurrency from the same VRAM budget.",
       "personas": ["senior", "sre"]
     },
     {
@@ -36,12 +36,12 @@
       "question": "A static batching system processes 8 requests together. Request durations in tokens: [50, 50, 50, 50, 50, 50, 50, 500]. The 7 short requests finish in 50 decode steps. The batch then waits another 450 steps for the long request to finish before any of the short requests are returned. What does continuous batching fix about this?",
       "options": [
         "Continuous batching splits the 500-token request across multiple GPUs so it finishes faster",
-        "In continuous batching, the 7 short requests are returned as soon as they complete (after 50 steps), and 7 new requests immediately fill their slots — they do not wait for the 500-token request; GPU utilization stays high and short requests get low latency",
+        "In continuous batching, the 7 short requests are returned as soon as they complete (after 50 steps), and 7 new requests immediately fill their slots: they do not wait for the 500-token request; GPU utilization stays high and short requests get low latency",
         "Continuous batching caches the long request's KV state so other batches can reuse it",
         "Continuous batching limits the maximum output length per request to equalize batch duration"
       ],
       "answer": 1,
-      "explanation": "Static batching holds all results until the entire batch finishes — the 7 short requests sit completed but unreturned for 450 extra steps while the one long request finishes. Continuous batching operates at the iteration level: after each decode step, requests that have generated their EOS token are removed from the batch and their results returned immediately. New requests from the waiting queue fill the freed slots in the next step. The 7 short requests return after 50 steps, 7 new requests start at step 51, and the long request continues in parallel. GPU utilization stays high because slots are never left empty while requests are waiting.",
+      "explanation": "Static batching holds all results until the entire batch finishes: the 7 short requests sit completed but unreturned for 450 extra steps while the one long request finishes. Continuous batching operates at the iteration level: after each decode step, requests that have generated their EOS token are removed from the batch and their results returned immediately. New requests from the waiting queue fill the freed slots in the next step. The 7 short requests return after 50 steps, 7 new requests start at step 51, and the long request continues in parallel. GPU utilization stays high because slots are never left empty while requests are waiting.",
       "personas": ["senior", "sre"]
     },
     {
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "A team is choosing between vLLM and llama.cpp for serving a 13B INT8 model. Their use case is a user-facing chat product with 50+ concurrent users. Which should they choose and why?",
       "options": [
-        "llama.cpp — it is simpler to operate and has lower memory overhead",
-        "vLLM — it implements PagedAttention and continuous batching optimized for high-concurrency GPU serving; llama.cpp is designed for CPU inference and single-user local deployment, not for 50+ concurrent users on GPU",
+        "llama.cpp: it is simpler to operate and has lower memory overhead",
+        "vLLM: it implements PagedAttention and continuous batching optimized for high-concurrency GPU serving; llama.cpp is designed for CPU inference and single-user local deployment, not for 50+ concurrent users on GPU",
         "Both are equivalent for GPU serving; choose based on which has better API compatibility",
-        "llama.cpp — it supports more quantization formats than vLLM"
+        "llama.cpp: it supports more quantization formats than vLLM"
       ],
       "answer": 1,
-      "explanation": "The key distinction is what each tool was designed for. vLLM was built specifically for high-throughput multi-user GPU serving — PagedAttention and continuous batching are its core differentiators. llama.cpp was designed for CPU inference and local single-user deployment; while it has GPU support (via CUDA/Metal backends), its scheduling and memory management are not optimized for 50+ concurrent users. For a production chat product with significant concurrency, vLLM (or TGI) is the appropriate choice. llama.cpp is excellent for development environments, edge devices, and single-user serving.",
+      "explanation": "The key distinction is what each tool was designed for. vLLM was built specifically for high-throughput multi-user GPU serving; PagedAttention and continuous batching are its core differentiators. llama.cpp was designed for CPU inference and local single-user deployment; while it has GPU support (via CUDA/Metal backends), its scheduling and memory management are not optimized for 50+ concurrent users. For a production chat product with significant concurrency, vLLM (or TGI) is the appropriate choice. llama.cpp is excellent for development environments, edge devices, and single-user serving.",
       "personas": ["senior", "sre"]
     },
     {
@@ -63,13 +63,13 @@
       "type": "multiple-choice",
       "question": "A model uses standard Multi-Head Attention (MHA) with 64 attention heads. A newer version of the same model uses Grouped Query Attention (GQA) with 64 query heads but only 8 key/value heads. At a batch size of 32 and 2K context, how does the KV cache size compare between the two versions?",
       "options": [
-        "The KV cache is the same size — the number of query heads doesn't affect KV cache",
-        "The GQA model has approximately 8x smaller KV cache — KV cache scales with the number of KV heads (8 vs 64), not query heads; 8 KV heads instead of 64 reduces KV cache by a factor of 8, enabling 8x higher concurrency from the same VRAM budget",
+        "The KV cache is the same size: the number of query heads doesn't affect KV cache",
+        "The GQA model has approximately 8x smaller KV cache; KV cache scales with the number of KV heads (8 vs 64), not query heads; 8 KV heads instead of 64 reduces KV cache by a factor of 8, enabling 8x higher concurrency from the same VRAM budget",
         "The GQA model has smaller KV cache only for long contexts; for short contexts they are equivalent",
         "GQA reduces compute cost but not KV cache size, since the cache stores query, key, and value tensors"
       ],
       "answer": 1,
-      "explanation": "KV cache stores key and value tensors — not query tensors. In standard MHA, each of the 64 heads has its own key and value, so the KV cache scales with 64 heads. In GQA with 8 KV heads, multiple query heads share the same key and value heads — so the KV cache only needs to store 8 sets of keys and values, not 64. The reduction is directly proportional: 8 KV heads vs 64 means the KV cache is 8x smaller at any batch size and context length. This enables dramatically higher concurrent request capacity from the same VRAM, which is a major reason why modern models like Llama-3 use GQA.",
+      "explanation": "KV cache stores key and value tensors, not query tensors. In standard MHA, each of the 64 heads has its own key and value, so the KV cache scales with 64 heads. In GQA with 8 KV heads, multiple query heads share the same key and value heads, so the KV cache only needs to store 8 sets of keys and values, not 64. The reduction is directly proportional: 8 KV heads vs 64 means the KV cache is 8x smaller at any batch size and context length. This enables dramatically higher concurrent request capacity from the same VRAM, which is a major reason why modern models like Llama-3 use GQA.",
       "personas": ["senior", "sre"]
     }
   ]

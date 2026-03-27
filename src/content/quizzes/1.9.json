@@ -1,11 +1,11 @@
 {
-  "title": "Prototype to Production Checklist — Check your understanding",
+  "title": "Prototype to Production Checklist: Check your understanding",
   "moduleId": "1.9",
   "questions": [
     {
       "id": "1.9-q1",
       "type": "multiple-choice",
-      "question": "You are preparing to launch your first AI feature. Which of the following is a P0 — must-have before launch?",
+      "question": "You are preparing to launch your first AI feature. Which of the following is a P0: must-have before launch?",
       "options": [
         "A red-team exercise completed by an external security firm",
         "Latency baselines and p95 alerting configured",
@@ -27,7 +27,7 @@
         "The eval threshold was set too low at launch"
       ],
       "answer": 1,
-      "explanation": "Self-contradiction mid-conversation is a classic symptom of context overflow — early turns (which established the facts or constraints) are being dropped as history grows. The fix is token monitoring with an alert before the limit is hit, plus a history management strategy (summarisation or sliding window) before that point.",
+      "explanation": "Self-contradiction mid-conversation is a classic symptom of context overflow: early turns (which established the facts or constraints) are being dropped as history grows. The fix is token monitoring with an alert before the limit is hit, plus a history management strategy (summarisation or sliding window) before that point.",
       "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     },
@@ -38,11 +38,11 @@
       "options": [
         "The model version was not pinned, so the provider served a different model",
         "Manual testing on three examples is not sufficient; the eval set was not run before deploying the prompt change",
-        "The system prompt should not be stored in code — it should be managed through a prompt dashboard",
+        "The system prompt should not be stored in code: it should be managed through a prompt dashboard",
         "The developer should have used a larger model to compensate for the prompt change"
       ],
       "answer": 1,
-      "explanation": "Prompts are code. A change that fixes one case can regress many others — exactly what happened here. Running the full eval set before deploying any prompt change would have caught the 91% → 68% drop before it reached users. The fix is eval in CI and treating prompt changes with the same review process as code changes.",
+      "explanation": "Prompts are code. A change that fixes one case can regress many others: exactly what happened here. Running the full eval set before deploying any prompt change would have caught the 91% → 68% drop before it reached users. The fix is eval in CI and treating prompt changes with the same review process as code changes.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -51,12 +51,12 @@
       "question": "You are building a document summarisation pipeline that runs overnight on thousands of documents. Which cost and latency optimisation applies most directly?",
       "options": [
         "Use streaming to reduce perceived latency for the overnight batch",
-        "Use the provider's batch/async API for the overnight job — most major providers offer ~50% cost reduction for asynchronous workloads",
+        "Use the provider's batch/async API for the overnight job: most major providers offer ~50% cost reduction for asynchronous workloads",
         "Pin to a frontier model to ensure the summarisation quality justifies the overnight run",
         "Set max_tokens to the context limit to ensure no document is truncated"
       ],
       "answer": 1,
-      "explanation": "Asynchronous, non-real-time workloads like overnight batch processing are exactly what batch/async APIs are designed for — major providers (Anthropic, OpenAI, and others) typically offer around 50% cost reduction in exchange for higher latency, which doesn't matter for an overnight job. Streaming is for interactive UX. Frontier models may be unnecessary (balanced models handle summarisation well). Setting max_tokens to the context limit is the wrong ceiling — set it to the expected output size.",
+      "explanation": "Asynchronous, non-real-time workloads like overnight batch processing are exactly what batch/async APIs are designed for, major providers (Anthropic, OpenAI, and others) typically offer around 50% cost reduction in exchange for higher latency, which doesn't matter for an overnight job. Streaming is for interactive UX. Frontier models may be unnecessary (balanced models handle summarisation well). Setting max_tokens to the context limit is the wrong ceiling, set it to the expected output size.",
       "read_more": "https://docs.anthropic.com/",
       "personas": ["leader", "senior", "sre"]
     },
@@ -65,13 +65,13 @@
       "type": "multiple-choice",
       "question": "Which statement best captures the relationship between the model and the production AI system that wraps it?",
       "options": [
-        "The model is the system — a better model eliminates the need for most architectural work",
+        "The model is the system: a better model eliminates the need for most architectural work",
         "The model is the smallest part of what you own; the architecture around it determines production reliability",
-        "The model and architecture are equally important — neither can compensate for deficiencies in the other",
+        "The model and architecture are equally important: neither can compensate for deficiencies in the other",
         "The architecture matters only for latency and cost; model quality determines everything else"
       ],
       "answer": 1,
-      "explanation": "A frontier model with no eval set, no error handling, no token monitoring, no guardrails, and unbounded history will fail in production. A balanced-tier model with all of those things will be reliable. The architecture — eval, observability, context management, safety, versioning — is what you own and maintain. The model is one component inside it.",
+      "explanation": "A frontier model with no eval set, no error handling, no token monitoring, no guardrails, and unbounded history will fail in production. A balanced-tier model with all of those things will be reliable. The architecture, eval, observability, context management, safety, versioning, is what you own and maintain. The model is one component inside it.",
       "personas": ["curious", "leader", "junior", "senior", "sre"]
     }
   ]

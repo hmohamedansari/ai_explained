@@ -1,7 +1,7 @@
 ---
 moduleId: "5.5"
 title: "Latency Optimization"
-description: "LLM latency has three distinct components — TTFT, TBT, and E2E — and different use cases require optimizing different ones; knowing which techniques reduce which component, and when prompt caching defeats itself, prevents wasted effort and avoids the most common serving regressions."
+description: "LLM latency has three distinct components, TTFT, TBT, and E2E, and different use cases require optimizing different ones; knowing which techniques reduce which component, and when prompt caching defeats itself, prevents wasted effort and avoids the most common serving regressions."
 track: "infrastructure"
 order: 5
 personas: ["senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Prompt caching is cache-invalidated by any change to the cached prefix — a timestamp or session ID at the start of the system prompt defeats the cache entirely. Put all static content first in the prompt (system instructions, tool definitions, documents) and all variable content last (user message, session context). Any dynamic value in the cached prefix means every request is a cache miss."
+productionGotcha: "Prompt caching is cache-invalidated by any change to the cached prefix: a timestamp or session ID at the start of the system prompt defeats the cache entirely. Put all static content first in the prompt (system instructions, tool definitions, documents) and all variable content last (user message, session context). Any dynamic value in the cached prefix means every request is a cache miss."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 LLM latency is not a single number. It has three components that matter in different ways:
 
-- **TTFT (Time to First Token)** — how long before the user sees any response. Determined by the prefill phase: how long it takes to process the input. This is what makes a chat interface feel snappy or sluggish.
-- **TBT (Time Between Tokens)** — how quickly tokens arrive after the first one. Determined by the decode phase throughput. This is what makes streaming text feel smooth or choppy.
-- **E2E (End-to-End time)** — total time from request to complete response. Relevant for batch processing and non-streaming applications.
+- **TTFT (Time to First Token)**: how long before the user sees any response. Determined by the prefill phase: how long it takes to process the input. This is what makes a chat interface feel snappy or sluggish.
+- **TBT (Time Between Tokens)**: how quickly tokens arrive after the first one. Determined by the decode phase throughput. This is what makes streaming text feel smooth or choppy.
+- **E2E (End-to-End time)**: total time from request to complete response. Relevant for batch processing and non-streaming applications.
 
-For a streaming chat interface, TTFT dominates the user experience — users will wait 2 seconds before the first word but tolerate slower subsequent tokens. For a batch pipeline that processes thousands of documents, E2E matters and TTFT is irrelevant. Knowing which component you are optimizing changes which techniques you reach for.
+For a streaming chat interface, TTFT dominates the user experience: users will wait 2 seconds before the first word but tolerate slower subsequent tokens. For a batch pipeline that processes thousands of documents, E2E matters and TTFT is irrelevant. Knowing which component you are optimizing changes which techniques you reach for.
 
 **The main levers:**
 
@@ -38,7 +38,7 @@ For a streaming chat interface, TTFT dominates the user experience — users wil
 
 ### Why it matters
 
-Latency is user experience. An application that responds in under 500ms with streaming feels qualitatively different from one that takes 3 seconds before anything appears. Beyond UX, latency determines the cost of real-time applications — lower latency means fewer idle connections, fewer timeouts, and smaller infrastructure needed to meet SLAs.
+Latency is user experience. An application that responds in under 500ms with streaming feels qualitatively different from one that takes 3 seconds before anything appears. Beyond UX, latency determines the cost of real-time applications: lower latency means fewer idle connections, fewer timeouts, and smaller infrastructure needed to meet SLAs.
 
 ### Production Gotcha
 
@@ -48,7 +48,7 @@ Latency is user experience. An application that responds in under 500ms with str
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Measuring the three latency components
 
@@ -117,7 +117,7 @@ def instrument_streaming_request(stream_fn, prompt: str) -> LatencyMeasurement:
 
 Prompt caching (supported by Anthropic, OpenAI, and most production serving frameworks) works by hashing the prefix of a prompt and checking if the KV state for that prefix is already computed. On a cache hit, the server skips the prefill computation for the cached portion.
 
-The requirement: the cached portion must be a prefix — it must start at the beginning of the prompt and extend to some fixed point. Any change to content before that point is a cache miss.
+The requirement: the cached portion must be a prefix: it must start at the beginning of the prompt and extend to some fixed point. Any change to content before that point is a cache miss.
 
 ```python
 from dataclasses import dataclass
@@ -216,13 +216,13 @@ SPECULATIVE_DECODING_WORKS_POORLY = [
 
 ### KV cache reuse and prefix sharing
 
-For applications that send many requests with the same prefix (e.g., same system prompt, same document), prefix caching at the serving layer avoids recomputing KV state for that prefix on every request. This is distinct from prompt caching at the API layer — at the serving layer, the KV tensors themselves are stored and reused.
+For applications that send many requests with the same prefix (e.g., same system prompt, same document), prefix caching at the serving layer avoids recomputing KV state for that prefix on every request. This is distinct from prompt caching at the API layer: at the serving layer, the KV tensors themselves are stored and reused.
 
 vLLM implements automatic prefix caching: if a new request begins with a prefix that matches a recently processed request, the existing KV blocks are reused rather than recomputed. This can eliminate TTFT almost entirely for requests that share a long common prefix (e.g., a 2K-token system prompt that all requests share).
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### TTFT vs TBT SLA table by use case
 
@@ -238,8 +238,8 @@ vLLM implements automatic prefix caching: if a new request begins with a prefix 
 
 Flash Attention's primary benefit is memory bandwidth reduction, which translates to latency in two ways:
 
-1. **TTFT reduction for long contexts** — standard attention on a 32K token context materializes a 32K × 32K attention matrix in HBM; Flash Attention tiles this computation to avoid the full matrix read/write, reducing prefill time significantly for long contexts.
-2. **Enabling longer contexts** — without Flash Attention, very long contexts either OOM or require chunked computation with high overhead. Flash Attention makes 100K+ token contexts practical.
+1. **TTFT reduction for long contexts**: standard attention on a 32K token context materializes a 32K × 32K attention matrix in HBM; Flash Attention tiles this computation to avoid the full matrix read/write, reducing prefill time significantly for long contexts.
+2. **Enabling longer contexts**: without Flash Attention, very long contexts either OOM or require chunked computation with high overhead. Flash Attention makes 100K+ token contexts practical.
 
 For typical short-to-medium context requests (under 4K tokens), Flash Attention's latency improvement is modest. For long-context applications, it can reduce TTFT by 50% or more.
 
@@ -264,6 +264,6 @@ Submit the grouped requests together to maximize the window during which the cac
 
 ### Further reading
 
-- [Anthropic — Prompt Caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) — Official documentation on prompt caching with Claude; explains the cache breakpoint mechanism and billing.
-- [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192) — Leviathan et al., 2023. The original speculative decoding paper; the mathematical analysis of acceptance rate and expected speedup is the foundation for all subsequent variants.
-- [Preble: Efficient Distributed Prompt Scheduling for LLM Serving](https://arxiv.org/abs/2407.00023) — Shi et al., 2024. Describes prefix-aware scheduling for distributed LLM serving; explains prefix sharing in detail.
+- [Anthropic, Prompt Caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching), Official documentation on prompt caching with Claude; explains the cache breakpoint mechanism and billing.
+- [Fast Inference from Transformers via Speculative Decoding](https://arxiv.org/abs/2211.17192); Leviathan et al., 2023. The original speculative decoding paper; the mathematical analysis of acceptance rate and expected speedup is the foundation for all subsequent variants.
+- [Preble: Efficient Distributed Prompt Scheduling for LLM Serving](https://arxiv.org/abs/2407.00023); Shi et al., 2024. Describes prefix-aware scheduling for distributed LLM serving; explains prefix sharing in detail.

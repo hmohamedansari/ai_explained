@@ -1,7 +1,7 @@
 ---
 moduleId: "3.2"
 title: "Tool Schema Design"
-description: "The schema is not documentation — it is the instruction the model reads to decide whether to call your tool and what to pass. A bad schema causes wrong tool selections, invalid arguments, and hallucinated parameter values. This module covers what separates a production schema from a prototype one."
+description: "The schema is not documentation: it is the instruction the model reads to decide whether to call your tool and what to pass. A bad schema causes wrong tool selections, invalid arguments, and hallucinated parameter values. This module covers what separates a production schema from a prototype one."
 track: "protocols"
 order: 2
 personas: ["junior", "senior", "sre"]
@@ -12,17 +12,17 @@ estimatedMinutes:
   layer1: 5
   layer2: 16
   layer3: 12
-productionGotcha: "The model reads your tool description, not your source code. If the description says 'gets user data', the model has no idea whether to use it for profile lookups, preferences, or billing records. Ambiguous descriptions cause the model to guess — and guesses drift over time as the prompt context changes. Write descriptions as if you're writing a one-sentence specification for a new engineer, not a commit message."
+productionGotcha: "The model reads your tool description, not your source code. If the description says 'gets user data', the model has no idea whether to use it for profile lookups, preferences, or billing records. Ambiguous descriptions cause the model to guess, and guesses drift over time as the prompt context changes. Write descriptions as if you're writing a one-sentence specification for a new engineer, not a commit message."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A tool schema has three parts the model directly uses:
 
-1. **Name** — how the model refers to the tool in a call
-2. **Description** — why and when to use the tool (this is the primary signal for tool selection)
-3. **Parameters** — what arguments to pass and in what shape
+1. **Name**: how the model refers to the tool in a call
+2. **Description**: why and when to use the tool (this is the primary signal for tool selection)
+3. **Parameters**: what arguments to pass and in what shape
 
 A model choosing between five tools with vague names and one-word descriptions will pick incorrectly. The same model choosing between five tools with specific names and precise descriptions will pick correctly almost every time. The schema is the prompt for tool selection.
 
@@ -55,7 +55,7 @@ A model choosing between five tools with vague names and one-word descriptions w
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Name conventions
 
@@ -68,7 +68,7 @@ Follow a `verb_noun` pattern with enough specificity to distinguish from similar
 | `update` | `update_ticket_status` | Unambiguous about what is being updated |
 | `send` | `send_slack_message` | Tool registry may contain `send_email` too |
 
-Names should be lowercase with underscores. Avoid abbreviations — `retrieve_kb_doc` is harder to reason about than `retrieve_knowledge_base_document`.
+Names should be lowercase with underscores. Avoid abbreviations: `retrieve_kb_doc` is harder to reason about than `retrieve_knowledge_base_document`.
 
 ### Description anatomy
 
@@ -206,11 +206,11 @@ schema = ListCustomerOrdersArgs.model_json_schema()
 # schema is now a valid JSON Schema dict — use directly as tool parameter schema
 ```
 
-Pydantic is not required — any library that emits JSON Schema works. The benefit: schema and implementation stay in sync because they share the same type definition.
+Pydantic is not required: any library that emits JSON Schema works. The benefit: schema and implementation stay in sync because they share the same type definition.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Schema versioning and backwards compatibility
 
@@ -258,7 +258,7 @@ def test_schema_round_trips_through_json():
 
 ### Number of tools
 
-Models handle a limited number of tools well. Beyond roughly 20–30 tools, selection accuracy degrades — the model is picking from a long menu without being able to read it all carefully. Strategies for large tool sets:
+Models handle a limited number of tools well. Beyond roughly 20–30 tools, selection accuracy degrades: the model is picking from a long menu without being able to read it all carefully. Strategies for large tool sets:
 
 - **Tool routing**: first call decides which category of tool to use, then a second call picks the specific tool from a smaller set
 - **Dynamic tool loading**: only surface tools relevant to the current conversation context
@@ -267,6 +267,6 @@ Models handle a limited number of tools well. Beyond roughly 20–30 tools, sele
 
 ### Further reading
 
-- [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling) — Practical JSON Schema examples in the context of tool calling; schema patterns transfer to any provider.
-- [JSON Schema — Structuring a complex schema](https://json-schema.org/understanding-json-schema/structuring) — `$ref`, `allOf`, `anyOf`, and composition patterns for nested parameter schemas.
-- [Pydantic documentation](https://docs.pydantic.dev/) — Type-safe Python models with automatic JSON Schema generation; the standard library for schema-first tool development in Python.
+- [OpenAI function calling guide](https://platform.openai.com/docs/guides/function-calling); Practical JSON Schema examples in the context of tool calling; schema patterns transfer to any provider.
+- [JSON Schema, Structuring a complex schema](https://json-schema.org/understanding-json-schema/structuring), `$ref`, `allOf`, `anyOf`, and composition patterns for nested parameter schemas.
+- [Pydantic documentation](https://docs.pydantic.dev/); Type-safe Python models with automatic JSON Schema generation; the standard library for schema-first tool development in Python.

@@ -1,7 +1,7 @@
 ---
 moduleId: "1.1"
 title: "What is an LLM?"
-description: "Large Language Models are stateless text-transformation functions — they take text in and return text out, with no memory between calls. Understanding this one fact shapes every architectural decision you'll make with AI."
+description: "Large Language Models are stateless text-transformation functions: they take text in and return text out, with no memory between calls. Understanding this one fact shapes every architectural decision you'll make with AI."
 track: "foundations"
 order: 1
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 8
   layer2: 15
   layer3: 20
-productionGotcha: "Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input — your prompt, system message, conversation history, and retrieved documents all count against the same limit. Systems that ignore this silently degrade or error when inputs grow."
+productionGotcha: "Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input: your prompt, system message, conversation history, and retrieved documents all count against the same limit. Systems that ignore this silently degrade or error when inputs grow."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An LLM is a **stateless function** that takes text in and returns text out.
 
-That's it. No memory between calls. No internal database. No understanding. It is a mathematical function — trained on enormous amounts of text — that predicts what text should come next given the text it received. Every decision you make about LLM architecture flows from this single fact.
+That's it. No memory between calls. No internal database. No understanding. It is a mathematical function, trained on enormous amounts of text, that predicts what text should come next given the text it received. Every decision you make about LLM architecture flows from this single fact.
 
 Think of it like a **pure function in a microservice**: same input, roughly same output, no side effects, no persistent state. The model was trained once; the weights are frozen. At runtime it applies those weights to whatever input you give it.
 
@@ -28,36 +28,36 @@ It does **not**:
 
 - Store your previous conversations (unless you send them back in)
 - Query a database or look anything up
-- "Think" in the way humans do — it produces text that *looks* like reasoning because reasoning-shaped text was in its training data
+- "Think" in the way humans do: it produces text that *looks* like reasoning because reasoning-shaped text was in its training data
 - Learn from your usage
 
 ### Why it matters
 
-If someone on your team says "the LLM will remember that from last time" or "it knows our codebase," they are wrong — unless your system explicitly passes that context in every single call. There is no implicit memory. This is the constraint that shapes your entire retrieval and context-management architecture.
+If someone on your team says "the LLM will remember that from last time" or "it knows our codebase," they are wrong: unless your system explicitly passes that context in every single call. There is no implicit memory. This is the constraint that shapes your entire retrieval and context-management architecture.
 
 ### Production Gotcha
 
-> **Common Gotcha:** Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input — your prompt, system message, conversation history, and retrieved documents all count against the same limit.
+> **Common Gotcha:** Token counts include both your input AND the model's output. A 128K context window isn't 128K tokens of input: your prompt, system message, conversation history, and retrieved documents all count against the same limit.
 >
 > Teams hit this when a feature works fine in testing (small inputs) but silently degrades or throws context-limit errors in production as conversation history accumulates. The fix is to track token usage from day one and implement context-trimming or summarisation before you need it.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The four concepts that drive every decision
 
-**Tokens — the unit of work.** LLMs don't read words. They read tokens — chunks roughly three-quarters of an English word. "Unbelievable" is three tokens. A 10-page document is ~3,000 tokens. You are billed per token, both input and output. Token efficiency is cost efficiency.
+**Tokens, the unit of work.** LLMs don't read words. They read tokens, chunks roughly three-quarters of an English word. "Unbelievable" is three tokens. A 10-page document is ~3,000 tokens. You are billed per token, both input and output. Token efficiency is cost efficiency.
 
-**Context window — the working memory constraint.** The context window is the total number of tokens the model can see in a single call. Modern models range from 128K to 1M+ tokens. Anything outside the window might as well not exist.
+**Context window: the working memory constraint.** The context window is the total number of tokens the model can see in a single call. Modern models range from 128K to 1M+ tokens. Anything outside the window might as well not exist.
 
-**Temperature — the creativity dial.** Temperature (0.0–2.0) controls randomness. At 0, the model picks the most probable next token. At higher values it explores less-probable options — more creative, more likely to hallucinate. Use low temperature for code and data extraction; higher for brainstorming.
+**Temperature, the creativity dial.** Temperature (0.0–2.0) controls randomness. At 0, the model picks the most probable next token. At higher values it explores less-probable options, more creative, more likely to hallucinate. Use low temperature for code and data extraction; higher for brainstorming.
 
-**Inference — the runtime cost model.** Training is the one-time cost of creating the model. Inference is the ongoing cost every time someone uses it. Each API call bills you for tokens in + tokens out. Unlike per-seat SaaS, costs scale with usage and request size — budget and monitor from day one.
+**Inference, the runtime cost model.** Training is the one-time cost of creating the model. Inference is the ongoing cost every time someone uses it. Each API call bills you for tokens in + tokens out. Unlike per-seat SaaS, costs scale with usage and request size, budget and monitor from day one.
 
 ### Step-by-step: your first API call
 
-Here's the pattern in provider-neutral pseudocode, followed by a concrete implementation. Every major provider follows the same basic shape — messages array, system instruction, response text — with slightly different field names.
+Here's the pattern in provider-neutral pseudocode, followed by a concrete implementation. Every major provider follows the same basic shape, messages array, system instruction, response text, with slightly different field names.
 
 ```python
 # --- pseudocode: works with any provider ---
@@ -73,7 +73,7 @@ print(response.text)            # field name varies by SDK — see provider tabl
 print(f"Tokens used: {response.usage.total}")
 ```
 
-**In practice — Anthropic SDK:**
+**In practice: Anthropic SDK:**
 
 ```python
 import anthropic
@@ -117,7 +117,7 @@ def chat(user_message: str, max_context_tokens: int = 100_000) -> str:
     return reply
 ```
 
-**In practice — Anthropic SDK:**
+**In practice: Anthropic SDK:**
 
 ```python
 import anthropic
@@ -161,7 +161,7 @@ print(reply)
 
 ### Before vs. After
 
-**Naive approach — context blindness:**
+**Naive approach: context blindness:**
 ```python
 # BAD: Dumps entire codebase into every request
 # Silently hits context limits; expensive; slow
@@ -169,7 +169,7 @@ context = read_entire_codebase()  # Could be millions of tokens
 response = llm.call(f"{context}\n\nAnswer: {user_question}")
 ```
 
-**Better approach — selective retrieval:**
+**Better approach: selective retrieval:**
 ```python
 # GOOD: Retrieve only the relevant chunks
 relevant_chunks = vector_search(user_question, top_k=5)
@@ -179,14 +179,14 @@ response = llm.call(f"{context}\n\nAnswer: {user_question}")
 
 ### Common mistakes
 
-1. **Assuming memory** — Calling the API twice and expecting the second call to know about the first.
-2. **Ignoring output tokens** — Budgeting only for input tokens and getting surprised by cost.
-3. **Single temperature everywhere** — Using the same temperature for both creative writing and data extraction.
-4. **No usage monitoring** — Discovering costs and context limits the hard way in production.
+1. **Assuming memory**: Calling the API twice and expecting the second call to know about the first.
+2. **Ignoring output tokens**: Budgeting only for input tokens and getting surprised by cost.
+3. **Single temperature everywhere**: Using the same temperature for both creative writing and data extraction.
+4. **No usage monitoring**: Discovering costs and context limits the hard way in production.
 
 ### Provider SDK quick reference
 
-The pseudocode above uses a simplified interface. Here's how those concepts map to the major SDKs — pick whichever matches your stack:
+The pseudocode above uses a simplified interface. Here's how those concepts map to the major SDKs: pick whichever matches your stack:
 
 | | Anthropic | OpenAI | Google Gemini |
 |---|---|---|---|
@@ -199,19 +199,19 @@ The pseudocode above uses a simplified interface. Here's how those concepts map 
 | **Output tokens** | `response.usage.output_tokens` | `response.usage.completion_tokens` | `response.usage_metadata.candidates_token_count` |
 | **Stop signal** | `response.stop_reason` | `response.choices[0].finish_reason` | `response.candidates[0].finish_reason` |
 
-Anthropic and OpenAI share a `messages`-style conversation format — `[{"role": "user"/"assistant", "content": "..."}]`. Gemini's SDK uses a different shape: the parameter is `contents`, roles are `"user"` and `"model"` (not `"assistant"`), and content lives in `parts`. The concepts are the same; the field names aren't. Later modules will reference this table rather than repeating it.
+Anthropic and OpenAI share a `messages`-style conversation format: `[{"role": "user"/"assistant", "content": "..."}]`. Gemini's SDK uses a different shape: the parameter is `contents`, roles are `"user"` and `"model"` (not `"assistant"`), and content lives in `parts`. The concepts are the same; the field names aren't. Later modules will reference this table rather than repeating it.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Architecture analysis
 
-The transformer architecture that underlies LLMs (Vaswani et al., 2017) uses self-attention to build relationships between all tokens in the input simultaneously, rather than processing them sequentially. This is why context window size matters structurally — the attention computation is quadratic in sequence length.
+The transformer architecture that underlies LLMs (Vaswani et al., 2017) uses self-attention to build relationships between all tokens in the input simultaneously, rather than processing them sequentially. This is why context window size matters structurally: the attention computation is quadratic in sequence length.
 
-The "stateless function" property is not a limitation of current models — it is a deliberate design constraint that makes LLMs horizontally scalable. A stateful model would require session affinity, distributed state management, and complex coordination between replicas. Statelessness means any instance can handle any request, enabling the elastic infrastructure that makes cloud-hosted inference economically viable.
+The "stateless function" property is not a limitation of current models: it is a deliberate design constraint that makes LLMs horizontally scalable. A stateful model would require session affinity, distributed state management, and complex coordination between replicas. Statelessness means any instance can handle any request, enabling the elastic infrastructure that makes cloud-hosted inference economically viable.
 
-Temperature controls the sharpness of the probability distribution over next tokens. At temperature 0 it becomes a hard argmax (deterministic). At temperature 1 it samples from the raw distribution. Above 1 it flattens the distribution, making low-probability tokens more likely — useful for creative tasks but harmful for factual retrieval.
+Temperature controls the sharpness of the probability distribution over next tokens. At temperature 0 it becomes a hard argmax (deterministic). At temperature 1 it samples from the raw distribution. Above 1 it flattens the distribution, making low-probability tokens more likely: useful for creative tasks but harmful for factual retrieval.
 
 ### Production failure modes
 
@@ -219,13 +219,13 @@ Temperature controls the sharpness of the probability distribution over next tok
 
 **Temperature misconfiguration.** A single global temperature setting causes subtle quality problems: hallucinations in structured extraction tasks; overly conservative outputs in creative tasks. Fix: configure temperature per use case; default to 0.0 for anything requiring accuracy.
 
-**Model-as-oracle assumption.** Teams build systems that trust LLM output without validation — particularly dangerous for arithmetic, dates, and citations. Fix: layer structured output parsing (JSON schema validation), domain-specific checks, and retrieval-backed verification on top of LLM generation.
+**Model-as-oracle assumption.** Teams build systems that trust LLM output without validation: particularly dangerous for arithmetic, dates, and citations. Fix: layer structured output parsing (JSON schema validation), domain-specific checks, and retrieval-backed verification on top of LLM generation.
 
 **Cost spikes from unbounded output.** Not setting `max_tokens` appropriately means a single malformed prompt can trigger a very long (and expensive) completion. Fix: always set a `max_tokens` ceiling appropriate to the task; monitor p99 output token counts.
 
 ### Further reading
 
-- [Attention Is All You Need](https://arxiv.org/abs/1706.03762) — Vaswani et al., 2017. The paper that introduced the transformer architecture all modern LLMs are built on.
-- [Language Models are Few-Shot Learners (GPT-3)](https://arxiv.org/abs/2005.14165) — Brown et al., 2020. The paper that demonstrated emergent few-shot capabilities at scale.
-- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — Kaplan et al., 2020. Explains how model capability scales with parameters, data, and compute — useful for understanding why bigger models cost more and what you get for it.
-- [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat) / [Anthropic API reference](https://docs.anthropic.com/en/api/messages) / [Google Gemini API reference](https://ai.google.dev/api/generate-content) — Each provider's reference for the `messages` call, usage fields, and model parameters. Check your provider's docs for current field names.
+- [Attention Is All You Need](https://arxiv.org/abs/1706.03762); Vaswani et al., 2017. The paper that introduced the transformer architecture all modern LLMs are built on.
+- [Language Models are Few-Shot Learners (GPT-3)](https://arxiv.org/abs/2005.14165); Brown et al., 2020. The paper that demonstrated emergent few-shot capabilities at scale.
+- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361), Kaplan et al., 2020. Explains how model capability scales with parameters, data, and compute, useful for understanding why bigger models cost more and what you get for it.
+- [OpenAI API reference](https://platform.openai.com/docs/api-reference/chat) / [Anthropic API reference](https://docs.anthropic.com/en/api/messages) / [Google Gemini API reference](https://ai.google.dev/api/generate-content); Each provider's reference for the `messages` call, usage fields, and model parameters. Check your provider's docs for current field names.

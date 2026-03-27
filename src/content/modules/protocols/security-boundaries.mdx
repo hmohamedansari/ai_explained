@@ -1,7 +1,7 @@
 ---
 moduleId: "3.6"
 title: "Security Boundaries"
-description: "Tools give models real capabilities — which means tool-using systems inherit the security risks of real software plus some new ones specific to AI. Prompt injection, over-privileged tools, and undelimited external content are the three failure modes that show up first. This module covers the boundaries that need to exist."
+description: "Tools give models real capabilities: which means tool-using systems inherit the security risks of real software plus some new ones specific to AI. Prompt injection, over-privileged tools, and undelimited external content are the three failure modes that show up first. This module covers the boundaries that need to exist."
 track: "protocols"
 order: 6
 personas: ["junior", "senior", "sre"]
@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 6
   layer2: 16
   layer3: 14
-productionGotcha: "A tool that reads user-controlled content — emails, web pages, database records, uploaded files — and returns that content as raw text to the model is a prompt injection vector. The content can contain instructions that redirect the model's behavior. Always delimit external content with explicit tags and instruct the model to treat it as data, not instructions. This is not optional for any system that reads untrusted content."
+productionGotcha: "A tool that reads user-controlled content, emails, web pages, database records, uploaded files, and returns that content as raw text to the model is a prompt injection vector. The content can contain instructions that redirect the model's behavior. Always delimit external content with explicit tags and instruct the model to treat it as data, not instructions. This is not optional for any system that reads untrusted content."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Tool-using models have real capabilities: they can read data, write records, send messages, call APIs. A security failure in a tool-using system is not just a wrong answer — it can be a data leak, an unauthorised action, or a manipulated workflow.
+Tool-using models have real capabilities: they can read data, write records, send messages, call APIs. A security failure in a tool-using system is not just a wrong answer: it can be a data leak, an unauthorised action, or a manipulated workflow.
 
 **Three distinct attack surfaces:**
 
@@ -32,11 +32,11 @@ Each of these has a structural fix that applies regardless of which model or API
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Delimiting untrusted content
 
-Any data that comes from outside your system — user uploads, web pages, API responses, database records filled by users — must be clearly delimited before it reaches the model:
+Any data that comes from outside your system, user uploads, web pages, API responses, database records filled by users, must be clearly delimited before it reaches the model:
 
 ```python
 # Bad — untrusted content is indistinguishable from instructions
@@ -132,7 +132,7 @@ def build_prompt(user_question: str, retrieved_docs: list[dict]) -> tuple[str, s
 
 ### Input validation before tool execution
 
-Validate tool arguments before executing — don't trust that the model always produces valid input:
+Validate tool arguments before executing: don't trust that the model always produces valid input:
 
 ```python
 def execute_tool_safely(name: str, arguments: dict, user_id: str) -> str:
@@ -188,7 +188,7 @@ def call_webhook(url: str, payload: dict) -> str:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Indirect prompt injection
 
@@ -202,7 +202,7 @@ Common vectors:
 - Database records filled by other users
 - Git commit messages
 
-The model reads this content and may treat it as instructions. The fix is consistent — delimit all external content and instruct the model to ignore instructions within delimiters.
+The model reads this content and may treat it as instructions. The fix is consistent: delimit all external content and instruct the model to ignore instructions within delimiters.
 
 Example of what an attacker embeds in a publicly accessible web page they know your agent will visit:
 
@@ -249,9 +249,9 @@ def audited_tool_call(tool_name: str, arguments: dict, user_id: str, session_id:
     return result
 ```
 
-Audit logs are the record of what the model actually did — essential for incident investigation and for detecting injection attempts (look for tool calls with unexpected argument values).
+Audit logs are the record of what the model actually did: essential for incident investigation and for detecting injection attempts (look for tool calls with unexpected argument values).
 
-### OWASP LLM Top 10 — most relevant to tool-using systems
+### OWASP LLM Top 10: most relevant to tool-using systems
 
 | Item | Relevance to tools |
 |---|---|
@@ -265,6 +265,6 @@ Design principle: a model with tools is an automated agent acting on behalf of a
 
 ### Further reading
 
-- [OWASP LLM Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — The definitive threat taxonomy for LLM applications; LLM01 (prompt injection) and LLM06 (excessive agency) are directly relevant to tool use.
-- [Prompt Injection Attacks Against LLMs — Perez & Ribeiro](https://arxiv.org/abs/2211.09527) — 2022. Early empirical study establishing the direct prompt injection attack surface; the patterns identified remain current.
-- [Not What You've Signed Up For — Greshake et al.](https://arxiv.org/abs/2302.12173) — 2023. Analysis of indirect injection via retrieved content, with specific examples of web-browsing and email-reading agents being hijacked.
+- [OWASP LLM Top 10](https://owasp.org/www-project-top-10-for-large-language-model-applications/); The definitive threat taxonomy for LLM applications; LLM01 (prompt injection) and LLM06 (excessive agency) are directly relevant to tool use.
+- [Prompt Injection Attacks Against LLMs, Perez & Ribeiro](https://arxiv.org/abs/2211.09527), 2022. Early empirical study establishing the direct prompt injection attack surface; the patterns identified remain current.
+- [Not What You've Signed Up For, Greshake et al.](https://arxiv.org/abs/2302.12173), 2023. Analysis of indirect injection via retrieved content, with specific examples of web-browsing and email-reading agents being hijacked.

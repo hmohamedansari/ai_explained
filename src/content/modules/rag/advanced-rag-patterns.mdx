@@ -1,7 +1,7 @@
 ---
 moduleId: "2.7"
 title: "Advanced RAG Patterns"
-description: "Basic RAG fails when queries are vague, answers span multiple documents, or context evolves across a conversation. Four patterns — multi-query retrieval, HyDE, contextual retrieval, and small-to-big — each fix a specific retrieval failure mode. Know which failure you have before reaching for a pattern."
+description: "Basic RAG fails when queries are vague, answers span multiple documents, or context evolves across a conversation. Four patterns, multi-query retrieval, HyDE, contextual retrieval, and small-to-big, each fix a specific retrieval failure mode. Know which failure you have before reaching for a pattern."
 track: "rag"
 order: 7
 personas: ["junior", "senior", "sre"]
@@ -12,31 +12,31 @@ estimatedMinutes:
   layer1: 6
   layer2: 17
   layer3: 20
-productionGotcha: "Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval begins. Always measure p50/p95 latency impact before enabling a pattern in production — the quality gain may not justify the cost for interactive applications. Start with basic RAG, measure where it fails, then reach for the appropriate pattern."
+productionGotcha: "Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval begins. Always measure p50/p95 latency impact before enabling a pattern in production: the quality gain may not justify the cost for interactive applications. Start with basic RAG, measure where it fails, then reach for the appropriate pattern."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Basic RAG — embed the query, find similar chunks, pass them to the model — fails in predictable ways:
+Basic RAG, embed the query, find similar chunks, pass them to the model, fails in predictable ways:
 
 | Failure mode | Symptom | Pattern that fixes it |
 |---|---|---|
-| Query is vague or phrased differently from the documents | Low recall — right document isn't in top-k | **Multi-query retrieval** |
-| Query is abstract; documents are concrete | Low recall — semantic gap between question and answer | **HyDE** (Hypothetical Document Embeddings) |
+| Query is vague or phrased differently from the documents | Low recall: right document isn't in top-k | **Multi-query retrieval** |
+| Query is abstract; documents are concrete | Low recall: semantic gap between question and answer | **HyDE** (Hypothetical Document Embeddings) |
 | Right chunk is retrieved but lacks surrounding context | Model says "I don't have enough information" despite correct retrieval | **Small-to-big retrieval** |
-| Similar chunk embeddings regardless of topic distinction | Low precision — chunks from unrelated topics are retrieved | **Contextual retrieval** |
-| User references earlier conversation turns | Wrong chunks — retrieval ignores conversation context | **Conversational RAG** |
+| Similar chunk embeddings regardless of topic distinction | Low precision: chunks from unrelated topics are retrieved | **Contextual retrieval** |
+| User references earlier conversation turns | Wrong chunks: retrieval ignores conversation context | **Conversational RAG** |
 
 The principle: diagnose the failure mode first, then apply the pattern. Adding complexity without a measured problem to solve costs latency without a quality payoff.
 
 ### Production Gotcha
 
-> **Common Gotcha:** Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval. Always measure p50/p95 latency impact before enabling a pattern — start with basic RAG, measure where it fails, then reach for the appropriate fix.
+> **Common Gotcha:** Advanced retrieval patterns multiply latency. Multi-query retrieval makes N embedding calls and N database searches per user query. HyDE adds a full generation round-trip before retrieval. Always measure p50/p95 latency impact before enabling a pattern: start with basic RAG, measure where it fails, then reach for the appropriate fix.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Multi-query retrieval
 
@@ -76,9 +76,9 @@ def multi_query_retrieve(query: str, top_k: int = 5) -> list[dict]:
 
 **Latency cost:** 1 extra LLM call to generate N query variations, then N embedding calls and N vector searches (all of which can run in parallel). Use a fast model for variation generation; cache common query expansions if traffic patterns repeat.
 
-### HyDE — Hypothetical Document Embeddings
+### HyDE: Hypothetical Document Embeddings
 
-Standard RAG embeds the question. But questions and their answers often look different in embedding space — "How do I configure the firewall?" sits far from "Set `FIREWALL_POLICY=strict` in `/etc/config`."
+Standard RAG embeds the question. But questions and their answers often look different in embedding space: "How do I configure the firewall?" sits far from "Set `FIREWALL_POLICY=strict` in `/etc/config`."
 
 HyDE generates a plausible answer first, then embeds *that* and uses it to retrieve similar documents:
 
@@ -104,11 +104,11 @@ def hyde_retrieve(query: str, top_k: int = 5) -> list[dict]:
     return vector_db.search(vector=hypothesis_vector, top_k=top_k)
 ```
 
-**Why it works:** the hypothesis is in "answer space" — the same embedding neighbourhood as real documents that contain the answer. Embedding the question puts you in "question space," which may be distant from "answer space" for factual lookups.
+**Why it works:** the hypothesis is in "answer space": the same embedding neighbourhood as real documents that contain the answer. Embedding the question puts you in "question space," which may be distant from "answer space" for factual lookups.
 
 **When to use:** abstract or high-level queries against technical or procedural documentation. Less useful when queries and documents share similar vocabulary.
 
-**Latency cost:** one extra LLM call (hypothesis generation) before any retrieval. Keep `max_tokens` low — a 100-token hypothesis is usually sufficient.
+**Latency cost:** one extra LLM call (hypothesis generation) before any retrieval. Keep `max_tokens` low: a 100-token hypothesis is usually sufficient.
 
 ### Small-to-big retrieval (parent-child chunks)
 
@@ -157,7 +157,7 @@ def small_to_big_retrieve(query: str, top_k: int = 5) -> list[str]:
 
 ### Contextual retrieval
 
-A technique for improving chunk embeddings by prepending a document-aware summary to each chunk before embedding it. Without context, a chunk like "The maximum value is 100." is ambiguous — 100 of what, in what system, compared to what baseline?
+A technique for improving chunk embeddings by prepending a document-aware summary to each chunk before embedding it. Without context, a chunk like "The maximum value is 100." is ambiguous: 100 of what, in what system, compared to what baseline?
 
 ```python
 # --- pseudocode ---
@@ -226,15 +226,15 @@ This avoids the failure mode where a bare "What about enterprise?" retrieves not
 
 ### Common mistakes
 
-1. **Adding patterns without measuring the failure** — Multi-query retrieval adds latency even when your recall is already 0.92. Measure recall@k first; only add patterns when it's below your threshold.
-2. **HyDE hypothesis too long** — A 500-token hypothesis drifts from the original intent and retrieves tangentially related documents. Keep hypotheses to 100–200 tokens.
-3. **Small-to-big without deduplication** — Multiple children pointing to the same parent will cause the parent to be retrieved multiple times. Deduplicate by parent ID before expanding.
-4. **Contextual retrieval at query time** — Contextualising chunks is an indexing cost, not a query cost. Running it at query time for every retrieved chunk multiplies latency by the number of chunks.
-5. **Conversational RAG with full history** — Condensing a 20-turn history into a retrieval query produces poor results. Summarise history periodically (module 1.6) or use only the last 3–5 turns for condensation.
+1. **Adding patterns without measuring the failure**: Multi-query retrieval adds latency even when your recall is already 0.92. Measure recall@k first; only add patterns when it's below your threshold.
+2. **HyDE hypothesis too long**: A 500-token hypothesis drifts from the original intent and retrieves tangentially related documents. Keep hypotheses to 100–200 tokens.
+3. **Small-to-big without deduplication**: Multiple children pointing to the same parent will cause the parent to be retrieved multiple times. Deduplicate by parent ID before expanding.
+4. **Contextual retrieval at query time**: Contextualising chunks is an indexing cost, not a query cost. Running it at query time for every retrieved chunk multiplies latency by the number of chunks.
+5. **Conversational RAG with full history**: Condensing a 20-turn history into a retrieval query produces poor results. Summarise history periodically (module 1.6) or use only the last 3–5 turns for condensation.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Self-RAG and corrective RAG
 
@@ -273,13 +273,13 @@ Each pattern has a latency cost. Here's an approximate ordering for an interacti
 | + Re-ranking | +50–200ms (cross-encoder inference) | Only re-rank top-20, not top-100 |
 | + Multi-query (N=3) | +3× embedding + search time | Parallelise; cache variations |
 | + HyDE | +300–1000ms (generation round-trip) | Use fast model; cache by query |
-| + Contextual retrieval | Indexing cost only — no query latency | Run offline |
+| + Contextual retrieval | Indexing cost only: no query latency | Run offline |
 
 Contextual retrieval is unique: all the cost is at index time. It's the best latency/quality tradeoff among the advanced patterns.
 
 ### Further reading
 
-- [Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)](https://arxiv.org/abs/2212.10496) — Gao et al., 2022. The paper introducing Hypothetical Document Embeddings; explains why answer-space embeddings outperform question-space embeddings for dense retrieval.
-- [Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection](https://arxiv.org/abs/2310.11511) — Asai et al., 2023. Selective retrieval with self-critique; foundational for understanding when to retrieve vs when to answer from training.
-- [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884) — Yan et al., 2024. Adding a retrieval evaluator to filter irrelevant chunks before generation.
-- [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) [Anthropic] — Anthropic's write-up and evaluation of contextual chunk enrichment; the benchmark data showing recall improvement is useful regardless of which provider you use.
+- [Precise Zero-Shot Dense Retrieval without Relevance Labels (HyDE)](https://arxiv.org/abs/2212.10496); Gao et al., 2022. The paper introducing Hypothetical Document Embeddings; explains why answer-space embeddings outperform question-space embeddings for dense retrieval.
+- [Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection](https://arxiv.org/abs/2310.11511); Asai et al., 2023. Selective retrieval with self-critique; foundational for understanding when to retrieve vs when to answer from training.
+- [Corrective Retrieval Augmented Generation](https://arxiv.org/abs/2401.15884); Yan et al., 2024. Adding a retrieval evaluator to filter irrelevant chunks before generation.
+- [Contextual Retrieval](https://www.anthropic.com/news/contextual-retrieval) [Anthropic]; Anthropic's write-up and evaluation of contextual chunk enrichment; the benchmark data showing recall improvement is useful regardless of which provider you use.

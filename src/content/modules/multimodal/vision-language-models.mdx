@@ -1,7 +1,7 @@
 ---
 moduleId: "9.1"
 title: "How Vision-Language Models Work"
-description: "A vision-language model (VLM) combines a visual encoder with a language model — images are converted to token-like embeddings and fed directly into the same context window as text. Understanding this architecture explains why images cost more tokens than they appear to, and why resolution and tiling choices matter in production."
+description: "A vision-language model (VLM) combines a visual encoder with a language model: images are converted to token-like embeddings and fed directly into the same context window as text. Understanding this architecture explains why images cost more tokens than they appear to, and why resolution and tiling choices matter in production."
 track: "multimodal"
 order: 1
 personas: ["senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Image token cost is non-obvious — a single high-resolution image can consume as many context tokens as several paragraphs of text, and many API pricing pages quote 'per image' rather than per token. Always test token consumption with your actual image sizes and resolution settings before estimating production costs."
+productionGotcha: "Image token cost is non-obvious: a single high-resolution image can consume as many context tokens as several paragraphs of text, and many API pricing pages quote 'per image' rather than per token. Always test token consumption with your actual image sizes and resolution settings before estimating production costs."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-A vision-language model (VLM) is not a separate kind of AI — it is a language model that has been given eyes. The architecture has three parts working in sequence: a visual encoder that converts an image into a list of numerical embeddings, a projection layer that maps those embeddings into the same token-like format the language model already understands, and the language model itself, which processes image embeddings and text tokens together as a single sequence.
+A vision-language model (VLM) is not a separate kind of AI: it is a language model that has been given eyes. The architecture has three parts working in sequence: a visual encoder that converts an image into a list of numerical embeddings, a projection layer that maps those embeddings into the same token-like format the language model already understands, and the language model itself, which processes image embeddings and text tokens together as a single sequence.
 
-The visual encoder is typically a Vision Transformer (ViT), which works by splitting an image into a grid of fixed-size patches — say, 16×16 pixels per patch — and treating each patch like a token. A 512×512 image with 16×16 patches produces a 32×32 grid of 1024 patch embeddings before any tiling or compression is applied.
+The visual encoder is typically a Vision Transformer (ViT), which works by splitting an image into a grid of fixed-size patches, say, 16×16 pixels per patch, and treating each patch like a token. A 512×512 image with 16×16 patches produces a 32×32 grid of 1024 patch embeddings before any tiling or compression is applied.
 
-The key insight from CLIP (Contrastive Language-Image Pre-training, 2021) is that image and text embeddings can be trained to occupy the same geometric space, so that a photo of a dog and the text "a dog" end up near each other in embedding space. This contrastive alignment is what lets a language model reason meaningfully about image content — it was taught that images and their descriptions belong together.
+The key insight from CLIP (Contrastive Language-Image Pre-training, 2021) is that image and text embeddings can be trained to occupy the same geometric space, so that a photo of a dog and the text "a dog" end up near each other in embedding space. This contrastive alignment is what lets a language model reason meaningfully about image content: it was taught that images and their descriptions belong together.
 
-What this means in practice: images consume context-window space. Depending on the model's tiling strategy and resolution settings, a single image may consume anywhere from 256 to over 1500 tokens. High-resolution mode — where the image is split into multiple tiles and each tile is independently encoded — can multiply this cost several times over.
+What this means in practice: images consume context-window space. Depending on the model's tiling strategy and resolution settings, a single image may consume anywhere from 256 to over 1500 tokens. High-resolution mode, where the image is split into multiple tiles and each tile is independently encoded, can multiply this cost several times over.
 
 ### Why it matters
 
@@ -38,11 +38,11 @@ If you treat images as "free" additions to a prompt, you will be surprised by la
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The three-part VLM architecture in code
 
-The following pseudocode models the flow through a VLM at inference time. Real APIs abstract this entirely — you submit an image URL or base64 payload — but understanding the pipeline helps reason about latency and cost.
+The following pseudocode models the flow through a VLM at inference time. Real APIs abstract this entirely, you submit an image URL or base64 payload, but understanding the pipeline helps reason about latency and cost.
 
 ```python
 from dataclasses import dataclass
@@ -200,7 +200,7 @@ def compare_resolution_modes(image_path: str, question: str) -> dict:
 
 ### Understanding CLIP alignment
 
-The reason VLMs can understand images at all is contrastive pre-training. CLIP trains two encoders — one for images, one for text — by pulling together embeddings of matching image-text pairs and pushing apart non-matching pairs. After training, "a golden retriever playing fetch" and a photo of a dog playing fetch embed near each other.
+The reason VLMs can understand images at all is contrastive pre-training. CLIP trains two encoders, one for images, one for text, by pulling together embeddings of matching image-text pairs and pushing apart non-matching pairs. After training, "a golden retriever playing fetch" and a photo of a dog playing fetch embed near each other.
 
 ```python
 def clip_similarity_concept(image_embedding: list[float], text_embedding: list[float]) -> float:
@@ -279,13 +279,13 @@ def extract_document_text(image_path: str) -> str:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### ViT architecture and patch tokenisation
 
 The Vision Transformer (ViT) was introduced by Dosovitskiy et al. (2020) as a direct application of the transformer architecture to images. Unlike CNNs that use convolution to hierarchically extract features, ViT splits the image into non-overlapping patches, linearly embeds each patch, and processes the resulting sequence with standard transformer attention.
 
-The patch embedding dimension is fixed (typically 768 or 1024), so a 14×14 patch of pixels becomes a 1024-dimensional vector. This is the "image token" — structurally identical to a text token from the language model's perspective once the projection layer has mapped it into the language model's token space.
+The patch embedding dimension is fixed (typically 768 or 1024), so a 14×14 patch of pixels becomes a 1024-dimensional vector. This is the "image token": structurally identical to a text token from the language model's perspective once the projection layer has mapped it into the language model's token space.
 
 ### Tiling and resolution strategies
 
@@ -296,14 +296,14 @@ The patch embedding dimension is fixed (typically 768 or 1024), so a 14×14 patc
 | High / tiled | Image split into NxN tiles (N up to 6), each encoded independently | 768–2048+ tokens | Document OCR, fine text, small objects |
 | Dynamic tiling | Tile count determined by native aspect ratio | Varies by content | Best quality-cost balance |
 
-Dynamic tiling, used by several current VLMs, selects tile count based on the image's aspect ratio and content — tall narrow images get fewer tiles than wide panoramas of the same pixel count. This is more efficient than fixed-tile strategies but makes token counts harder to predict in advance.
+Dynamic tiling, used by several current VLMs, selects tile count based on the image's aspect ratio and content: tall narrow images get fewer tiles than wide panoramas of the same pixel count. This is more efficient than fixed-tile strategies but makes token counts harder to predict in advance.
 
 ### The projection layer and token space
 
 The projection layer (sometimes called a connector or adapter) is where the image encoder's output is mapped into the language model's embedding space. Common approaches include:
 
 - **Linear projection**: simple matrix multiplication of each patch embedding into LLM token dimension. Fast but less expressive.
-- **MLP resampler (Q-Former, Perceiver Resampler)**: a cross-attention module that reduces a variable number of patch embeddings to a fixed number of output tokens. This decouples image resolution from context cost — you always pay a fixed token count regardless of input resolution.
+- **MLP resampler (Q-Former, Perceiver Resampler)**: a cross-attention module that reduces a variable number of patch embeddings to a fixed number of output tokens. This decouples image resolution from context cost: you always pay a fixed token count regardless of input resolution.
 
 The tradeoff: linear projection preserves all spatial information but costs more tokens; Perceiver-style resampling is cheaper but compresses information.
 
@@ -316,11 +316,11 @@ The tradeoff: linear projection preserves all spatial information but costs more
 | GPT-4V / GPT-4o | Undisclosed | Undisclosed | 85–1500+ (detail-dependent) |
 | Gemini | Native multimodal | Integrated | Variable |
 
-Model capabilities evolve quickly — check the model's current documentation for precise token budgets before production capacity planning. These figures represent published snapshots that may not reflect current versions.
+Model capabilities evolve quickly: check the model's current documentation for precise token budgets before production capacity planning. These figures represent published snapshots that may not reflect current versions.
 
 ### Further reading
 
-- [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929) — Dosovitskiy et al., 2020. The original ViT paper; explains the patch embedding architecture that underpins virtually all modern visual encoders.
-- [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020) — Radford et al., 2021. The CLIP paper; the contrastive alignment approach that made vision-language grounding practical.
-- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485) — Liu et al., 2023. An open-weight VLM architecture that clearly describes the projection layer design and training procedure.
-- [PaliGemma: A versatile 3B VLM for transfer](https://arxiv.org/abs/2407.07726) — Beyer et al., 2024. A compact open-weight VLM with well-documented token costs and benchmark performance.
+- [An Image is Worth 16x16 Words: Transformers for Image Recognition at Scale](https://arxiv.org/abs/2010.11929); Dosovitskiy et al., 2020. The original ViT paper; explains the patch embedding architecture that underpins virtually all modern visual encoders.
+- [Learning Transferable Visual Models From Natural Language Supervision](https://arxiv.org/abs/2103.00020); Radford et al., 2021. The CLIP paper; the contrastive alignment approach that made vision-language grounding practical.
+- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485); Liu et al., 2023. An open-weight VLM architecture that clearly describes the projection layer design and training procedure.
+- [PaliGemma: A versatile 3B VLM for transfer](https://arxiv.org/abs/2407.07726); Beyer et al., 2024. A compact open-weight VLM with well-documented token costs and benchmark performance.

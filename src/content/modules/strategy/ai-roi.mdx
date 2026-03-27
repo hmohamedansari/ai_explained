@@ -1,7 +1,7 @@
 ---
 moduleId: "8.1"
 title: "AI ROI: What Actually Gets Measured"
-description: "Most AI pilots show impressive returns that evaporate at scale. Understanding why — and how to measure value correctly — is the difference between AI investments that compound and ones that quietly fail."
+description: "Most AI pilots show impressive returns that evaporate at scale. Understanding why, and how to measure value correctly, is the difference between AI investments that compound and ones that quietly fail."
 track: "strategy"
 order: 1
 personas: ["curious", "leader"]
@@ -16,14 +16,14 @@ productionGotcha: "AI pilots consistently overstate ROI because they run on cura
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 AI return on investment is notoriously hard to measure honestly. The headline numbers from pilots tend to be optimistic, and the reasons are structural: pilots are run with careful human supervision, on hand-picked inputs, against the slowest or most error-prone version of the old process. Production is none of those things.
 
 Before you can measure ROI, you need to decide what kind of value you are trying to capture. There are three categories:
 
-- **Cost reduction**: Doing the same thing with fewer people-hours or lower error rates. This is the easiest to measure — you can count FTEs, time saved, or defect rates before and after.
-- **Revenue growth**: Enabling better products or entirely new capabilities that drive more sales or retention. This is hard to measure cleanly because attribution is difficult — was the sale due to the AI feature, or the marketing campaign, or the market conditions?
+- **Cost reduction**: Doing the same thing with fewer people-hours or lower error rates. This is the easiest to measure: you can count FTEs, time saved, or defect rates before and after.
+- **Revenue growth**: Enabling better products or entirely new capabilities that drive more sales or retention. This is hard to measure cleanly because attribution is difficult: was the sale due to the AI feature, or the marketing campaign, or the market conditions?
 - **Risk reduction**: Fewer compliance failures, fewer errors in high-stakes decisions, faster incident response. This often goes unmeasured until something goes wrong. A system that prevents one regulatory fine may have a higher ROI than any efficiency gain, but that ROI only becomes visible in hindsight.
 
 A complete ROI calculation looks like this: **net benefit = (value delivered) − (build cost + run cost + maintenance cost + failure cost)**. Most organisations measure the value delivered and the build cost, and stop there. Run cost, maintenance cost, and failure cost accumulate invisibly until they don't.
@@ -40,9 +40,9 @@ Organisations that measure AI ROI poorly make two kinds of mistakes: they over-i
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
-### The three categories of AI value — and how to measure each
+### The three categories of AI value: and how to measure each
 
 **Cost reduction** is the most straightforward category. You are automating or accelerating something that was previously done manually.
 
@@ -66,7 +66,7 @@ The main measurement risk here is the denominator problem: if the baseline was a
 
 Without a controlled comparison, revenue attribution is a story, not a measurement. "Revenue went up in the quarter we launched the AI feature" is not evidence.
 
-**Risk reduction** is the category most organisations leave unmeasured — which means it rarely influences investment decisions until a failure makes the cost visible.
+**Risk reduction** is the category most organisations leave unmeasured: which means it rarely influences investment decisions until a failure makes the cost visible.
 
 | Risk type | Measurement approach |
 |---|---|
@@ -139,11 +139,11 @@ Stop or pause an AI investment when you see:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The attribution problem
 
-Revenue attribution is a fundamental problem in business, not unique to AI. But AI makes it worse in two ways. First, AI features often work by making existing things marginally better rather than creating step-function changes — incremental improvements are harder to attribute. Second, AI is often deployed alongside other changes (redesigns, new content, process changes), making isolation harder.
+Revenue attribution is a fundamental problem in business, not unique to AI. But AI makes it worse in two ways. First, AI features often work by making existing things marginally better rather than creating step-function changes: incremental improvements are harder to attribute. Second, AI is often deployed alongside other changes (redesigns, new content, process changes), making isolation harder.
 
 The gold standard is a randomised controlled trial: randomly assign users or transactions to AI-assisted and non-AI-assisted conditions, then measure the outcome of interest. This is feasible for some applications (a recommendation feature, a drafting assistant) and infeasible for others (a compliance monitoring system that you would not deliberately disable for a control group).
 
@@ -164,10 +164,10 @@ A rough heuristic: budget 20–30% of the initial build cost per year for mainte
 
 Expected failure cost = (failure rate) × (cost per failure) × (annual volume).
 
-The challenge is that failure rates and costs per failure are often unknown at the start of a project. Use industry analogues where possible, and model scenarios rather than point estimates. If a 2% failure rate with a $500 cost per failure on 10,000 annual transactions produces $100,000 in expected annual failure cost, that number needs to appear in the ROI model — not as a footnote.
+The challenge is that failure rates and costs per failure are often unknown at the start of a project. Use industry analogues where possible, and model scenarios rather than point estimates. If a 2% failure rate with a $500 cost per failure on 10,000 annual transactions produces $100,000 in expected annual failure cost, that number needs to appear in the ROI model: not as a footnote.
 
 ### Further reading
 
-- [Measuring the ROI of AI in the Enterprise — MIT Sloan Management Review](https://sloanreview.mit.edu/article/measuring-the-return-on-ai-investments/) — Practical framework for value attribution across cost, revenue, and risk dimensions.
-- [The AI Adoption Paradox — McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai) — McKinsey's annual State of AI survey includes data on which AI use cases are delivering measured value and which are not.
-- [Why AI Projects Fail — Harvard Business Review](https://hbr.org/2021/03/why-so-many-high-profile-digital-transformations-fail) — Common failure patterns in digital/AI transformation; the "pilot trap" is discussed in depth.
+- [Measuring the ROI of AI in the Enterprise, MIT Sloan Management Review](https://sloanreview.mit.edu/article/measuring-the-return-on-ai-investments/), Practical framework for value attribution across cost, revenue, and risk dimensions.
+- [The AI Adoption Paradox, McKinsey](https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai), McKinsey's annual State of AI survey includes data on which AI use cases are delivering measured value and which are not.
+- [Why AI Projects Fail, Harvard Business Review](https://hbr.org/2021/03/why-so-many-high-profile-digital-transformations-fail), Common failure patterns in digital/AI transformation; the "pilot trap" is discussed in depth.

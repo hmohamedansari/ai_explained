@@ -1,5 +1,5 @@
 {
-  "title": "AI ROI: What Actually Gets Measured — Check your understanding",
+  "title": "AI ROI: What Actually Gets Measured: Check your understanding",
   "moduleId": "8.1",
   "questions": [
     {
@@ -13,7 +13,7 @@
         "Time savings always decline after the novelty effect wears off"
       ],
       "answer": 1,
-      "explanation": "This is the classic pilot-to-production ROI gap. Pilots are controlled experiments: inputs are selected for clarity, engineers monitor every output, and the comparison baseline is often the slowest or least efficient version of the old process. Production reverses all three conditions — inputs are whatever users send, oversight is minimal, and the comparison should be against a well-run baseline. Always model the production scenario before presenting pilot results as evidence of production ROI.",
+      "explanation": "This is the classic pilot-to-production ROI gap. Pilots are controlled experiments: inputs are selected for clarity, engineers monitor every output, and the comparison baseline is often the slowest or least efficient version of the old process. Production reverses all three conditions: inputs are whatever users send, oversight is minimal, and the comparison should be against a well-run baseline. Always model the production scenario before presenting pilot results as evidence of production ROI.",
       "personas": ["curious", "leader"]
     },
     {
@@ -21,13 +21,13 @@
       "type": "multiple-choice",
       "question": "Your organisation wants to measure the ROI of an AI system that monitors contracts for compliance violations. No compliance failures have occurred in the six months since deployment. A colleague argues this means the system has zero ROI because nothing happened. What is wrong with this reasoning?",
       "options": [
-        "Nothing — if there were no failures, the system was unnecessary",
+        "Nothing: if there were no failures, the system was unnecessary",
         "Risk reduction ROI is often invisible until a failure occurs; the absence of failures is exactly the value the system delivers, and the correct measure is the estimated cost of failures that were prevented",
         "Six months is too short to measure compliance ROI",
         "The system should be compared against a period when failures did occur"
       ],
       "answer": 1,
-      "explanation": "Risk reduction is the ROI category most commonly mis-measured. When a system works, nothing happens — and 'nothing happened' looks like zero value to someone measuring activity rather than outcomes. The correct framing: what is the historical rate of compliance failures, what is the estimated cost per failure, and how many failures was the system expected to prevent? That product is the value delivered, regardless of whether any failure occurred in the measurement window.",
+      "explanation": "Risk reduction is the ROI category most commonly mis-measured. When a system works, nothing happens, and 'nothing happened' looks like zero value to someone measuring activity rather than outcomes. The correct framing: what is the historical rate of compliance failures, what is the estimated cost per failure, and how many failures was the system expected to prevent? That product is the value delivered, regardless of whether any failure occurred in the measurement window.",
       "read_more": "https://airc.nist.gov/RMF",
       "personas": ["curious", "leader"]
     },
@@ -37,7 +37,7 @@
       "question": "A team is calculating the three-year ROI of an AI feature. They have included build cost and first-year inference costs. Which cost category are they most likely missing that routinely changes the ROI calculation significantly?",
       "options": [
         "User training and onboarding costs",
-        "Ongoing maintenance costs — prompt tuning as model behaviour evolves, model upgrade work when versions are deprecated, integration repairs as upstream systems change, and remediation costs when the AI produces errors",
+        "Ongoing maintenance costs: prompt tuning as model behaviour evolves, model upgrade work when versions are deprecated, integration repairs as upstream systems change, and remediation costs when the AI produces errors",
         "Marketing costs to communicate the feature to users",
         "Competitor response costs if they build a similar feature"
       ],
@@ -51,12 +51,12 @@
       "question": "You want to attribute revenue growth to a newly launched AI recommendation feature. The product team says revenue went up 15% in the quarter after launch. Why is this not sufficient evidence of ROI?",
       "options": [
         "15% is too small to be meaningful for an AI investment",
-        "A before/after comparison without a control group cannot separate the AI feature's contribution from other simultaneous changes — market conditions, other product updates, seasonal effects, or marketing spend",
+        "A before/after comparison without a control group cannot separate the AI feature's contribution from other simultaneous changes: market conditions, other product updates, seasonal effects, or marketing spend",
         "Revenue attribution requires at least 12 months of data",
         "The measurement should be per-user, not total revenue"
       ],
       "answer": 1,
-      "explanation": "Attribution without a control is a story, not evidence. Revenue may have increased for dozens of reasons unrelated to the AI feature. The correct approach is a randomised A/B test — show the AI-powered recommendation to one group and the previous experience to a control group, then measure the difference. When an RCT is not feasible, difference-in-differences against a comparable cohort is the next-best option. A simple before/after comparison does not isolate the AI's contribution.",
+      "explanation": "Attribution without a control is a story, not evidence. Revenue may have increased for dozens of reasons unrelated to the AI feature. The correct approach is a randomised A/B test: show the AI-powered recommendation to one group and the previous experience to a control group, then measure the difference. When an RCT is not feasible, difference-in-differences against a comparable cohort is the next-best option. A simple before/after comparison does not isolate the AI's contribution.",
       "personas": ["curious", "leader"]
     },
     {
@@ -70,7 +70,7 @@
         "When a competitor releases a better AI feature"
       ],
       "answer": 1,
-      "explanation": "The signals to stop or reassess are operational: quality that cannot be sustained without pilot-level oversight, costs that are growing faster than value, or failure rates that make the AI more expensive than the alternative. Waiting for a public incident or a competitor milestone means you have already missed the optimal decision point. Establish monitoring criteria and review thresholds before launch, and review them on a regular cadence — not just when something breaks.",
+      "explanation": "The signals to stop or reassess are operational: quality that cannot be sustained without pilot-level oversight, costs that are growing faster than value, or failure rates that make the AI more expensive than the alternative. Waiting for a public incident or a competitor milestone means you have already missed the optimal decision point. Establish monitoring criteria and review thresholds before launch, and review them on a regular cadence: not just when something breaks.",
       "personas": ["curious", "leader"]
     }
   ]

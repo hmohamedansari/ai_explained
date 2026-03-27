@@ -1,5 +1,5 @@
 {
-  "title": "CI/CD Eval Gates — Check your understanding",
+  "title": "CI/CD Eval Gates: Check your understanding",
   "moduleId": "6.6",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A team uses a relative regression threshold of 3% for their eval gate. Over 6 months, each of 12 PRs reduces the baseline by 2% (within the threshold). The baseline is updated after each passing PR. The system's overall quality has dropped 24% from the original launch quality. Does the gate report a failure at any point?",
       "options": [
-        "Yes — the gate will detect the cumulative regression after several PRs",
-        "No — relative thresholds allow baselines to drift downward indefinitely because each PR is evaluated against the current (already-degraded) baseline, not the original; this is exactly why a subset of eval cases must be anchored to absolute thresholds that are never updated",
-        "Yes — after 5 PRs the accumulated regression exceeds the threshold",
-        "No — but the team's weekly baseline review would catch this"
+        "Yes: the gate will detect the cumulative regression after several PRs",
+        "No: relative thresholds allow baselines to drift downward indefinitely because each PR is evaluated against the current (already-degraded) baseline, not the original; this is exactly why a subset of eval cases must be anchored to absolute thresholds that are never updated",
+        "Yes: after 5 PRs the accumulated regression exceeds the threshold",
+        "No, but the team's weekly baseline review would catch this"
       ],
       "answer": 1,
-      "explanation": "This is the production gotcha for this module: relative thresholds create a ratchet that only prevents large single-PR regressions, not gradual drift. If each PR reduces quality by 2% (below the 3% threshold) and the baseline is updated after each PR, then after 12 PRs the baseline reflects 76% of original quality — but each individual PR passed. The only way to prevent this drift is to anchor a subset of eval cases (the golden suite) to absolute thresholds that are never updated, regardless of what the current system achieves. The absolute threshold acts as a floor that cannot be ratcheted down.",
+      "explanation": "This is the production gotcha for this module: relative thresholds create a ratchet that only prevents large single-PR regressions, not gradual drift. If each PR reduces quality by 2% (below the 3% threshold) and the baseline is updated after each PR, then after 12 PRs the baseline reflects 76% of original quality, but each individual PR passed. The only way to prevent this drift is to anchor a subset of eval cases (the golden suite) to absolute thresholds that are never updated, regardless of what the current system achieves. The absolute threshold acts as a floor that cannot be ratcheted down.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -27,7 +27,7 @@
         "Replace LLM-based eval cases with faster regex checks to reduce per-case latency"
       ],
       "answer": 1,
-      "explanation": "A gate that engineers bypass provides no protection. The practical constraint is that CI gates must complete in minutes — ideally under 5 minutes — to maintain adoption. The solution is a two-tier eval strategy: a fast gate (50–100 golden cases, parallelized) runs on every PR and must complete in under 5 minutes; the full suite (2000 cases) runs nightly or pre-release. The fast gate catches critical regressions quickly; the full suite catches subtler ones with sufficient statistical power. Moving eval to post-merge defeats the purpose — it no longer prevents regressions from entering the main branch.",
+      "explanation": "A gate that engineers bypass provides no protection. The practical constraint is that CI gates must complete in minutes, ideally under 5 minutes, to maintain adoption. The solution is a two-tier eval strategy: a fast gate (50–100 golden cases, parallelized) runs on every PR and must complete in under 5 minutes; the full suite (2000 cases) runs nightly or pre-release. The fast gate catches critical regressions quickly; the full suite catches subtler ones with sufficient statistical power. Moving eval to post-merge defeats the purpose: it no longer prevents regressions from entering the main branch.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -35,13 +35,13 @@
       "type": "multiple-choice",
       "question": "A team has eval gates configured for prompt changes and model version bumps but not for RAG index updates. A new version of the document index is deployed. Output quality degrades on knowledge-intensive queries. The eval gate does not fire. Why?",
       "options": [
-        "RAG index updates cannot affect output quality — only model and prompt changes can",
-        "The team's trigger configuration does not include RAG index updates as an eval gate trigger — changes to the retrieval index affect what context the model receives and directly impact output quality; the gate must be triggered by index updates, retrieval config changes, and embedding model changes, not just code changes",
+        "RAG index updates cannot affect output quality: only model and prompt changes can",
+        "The team's trigger configuration does not include RAG index updates as an eval gate trigger: changes to the retrieval index affect what context the model receives and directly impact output quality; the gate must be triggered by index updates, retrieval config changes, and embedding model changes, not just code changes",
         "The gate fired but was below threshold because the regression was gradual",
         "The eval suite does not include knowledge-intensive queries, so the gate could not have detected this"
       ],
       "answer": 1,
-      "explanation": "RAG index updates change the information available to the model at query time. A new index version may contain stale data, missing documents, changed chunk sizes, or different embedding coverage — all of which affect output quality without changing any application code or model version. The eval gate trigger configuration must include RAG index deployments alongside prompt changes, model bumps, and tool schema changes. Without this trigger, index regressions bypass the gate entirely. The eval suite should also include queries that specifically test knowledge retrieval to catch index-related quality changes.",
+      "explanation": "RAG index updates change the information available to the model at query time. A new index version may contain stale data, missing documents, changed chunk sizes, or different embedding coverage: all of which affect output quality without changing any application code or model version. The eval gate trigger configuration must include RAG index deployments alongside prompt changes, model bumps, and tool schema changes. Without this trigger, index regressions bypass the gate entirely. The eval suite should also include queries that specifically test knowledge retrieval to catch index-related quality changes.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "A team's eval gate shows pass rate dropped from 92% to 89% on the current PR. The relative threshold is 5%, so the gate passes (3-point drop is within threshold). The engineer merges. Should they have?",
       "options": [
-        "Yes — the gate passed according to the configured threshold; the system is working as designed",
-        "Yes on the gate decision, but the engineer should also check the absolute threshold on the golden suite and review the specific failing cases before merging — a 3-point drop in pass rate corresponds to real regressions on specific cases, and understanding which cases now fail is important even when the gate passes; regressions within threshold can still indicate real quality problems",
-        "No — any regression below baseline should block a merge regardless of threshold",
-        "No — the threshold should be 2%, so this PR should be blocked"
+        "Yes: the gate passed according to the configured threshold; the system is working as designed",
+        "Yes on the gate decision, but the engineer should also check the absolute threshold on the golden suite and review the specific failing cases before merging: a 3-point drop in pass rate corresponds to real regressions on specific cases, and understanding which cases now fail is important even when the gate passes; regressions within threshold can still indicate real quality problems",
+        "No: any regression below baseline should block a merge regardless of threshold",
+        "No: the threshold should be 2%, so this PR should be blocked"
       ],
       "answer": 1,
-      "explanation": "Gate thresholds determine whether a merge is blocked, but passing the gate does not mean no regressions occurred. A 3-point drop in pass rate means approximately 27 cases (3% of 900) are now failing that were passing before. The engineer should review which cases are newly failing before merging — even if the overall drop is within the configured threshold. This is especially important for cases in the golden suite (which have absolute thresholds) and for cases in critical categories (like safety or the core product value proposition). Thresholds are a floor, not a signal that everything is fine.",
+      "explanation": "Gate thresholds determine whether a merge is blocked, but passing the gate does not mean no regressions occurred. A 3-point drop in pass rate means approximately 27 cases (3% of 900) are now failing that were passing before. The engineer should review which cases are newly failing before merging: even if the overall drop is within the configured threshold. This is especially important for cases in the golden suite (which have absolute thresholds) and for cases in critical categories (like safety or the core product value proposition). Thresholds are a floor, not a signal that everything is fine.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -64,7 +64,7 @@
       "question": "A team wants to update the baseline for their main eval suite because they've made a deliberate architectural change that improves overall quality but changes the output format in ways that break some existing eval cases. What is the correct process?",
       "options": [
         "Run the eval suite, and if it passes above the relative threshold, automatically update the baseline",
-        "Manually update the baseline with an explicit justification recorded by a senior engineer — review each failing case to confirm it represents an intentional behavioral change rather than a regression; update only the cases where the new behavior is demonstrably correct; never automatically update baselines on a passing build, as this would allow silent quality drift",
+        "Manually update the baseline with an explicit justification recorded by a senior engineer: review each failing case to confirm it represents an intentional behavioral change rather than a regression; update only the cases where the new behavior is demonstrably correct; never automatically update baselines on a passing build, as this would allow silent quality drift",
         "Delete the failing cases and add new ones that reflect the new behavior",
         "Lower the threshold temporarily to allow the baseline to update, then restore it"
       ],

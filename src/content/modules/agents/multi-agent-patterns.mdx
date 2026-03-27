@@ -1,7 +1,7 @@
 ---
 moduleId: "4.4"
 title: "Multi-Agent Patterns"
-description: "A single agent hits limits: context windows fill, specialisation is hard, and long tasks become fragile. Multi-agent architectures solve this by distributing work — but they introduce coordination costs, trust boundaries, and new failure modes. This module covers the patterns that work in production."
+description: "A single agent hits limits: context windows fill, specialisation is hard, and long tasks become fragile. Multi-agent architectures solve this by distributing work, but they introduce coordination costs, trust boundaries, and new failure modes. This module covers the patterns that work in production."
 track: "agents"
 order: 4
 personas: ["junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 17
   layer3: 14
-productionGotcha: "Agents do not validate each other's outputs by default. An orchestrator that passes a subagent's result directly into the next step treats that result as ground truth. One hallucinated field in an intermediate result propagates through every subsequent step. Build verification steps at handoff points — especially before irreversible actions — and never trust a subagent's output more than you would trust a junior engineer's first draft."
+productionGotcha: "Agents do not validate each other's outputs by default. An orchestrator that passes a subagent's result directly into the next step treats that result as ground truth. One hallucinated field in an intermediate result propagates through every subsequent step. Build verification steps at handoff points, especially before irreversible actions, and never trust a subagent's output more than you would trust a junior engineer's first draft."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Multi-agent systems divide a complex task across multiple specialised agents. Each agent handles a bounded scope; an orchestrator coordinates the full flow.
 
@@ -32,7 +32,7 @@ Each pattern has different coordination cost, failure isolation, and debuggabili
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Orchestrator / worker
 
@@ -212,11 +212,11 @@ Otherwise, respond with: REVISION NEEDED
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Trust boundaries between agents
 
-In a multi-agent system, one agent's output is another agent's input — which makes it a prompt injection vector (module 3.6). An attacker who can influence a subagent's output can inject instructions into the orchestrator's context.
+In a multi-agent system, one agent's output is another agent's input: which makes it a prompt injection vector (module 3.6). An attacker who can influence a subagent's output can inject instructions into the orchestrator's context.
 
 Mitigations:
 - Treat subagent outputs as external data: delimit with tags, instruct the orchestrator to treat them as data, not directives
@@ -271,5 +271,5 @@ When something goes wrong, the audit log tells you which agent produced the bad 
 
 ### Further reading
 
-- [Anthropic — Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — The orchestrator/subagent pattern and network-of-agents design from the team that builds production agents.
-- [AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation](https://arxiv.org/abs/2308.08155) — Wu et al., 2023. Empirical study of multi-agent conversation patterns; useful data on when peer patterns improve over single-agent.
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic], The orchestrator/subagent pattern and network-of-agents design from the team that builds production agents.
+- [AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation](https://arxiv.org/abs/2308.08155); Wu et al., 2023. Empirical study of multi-agent conversation patterns; useful data on when peer patterns improve over single-agent.

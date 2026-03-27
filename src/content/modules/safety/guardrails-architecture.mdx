@@ -1,7 +1,7 @@
 ---
 moduleId: "7.5"
 title: "Guardrails Architecture"
-description: "Guardrails are controls on inputs, outputs, or both — classifiers, validators, and policy checks that run independently of the model. Designing a guardrails architecture means choosing which controls to apply, how to layer them for coverage and performance, and how to calibrate them so false positives do not kill legitimate use."
+description: "Guardrails are controls on inputs, outputs, or both: classifiers, validators, and policy checks that run independently of the model. Designing a guardrails architecture means choosing which controls to apply, how to layer them for coverage and performance, and how to calibrate them so false positives do not kill legitimate use."
 track: "safety"
 order: 5
 personas: ["leader", "junior", "senior", "sre"]
@@ -16,9 +16,9 @@ productionGotcha: "Guardrails set to fail-closed (block on uncertainty) reduce r
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Guardrails are the controls that run alongside your LLM — they do not replace the model's own judgement, they check it from the outside. Like a spell checker that runs independently of your word processor, a guardrail can catch things the model missed, block harmful inputs before they reach the model, and validate that outputs meet your standards.
+Guardrails are the controls that run alongside your LLM: they do not replace the model's own judgement, they check it from the outside. Like a spell checker that runs independently of your word processor, a guardrail can catch things the model missed, block harmful inputs before they reach the model, and validate that outputs meet your standards.
 
 **Two placement options:**
 
@@ -41,17 +41,17 @@ Guardrails are the controls that run alongside your LLM — they do not replace 
 
 ### Why it matters
 
-The model itself is a probabilistic system — it does not have deterministic guarantees about what it will produce. Guardrails provide those guarantees: not "the model will never produce X" but "the system will never send X to the user, because an independent check intercepts it first."
+The model itself is a probabilistic system: it does not have deterministic guarantees about what it will produce. Guardrails provide those guarantees: not "the model will never produce X" but "the system will never send X to the user, because an independent check intercepts it first."
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> A guardrail that blocks too aggressively teaches users to distrust the system and creates support overhead. A guardrail that is too permissive misses real violations. The threshold must be calibrated on representative samples of real traffic — not on a gut feeling about what feels safe. Monitor both your detection rate and your false positive rate; optimising for one at the expense of the other creates problems.
+> A guardrail that blocks too aggressively teaches users to distrust the system and creates support overhead. A guardrail that is too permissive misses real violations. The threshold must be calibrated on representative samples of real traffic: not on a gut feeling about what feels safe. Monitor both your detection rate and your false positive rate; optimising for one at the expense of the other creates problems.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The guardrail interface
 
@@ -265,7 +265,7 @@ class GuardrailPipeline:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Latency cost and async strategies
 
@@ -279,7 +279,7 @@ Every synchronous guardrail adds latency to the response path. Benchmarks for co
 | NER-based PII detector | 20–100 ms | Synchronous |
 | Format validator (JSON schema) | Under 5 ms | Always synchronous |
 
-Async post-processing pattern: send the response to the user immediately, then run the slower checks in the background. If a violation is detected, flag it in your monitoring system and potentially invalidate the session. This trades real-time blocking for lower latency — acceptable for some risk profiles, not for others.
+Async post-processing pattern: send the response to the user immediately, then run the slower checks in the background. If a violation is detected, flag it in your monitoring system and potentially invalidate the session. This trades real-time blocking for lower latency: acceptable for some risk profiles, not for others.
 
 ### Tooling landscape
 
@@ -291,7 +291,7 @@ Three open-source frameworks worth knowing:
 | **LLM Guard** | Library of scanners for common threats (injection, PII, toxicity) | Composable scanning pipeline; easy to add individual checks |
 | **NeMo Guardrails** | Colang DSL for defining conversation flows and safety rails | Complex conversational guardrails; dialogue management |
 
-All three are vendor-neutral and integrate with standard LLM APIs. They are starting points — production guardrails always require custom calibration against your actual traffic.
+All three are vendor-neutral and integrate with standard LLM APIs. They are starting points: production guardrails always require custom calibration against your actual traffic.
 
 ### Calibration process
 
@@ -304,6 +304,6 @@ All three are vendor-neutral and integrate with standard LLM APIs. They are star
 
 ### Further reading
 
-- [Guardrails AI Documentation](https://docs.guardrailsai.com/) — Guardrails AI, 2023–2024. Reference for the most widely used open-source guardrails library.
-- [LLM Guard](https://llm-guard.com/) — Protect AI, 2023–2024. Composable scanner library for common LLM security threats.
-- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — Bai et al., 2022. The model-level analogue of guardrails; understanding both helps in designing where to place controls.
+- [Guardrails AI Documentation](https://docs.guardrailsai.com/); Guardrails AI, 2023–2024. Reference for the most widely used open-source guardrails library.
+- [LLM Guard](https://llm-guard.com/); Protect AI, 2023–2024. Composable scanner library for common LLM security threats.
+- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073); Bai et al., 2022. The model-level analogue of guardrails; understanding both helps in designing where to place controls.

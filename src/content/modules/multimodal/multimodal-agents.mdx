@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Multimodal agents that interact with GUIs are highly sensitive to UI changes — a redesign, font size change, or new modal dialog can cause the agent to fail silently by clicking the wrong element or not finding the expected UI state. Version-pin the UI or build explicit UI state validation into the agent loop."
+productionGotcha: "Multimodal agents that interact with GUIs are highly sensitive to UI changes: a redesign, font size change, or new modal dialog can cause the agent to fail silently by clicking the wrong element or not finding the expected UI state. Version-pin the UI or build explicit UI state validation into the agent loop."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-A standard agent loop has the model read text, reason, and call text-based tools. A multimodal agent has additional perception channels — it can see screenshots, read images, hear audio — and potentially additional output channels: speaking, generating images, clicking UI elements. This broader set of inputs and outputs makes the agent more capable, but each new modality introduces new failure modes.
+A standard agent loop has the model read text, reason, and call text-based tools. A multimodal agent has additional perception channels, it can see screenshots, read images, hear audio, and potentially additional output channels: speaking, generating images, clicking UI elements. This broader set of inputs and outputs makes the agent more capable, but each new modality introduces new failure modes.
 
 The most practically important class of multimodal agent today is the GUI agent (also called a computer use agent): an agent that interacts with software user interfaces by seeing the screen, deciding what to do, and executing mouse and keyboard actions. The loop is: take screenshot → send to VLM → receive action instruction (click [x,y], type "text", scroll down) → execute → take new screenshot → repeat.
 
 Grounding is the challenge that unifies most multimodal agent problems: linking a model's language-level output ("click the Submit button") to the specific physical location in an image or timestamp in audio where that entity actually exists. Grounding fails when the model hallucinates the presence of an element that doesn't exist, or when it correctly identifies an element but localises it to the wrong position.
 
-Visual hallucination — describing objects, text, or UI elements that are not present in the image — is more dangerous in agents than in assistants, because an agent acts on what it perceives. If the model says "I see the OK button" when it isn't there, the agent may click the wrong thing or enter an infinite wait loop.
+Visual hallucination, describing objects, text, or UI elements that are not present in the image, is more dangerous in agents than in assistants, because an agent acts on what it perceives. If the model says "I see the OK button" when it isn't there, the agent may click the wrong thing or enter an infinite wait loop.
 
 ### Why it matters
 
@@ -38,7 +38,7 @@ GUI agents and multimodal automation are among the highest-leverage applications
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Vision as a tool call
 
@@ -284,7 +284,7 @@ def assert_ui_state(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Grounding: linking language to spatial coordinates
 
@@ -351,6 +351,6 @@ def store_observation(
 
 ### Further reading
 
-- [SeeAct: GUI Agents that See, Act, and Plan](https://arxiv.org/abs/2401.01614) — Zheng et al., 2024. A comprehensive GUI agent framework with grounding analysis; directly relevant to the architecture covered here.
-- [Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V](https://arxiv.org/abs/2310.11441) — Yang et al., 2023. The set-of-mark prompting technique for improving coordinate precision in VLMs.
-- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) — Sumers et al., 2023. A survey of agent memory and reasoning patterns that includes multimodal extensions.
+- [SeeAct: GUI Agents that See, Act, and Plan](https://arxiv.org/abs/2401.01614); Zheng et al., 2024. A comprehensive GUI agent framework with grounding analysis; directly relevant to the architecture covered here.
+- [Set-of-Mark Prompting Unleashes Extraordinary Visual Grounding in GPT-4V](https://arxiv.org/abs/2310.11441); Yang et al., 2023. The set-of-mark prompting technique for improving coordinate precision in VLMs.
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427); Sumers et al., 2023. A survey of agent memory and reasoning patterns that includes multimodal extensions.

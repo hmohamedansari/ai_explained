@@ -1,5 +1,5 @@
 {
-  "title": "Quantization & Compression — Check your understanding",
+  "title": "Quantization & Compression: Check your understanding",
   "moduleId": "5.2",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "A team deploys an INT4-quantized 70B model to production. Benchmark perplexity on WikiText looks nearly identical to the FP16 baseline. Three weeks later, users report that the model frequently produces malformed JSON in tool-call responses. What is the most likely explanation?",
       "options": [
         "The deployment environment has different tokenization than the benchmark environment",
-        "INT4 quantization can degrade performance unevenly across task types — WikiText perplexity measures general language modeling but does not measure structured output precision; the rounding errors introduced by INT4 may disproportionately affect the specific weight patterns responsible for strict schema adherence",
+        "INT4 quantization can degrade performance unevenly across task types; WikiText perplexity measures general language modeling but does not measure structured output precision; the rounding errors introduced by INT4 may disproportionately affect the specific weight patterns responsible for strict schema adherence",
         "The INT4 model has a smaller context window than the FP16 baseline",
         "JSON output requires more tokens than general text and exceeds the model's output length limit"
       ],
       "answer": 1,
-      "explanation": "Perplexity on a general corpus is a poor proxy for task-specific quality after quantization. Quantization introduces rounding errors across all weights, but the impact is not uniform — it can disproportionately affect specific capabilities like strict format adherence, narrow domain knowledge, or precise numerical reasoning. A model that looks fine on perplexity may have meaningfully degraded on the specific patterns required for reliable JSON generation. The correct approach is to evaluate on the actual task (JSON output accuracy) before deploying, not to rely on general benchmarks as a proxy.",
+      "explanation": "Perplexity on a general corpus is a poor proxy for task-specific quality after quantization. Quantization introduces rounding errors across all weights, but the impact is not uniform: it can disproportionately affect specific capabilities like strict format adherence, narrow domain knowledge, or precise numerical reasoning. A model that looks fine on perplexity may have meaningfully degraded on the specific patterns required for reliable JSON generation. The correct approach is to evaluate on the actual task (JSON output accuracy) before deploying, not to rely on general benchmarks as a proxy.",
       "personas": ["senior", "sre"]
     },
     {
@@ -21,13 +21,13 @@
       "type": "multiple-choice",
       "question": "A team needs to run a 70B parameter model. They have a server with 2 × 48GB VRAM GPUs (96GB total). Which quantization level is required to fit the model, leaving headroom for a reasonable production batch?",
       "options": [
-        "FP16 (2 bytes/param) — 70B × 2 bytes = 140GB, which fits across 2 GPUs",
-        "INT4 (0.5 bytes/param) — 70B × 0.5 = 35GB for weights, leaving ~61GB across both GPUs for KV cache and overhead; FP16 at 140GB exceeds the 96GB total",
-        "INT8 (1 byte/param) — 70B × 1 = 70GB for weights, which fits within 96GB total",
+        "FP16 (2 bytes/param): 70B × 2 bytes = 140GB, which fits across 2 GPUs",
+        "INT4 (0.5 bytes/param): 70B × 0.5 = 35GB for weights, leaving ~61GB across both GPUs for KV cache and overhead; FP16 at 140GB exceeds the 96GB total",
+        "INT8 (1 byte/param): 70B × 1 = 70GB for weights, which fits within 96GB total",
         "Any precision works; the model can be split across GPUs without constraints"
       ],
       "answer": 1,
-      "explanation": "FP16 requires approximately 140GB for a 70B model — that exceeds the 96GB total VRAM even before accounting for KV cache and overhead. INT8 at approximately 70GB fits the weights, but leaves only 26GB across both GPUs for KV cache and overhead — tight for production loads. INT4 at approximately 35GB for weights leaves roughly 61GB for KV cache and framework overhead, providing comfortable headroom for a production batch. INT4 is the right choice here. Option C (INT8) is borderline viable but risky under load; INT4 provides the necessary headroom.",
+      "explanation": "FP16 requires approximately 140GB for a 70B model, that exceeds the 96GB total VRAM even before accounting for KV cache and overhead. INT8 at approximately 70GB fits the weights, but leaves only 26GB across both GPUs for KV cache and overhead, tight for production loads. INT4 at approximately 35GB for weights leaves roughly 61GB for KV cache and framework overhead, providing comfortable headroom for a production batch. INT4 is the right choice here. Option C (INT8) is borderline viable but risky under load; INT4 provides the necessary headroom.",
       "personas": ["senior", "sre"]
     },
     {
@@ -35,8 +35,8 @@
       "type": "multiple-choice",
       "question": "A team is choosing between GPTQ and AWQ for INT4 quantization of a 7B model for code generation. Both are post-training quantization methods. Which should they prefer and why?",
       "options": [
-        "GPTQ — it is more widely supported and has been available longer",
-        "AWQ — it typically achieves better quality than GPTQ at INT4 by identifying and protecting the most sensitive (salient) weights before quantization; for quality-sensitive tasks like code generation, the quality difference at INT4 favors AWQ",
+        "GPTQ: it is more widely supported and has been available longer",
+        "AWQ: it typically achieves better quality than GPTQ at INT4 by identifying and protecting the most sensitive (salient) weights before quantization; for quality-sensitive tasks like code generation, the quality difference at INT4 favors AWQ",
         "They are equivalent at INT4; choose based on which serving framework your team already uses",
         "GPTQ without calibration data is preferable because calibration data can overfit to a specific domain"
       ],
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "An engineer is quantizing a model with GPTQ and is about to use a general WikiText calibration dataset. The model will be deployed as a French-language customer support assistant. What should they do instead?",
       "options": [
-        "Use WikiText — calibration data affects only compression efficiency, not quality on specific languages",
-        "Use a calibration dataset that matches the deployment distribution — French-language text in the customer support domain; calibration data that is unlike the production distribution can optimize the wrong weight patterns, potentially degrading quality more than a representative calibration set would",
-        "Use a larger WikiText dataset — more calibration data compensates for domain mismatch",
-        "Skip calibration entirely — uncalibrated GPTQ is more general"
+        "Use WikiText: calibration data affects only compression efficiency, not quality on specific languages",
+        "Use a calibration dataset that matches the deployment distribution; French-language text in the customer support domain; calibration data that is unlike the production distribution can optimize the wrong weight patterns, potentially degrading quality more than a representative calibration set would",
+        "Use a larger WikiText dataset: more calibration data compensates for domain mismatch",
+        "Skip calibration entirely: uncalibrated GPTQ is more general"
       ],
       "answer": 1,
-      "explanation": "GPTQ uses calibration data to measure layer-wise reconstruction error — it tries to minimize the difference between the FP16 and INT4 model's outputs on the calibration examples. If the calibration data is English Wikipedia and the deployment language is French customer support, GPTQ is optimizing for the wrong distribution. The weights that matter for French-language support may be optimized less carefully than weights that matter for English Wikipedia. Using domain-matched calibration data (French, customer support domain) better preserves the specific capabilities your application requires.",
+      "explanation": "GPTQ uses calibration data to measure layer-wise reconstruction error: it tries to minimize the difference between the FP16 and INT4 model's outputs on the calibration examples. If the calibration data is English Wikipedia and the deployment language is French customer support, GPTQ is optimizing for the wrong distribution. The weights that matter for French-language support may be optimized less carefully than weights that matter for English Wikipedia. Using domain-matched calibration data (French, customer support domain) better preserves the specific capabilities your application requires.",
       "personas": ["senior", "sre"]
     },
     {
@@ -69,7 +69,7 @@
         "Distillation requires labeled training data; pruning does not"
       ],
       "answer": 1,
-      "explanation": "The fundamental distinction is what each approach produces. Pruning operates on an existing model by removing parameters — either individual weights (unstructured pruning) or entire structural components like attention heads (structured pruning). The result is a sparser or shallower version of the original model. Distillation trains a new, smaller student model from scratch, using the teacher model's output probabilities as training signal. The student is a different model with fewer parameters — not a modified version of the teacher. Distillation can achieve better quality per parameter than pruning because the student model's architecture is optimized for its size, not constrained by the original large model's structure.",
+      "explanation": "The fundamental distinction is what each approach produces. Pruning operates on an existing model by removing parameters, either individual weights (unstructured pruning) or entire structural components like attention heads (structured pruning). The result is a sparser or shallower version of the original model. Distillation trains a new, smaller student model from scratch, using the teacher model's output probabilities as training signal. The student is a different model with fewer parameters, not a modified version of the teacher. Distillation can achieve better quality per parameter than pruning because the student model's architecture is optimized for its size, not constrained by the original large model's structure.",
       "personas": ["senior", "sre"]
     }
   ]

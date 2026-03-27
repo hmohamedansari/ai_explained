@@ -1,7 +1,7 @@
 ---
 moduleId: "9.8"
 title: "The Multimodal Frontier"
-description: "Multimodal AI is advancing faster than any other part of the field — native multimodality, video understanding, and real-time audio-visual interaction are moving from research to production on a timescale of months. This module covers where the field is heading and, more importantly, what durable knowledge to invest in when specific capabilities become outdated within a year."
+description: "Multimodal AI is advancing faster than any other part of the field: native multimodality, video understanding, and real-time audio-visual interaction are moving from research to production on a timescale of months. This module covers where the field is heading and, more importantly, what durable knowledge to invest in when specific capabilities become outdated within a year."
 track: "multimodal"
 order: 8
 personas: ["leader", "senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Multimodal capabilities are advancing so fast that production decisions made on capability assessments more than 6 months old are likely stale. Build evaluation infrastructure first — the ability to quickly benchmark a new model on your use case is more durable than any specific model choice."
+productionGotcha: "Multimodal capabilities are advancing so fast that production decisions made on capability assessments more than 6 months old are likely stale. Build evaluation infrastructure first: the ability to quickly benchmark a new model on your use case is more durable than any specific model choice."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-The history of multimodal AI breaks into two eras: the adapter era and the native era. The adapter era (roughly 2022–2024) attached vision and audio encoders to pre-trained language models via projection layers. This worked, but the language model was fundamentally a text model that had been given a translation layer for images. The native era (emerging 2024–2026) trains models from scratch on interleaved sequences of text, images, and audio — no translation layer, no adapter, just a model that has always seen all modalities together.
+The history of multimodal AI breaks into two eras: the adapter era and the native era. The adapter era (roughly 2022–2024) attached vision and audio encoders to pre-trained language models via projection layers. This worked, but the language model was fundamentally a text model that had been given a translation layer for images. The native era (emerging 2024–2026) trains models from scratch on interleaved sequences of text, images, and audio: no translation layer, no adapter, just a model that has always seen all modalities together.
 
-Native multimodality changes the capability profile. Adapter-based VLMs are good at image understanding but struggle with tasks that require tight interleaving of visual and textual reasoning — generating an image and then reasoning about it, maintaining visual context across many turns, or handling video as a continuous stream rather than a set of sampled frames. Natively multimodal models handle these better because the modalities are not separated at the architecture level.
+Native multimodality changes the capability profile. Adapter-based VLMs are good at image understanding but struggle with tasks that require tight interleaving of visual and textual reasoning: generating an image and then reasoning about it, maintaining visual context across many turns, or handling video as a continuous stream rather than a set of sampled frames. Natively multimodal models handle these better because the modalities are not separated at the architecture level.
 
 The practical frontiers as of early 2026 are three: video understanding (temporal reasoning over a sequence of frames is fundamentally different from single-image understanding), real-time multimodal interaction (low-latency systems where the model can hear and see simultaneously while responding), and generative multimodal (models that can both perceive and produce images, audio, and text within a single interaction).
 
-The volatility notice for this track is not boilerplate — it reflects the actual pace of capability change. Models that were state of the art six months ago are frequently displaced by new releases. The durable investment is in the evaluation infrastructure that lets you quickly assess a new model on your actual task, not in deep knowledge of any specific model's capabilities.
+The volatility notice for this track is not boilerplate: it reflects the actual pace of capability change. Models that were state of the art six months ago are frequently displaced by new releases. The durable investment is in the evaluation infrastructure that lets you quickly assess a new model on your actual task, not in deep knowledge of any specific model's capabilities.
 
 ### Why it matters
 
@@ -34,11 +34,11 @@ Teams that make architecture decisions tied to specific current model capabiliti
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The mistake is treating a model evaluation as a one-time investment. A team does thorough benchmarking in Q1, selects the best model, and does not revisit the decision. By Q3, two better models have been released. The cost of switching is high because no evaluation infrastructure was built — the original benchmarks were manual and are not reproducible. The teams that stay current are the ones that automated their eval from day one.
+> The mistake is treating a model evaluation as a one-time investment. A team does thorough benchmarking in Q1, selects the best model, and does not revisit the decision. By Q3, two better models have been released. The cost of switching is high because no evaluation infrastructure was built: the original benchmarks were manual and are not reproducible. The teams that stay current are the ones that automated their eval from day one.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Building a portable evaluation harness
 
@@ -286,7 +286,7 @@ FRONTIER_SIGNALS = {
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Native vs adapter-based multimodality
 
@@ -304,7 +304,7 @@ For practitioners: do not treat "native multimodal" as automatically better. Ada
 
 ### Video understanding: the context length problem
 
-Video is the hardest modality for current LLMs because of context length. A 1-minute video at 1 frame per second is 60 images. At 768 tokens per image, that is 46,080 tokens just for video content — often exceeding current context windows, and certainly making inference expensive.
+Video is the hardest modality for current LLMs because of context length. A 1-minute video at 1 frame per second is 60 images. At 768 tokens per image, that is 46,080 tokens just for video content: often exceeding current context windows, and certainly making inference expensive.
 
 Current strategies for video understanding:
 
@@ -313,7 +313,7 @@ Current strategies for video understanding:
 3. **Sliding window**: process the video in overlapping windows and aggregate summaries. Requires a summary-merging strategy.
 4. **Long-context models**: models with 1M+ token contexts (Gemini 1.5 Pro, later Claude versions) can in principle fit longer video sequences, but cost scales linearly with context length.
 
-As of early 2026, reliable temporal reasoning in video — "what happened between minute 2 and minute 4?" — remains genuinely difficult. Frame sampling loses the causal structure; long-context models are expensive. This is an area where capabilities are advancing quickly and benchmarks change monthly.
+As of early 2026, reliable temporal reasoning in video, "what happened between minute 2 and minute 4?", remains genuinely difficult. Frame sampling loses the causal structure; long-context models are expensive. This is an area where capabilities are advancing quickly and benchmarks change monthly.
 
 ### Diffusion models and integration patterns
 
@@ -322,7 +322,7 @@ Image generation models (diffusion models: Stable Diffusion, DALL-E, Imagen, Flu
 - **Text → image**: standard prompt-to-image generation. Well-supported via API.
 - **Image editing** (inpainting/outpainting): modify a region of an existing image using a text instruction. Requires a mask and the original image.
 - **Controlled generation** (ControlNet): constrain generated images to follow an edge map, depth map, or pose skeleton. Used for layout-controlled generation.
-- **LLM + diffusion pipeline**: the LLM generates a refined prompt or layout instruction, which is then passed to a diffusion model. The models do not share weights — they are separate services connected by text.
+- **LLM + diffusion pipeline**: the LLM generates a refined prompt or layout instruction, which is then passed to a diffusion model. The models do not share weights: they are separate services connected by text.
 
 The "unified" model that can both understand and generate images within a single context is technically feasible (as token prediction over a quantized image vocabulary) but still emerging in production quality as of 2026.
 
@@ -330,14 +330,14 @@ The "unified" model that can both understand and generate images within a single
 
 For practitioners on a volatile track, a systematic monitoring approach beats ad hoc tracking:
 
-- **Subscribe to arXiv cs.CV and cs.CL** — filter for papers with "multimodal", "VLM", or "vision-language" in the title. The most important papers get community attention within days.
-- **Run your eval suite on new models within 2 weeks of release** — a 2-hour benchmark run is cheap; discovering six months later that a better model was available is expensive.
-- **Follow model release notes** — capabilities often change significantly between minor versions; the model you evaluated in January may behave differently in March.
-- **Watch for context window increases** — video and multi-image use cases are directly unlocked by context length improvements. A 2x context window increase often changes what is architecturally possible.
+- **Subscribe to arXiv cs.CV and cs.CL**: filter for papers with "multimodal", "VLM", or "vision-language" in the title. The most important papers get community attention within days.
+- **Run your eval suite on new models within 2 weeks of release**: a 2-hour benchmark run is cheap; discovering six months later that a better model was available is expensive.
+- **Follow model release notes**: capabilities often change significantly between minor versions; the model you evaluated in January may behave differently in March.
+- **Watch for context window increases**: video and multi-image use cases are directly unlocked by context length improvements. A 2x context window increase often changes what is architecturally possible.
 
 ### Further reading
 
-- [GPT-4 Technical Report](https://arxiv.org/abs/2303.08774) — OpenAI, 2023. The GPT-4V capabilities section covers multimodal capability benchmarks; useful baseline reference.
-- [Gemini: A Family of Highly Capable Multimodal Models](https://arxiv.org/abs/2312.11805) — Google DeepMind, 2023. Native multimodal architecture description and cross-modal reasoning benchmarks.
-- [Video-LLaMA: An Instruction-tuned Audio-Visual Language Model for Video Understanding](https://arxiv.org/abs/2306.02858) — Zhang et al., 2023. An open-weight video-language model; illustrates the temporal compression approach for video context.
-- [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206) — Esser et al., 2024. The Stable Diffusion 3 / Flux architecture paper; the current state of diffusion-based image generation.
+- [GPT-4 Technical Report](https://arxiv.org/abs/2303.08774); OpenAI, 2023. The GPT-4V capabilities section covers multimodal capability benchmarks; useful baseline reference.
+- [Gemini: A Family of Highly Capable Multimodal Models](https://arxiv.org/abs/2312.11805); Google DeepMind, 2023. Native multimodal architecture description and cross-modal reasoning benchmarks.
+- [Video-LLaMA: An Instruction-tuned Audio-Visual Language Model for Video Understanding](https://arxiv.org/abs/2306.02858); Zhang et al., 2023. An open-weight video-language model; illustrates the temporal compression approach for video context.
+- [Scaling Rectified Flow Transformers for High-Resolution Image Synthesis](https://arxiv.org/abs/2403.03206); Esser et al., 2024. The Stable Diffusion 3 / Flux architecture paper; the current state of diffusion-based image generation.

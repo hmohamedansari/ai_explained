@@ -1,7 +1,7 @@
 ---
 moduleId: "4.1"
 title: "What is an Agent"
-description: "An agent is not a smarter chatbot — it is a different execution model. This module defines what makes something agentic, maps the spectrum from single call to autonomous agent, and gives you the decision matrix to know which approach fits your problem."
+description: "An agent is not a smarter chatbot: it is a different execution model. This module defines what makes something agentic, maps the spectrum from single call to autonomous agent, and gives you the decision matrix to know which approach fits your problem."
 track: "agents"
 order: 1
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 6
   layer2: 16
   layer3: 13
-productionGotcha: "Teams reach for agents when a chain would do. Every added degree of autonomy multiplies failure surface: more tool calls, more context accumulation, more opportunity for compounding errors. The question before building an agent is not 'can we use an agent here?' — it is 'what is the cheapest architecture that reliably solves this problem?' Single calls and deterministic chains deserve a real evaluation before autonomy enters."
+productionGotcha: "Teams reach for agents when a chain would do. Every added degree of autonomy multiplies failure surface: more tool calls, more context accumulation, more opportunity for compounding errors. The question before building an agent is not 'can we use an agent here?': it is 'what is the cheapest architecture that reliably solves this problem?' Single calls and deterministic chains deserve a real evaluation before autonomy enters."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-A **single LLM call** takes input, returns output, and stops. A **chain** executes a fixed sequence of calls — the output of step 1 feeds step 2. An **agent** runs a loop: it decides what to do next, executes it, observes the result, and repeats until the task is done or it gives up.
+A **single LLM call** takes input, returns output, and stops. A **chain** executes a fixed sequence of calls: the output of step 1 feeds step 2. An **agent** runs a loop: it decides what to do next, executes it, observes the result, and repeats until the task is done or it gives up.
 
-The defining property of an agent is **delegated decision-making** — you hand the model a goal and let it choose the sequence of actions to reach it. This is powerful for tasks where the path isn't known in advance. It is also the source of every failure mode in this track.
+The defining property of an agent is **delegated decision-making**: you hand the model a goal and let it choose the sequence of actions to reach it. This is powerful for tasks where the path isn't known in advance. It is also the source of every failure mode in this track.
 
 **The four capabilities that together define an agent:**
 
@@ -31,11 +31,11 @@ The defining property of an agent is **delegated decision-making** — you hand 
 | **Memory** | Can maintain state across multiple turns or sessions |
 | **Self-correction** | Can observe failure and try a different approach |
 
-A system with all four is fully agentic. Many production systems are partially agentic — two or three capabilities, the others handled deterministically. Partial autonomy is often the right answer.
+A system with all four is fully agentic. Many production systems are partially agentic: two or three capabilities, the others handled deterministically. Partial autonomy is often the right answer.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The agentic loop
 
@@ -140,15 +140,15 @@ class PlanningAgent:
         return self.execute_plan(plan)
 ```
 
-Only add capabilities that the task needs. A planning layer adds latency and cost — don't add it unless the task is complex enough to benefit.
+Only add capabilities that the task needs. A planning layer adds latency and cost: don't add it unless the task is complex enough to benefit.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Autonomy spectrum and control points
 
-Full autonomy is not a binary — it exists on a spectrum:
+Full autonomy is not a binary: it exists on a spectrum:
 
 ```
 Low autonomy                                    High autonomy
@@ -204,6 +204,6 @@ else:
 
 ### Further reading
 
-- [Anthropic — Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Taxonomy of agent architectures with explicit guidance on when not to use agents; the decision framework here maps closely to this.
-- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. The paper that formalised the reason-act-observe loop; foundational reading for understanding agentic execution.
-- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) — Sumers et al., 2023. Taxonomy of memory, planning, and action in language agents; useful for understanding the four-capability model.
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic], Taxonomy of agent architectures with explicit guidance on when not to use agents; the decision framework here maps closely to this.
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629); Yao et al., 2022. The paper that formalised the reason-act-observe loop; foundational reading for understanding agentic execution.
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427); Sumers et al., 2023. Taxonomy of memory, planning, and action in language agents; useful for understanding the four-capability model.

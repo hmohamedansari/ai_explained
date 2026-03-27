@@ -1,19 +1,19 @@
 {
-  "title": "Advanced RAG Patterns — Check your understanding",
+  "title": "Advanced RAG Patterns: Check your understanding",
   "moduleId": "2.7",
   "questions": [
     {
       "id": "2.7-q1",
       "type": "multiple-choice",
-      "question": "A user asks 'How do I fix the login problem?' — vague, with no mention of the specific error or system. Your dense retrieval returns generic authentication articles. Which pattern most directly addresses this failure?",
+      "question": "A user asks 'How do I fix the login problem?': vague, with no mention of the specific error or system. Your dense retrieval returns generic authentication articles. Which pattern most directly addresses this failure?",
       "options": [
-        "HyDE — generate a hypothetical answer and embed it to find similar documents",
-        "Multi-query retrieval — generate several alternative phrasings of the query to cast a wider retrieval net",
-        "Small-to-big retrieval — retrieve short chunks and expand to their parent sections",
-        "Contextual retrieval — enrich chunk embeddings with document-level context"
+        "HyDE: generate a hypothetical answer and embed it to find similar documents",
+        "Multi-query retrieval: generate several alternative phrasings of the query to cast a wider retrieval net",
+        "Small-to-big retrieval: retrieve short chunks and expand to their parent sections",
+        "Contextual retrieval: enrich chunk embeddings with document-level context"
       ],
       "answer": 1,
-      "explanation": "The problem is a vague query that doesn't match the specific phrasing of relevant documents. Multi-query retrieval generates alternative phrasings ('login error troubleshooting', 'authentication failure resolution', 'cannot log in fix') and takes the union of results — casting a wider net that catches documents the original query missed. HyDE works better when the query is specific but phrased differently from the answer; small-to-big helps when the right chunk is retrieved but lacks context; contextual retrieval helps when chunks are ambiguous in isolation.",
+      "explanation": "The problem is a vague query that doesn't match the specific phrasing of relevant documents. Multi-query retrieval generates alternative phrasings ('login error troubleshooting', 'authentication failure resolution', 'cannot log in fix') and takes the union of results: casting a wider net that catches documents the original query missed. HyDE works better when the query is specific but phrased differently from the answer; small-to-big helps when the right chunk is retrieved but lacks context; contextual retrieval helps when chunks are ambiguous in isolation.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "What is the core insight behind HyDE (Hypothetical Document Embeddings)?",
       "options": [
         "Embedding a longer, more detailed query improves retrieval accuracy",
-        "Generating a plausible answer first puts the query into 'answer space' — closer in the embedding space to real documents that contain the answer",
+        "Generating a plausible answer first puts the query into 'answer space': closer in the embedding space to real documents that contain the answer",
         "Hypothetical answers are used to fine-tune the embedding model at query time",
         "HyDE bypasses the vector database entirely by generating the answer directly"
       ],
       "answer": 1,
-      "explanation": "Questions and their answers often sit in different regions of embedding space — 'How do I configure the firewall?' is semantically distant from 'Set FIREWALL_POLICY=strict in /etc/config'. HyDE bridges this gap by generating a plausible answer (which sits in answer space, near real documents that answer the question), embedding that answer, and retrieving documents similar to the hypothesis. The hypothesis doesn't need to be correct — it just needs to be in the right neighbourhood of the embedding space.",
+      "explanation": "Questions and their answers often sit in different regions of embedding space, 'How do I configure the firewall?' is semantically distant from 'Set FIREWALL_POLICY=strict in /etc/config'. HyDE bridges this gap by generating a plausible answer (which sits in answer space, near real documents that answer the question), embedding that answer, and retrieving documents similar to the hypothesis. The hypothesis doesn't need to be correct, it just needs to be in the right neighbourhood of the embedding space.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -35,10 +35,10 @@
       "type": "multiple-choice",
       "question": "Your eval data shows recall@10 is 0.93 but the model often says it doesn't have enough information, even on queries where the correct chunk was retrieved. What does this indicate and which pattern helps?",
       "options": [
-        "Generation model failure — switch to a frontier model with better reading comprehension",
-        "The correct chunk is retrieved but the chunk is too small and lacks the surrounding context the model needs to give a complete answer — small-to-big retrieval addresses this by expanding retrieved chunks to their parent sections",
-        "The no-answer instruction is too aggressive — remove it to allow the model to use training knowledge",
-        "Retrieval is finding the wrong chunks — improve hybrid search"
+        "Generation model failure: switch to a frontier model with better reading comprehension",
+        "The correct chunk is retrieved but the chunk is too small and lacks the surrounding context the model needs to give a complete answer: small-to-big retrieval addresses this by expanding retrieved chunks to their parent sections",
+        "The no-answer instruction is too aggressive: remove it to allow the model to use training knowledge",
+        "Retrieval is finding the wrong chunks: improve hybrid search"
       ],
       "answer": 1,
       "explanation": "High recall@10 confirms the right chunk is being retrieved. The model saying 'not enough information' despite correct retrieval points to a context problem, not a retrieval problem: the retrieved chunk is too small to contain a complete, usable answer. Small-to-big retrieval indexes at fine granularity for precision but expands to a larger parent unit before passing to the model, providing the context needed for a complete answer.",
@@ -50,7 +50,7 @@
       "question": "You are adding HyDE to your production RAG system for interactive chat (target response time <2 seconds). What is the primary risk to evaluate before deploying?",
       "options": [
         "HyDE hypotheses may contain hallucinations that mislead retrieval",
-        "HyDE adds a full generation round-trip before retrieval begins — measure p95 latency impact before enabling in production, as this may push response time over the interactive threshold",
+        "HyDE adds a full generation round-trip before retrieval begins: measure p95 latency impact before enabling in production, as this may push response time over the interactive threshold",
         "HyDE is incompatible with hybrid search and requires switching to dense-only retrieval",
         "HyDE requires a fine-tuned embedding model to work effectively"
       ],
@@ -61,10 +61,10 @@
     {
       "id": "2.7-q5",
       "type": "multiple-choice",
-      "question": "A user in a 10-turn conversation asks 'What about the enterprise tier?' — a follow-up that references the topic established 5 turns earlier. Basic retrieval returns irrelevant chunks. What is the right fix?",
+      "question": "A user in a 10-turn conversation asks 'What about the enterprise tier?': a follow-up that references the topic established 5 turns earlier. Basic retrieval returns irrelevant chunks. What is the right fix?",
       "options": [
         "Increase top-k to 20 so the relevant chunk has a chance of appearing",
-        "Use conversational RAG — condense the conversation history into a standalone retrieval query that includes the topic established in earlier turns",
+        "Use conversational RAG: condense the conversation history into a standalone retrieval query that includes the topic established in earlier turns",
         "Pass the full conversation history to the embedding model for a richer query vector",
         "Use multi-query retrieval to generate alternative phrasings of 'enterprise tier'"
       ],

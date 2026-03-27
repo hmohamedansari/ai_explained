@@ -16,7 +16,7 @@ productionGotcha: "The 'store everything' pattern turns memory into a liability.
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An agent's memory determines what it can know, retain, and act on. There are four fundamentally different stores, each with different scope, cost, and appropriate use:
 
@@ -25,13 +25,13 @@ An agent's memory determines what it can know, retain, and act on. There are fou
 | **In-context** | Current session | No | Working state, recent turns, active task |
 | **External key-value** | Cross-session | Yes | User preferences, facts, session summaries |
 | **Vector (semantic)** | Cross-session | Yes | Past conversations, documents, episodic recall |
-| **Episodic / procedural** | Cross-session | Yes | How to do things — successful past task strategies |
+| **Episodic / procedural** | Cross-session | Yes | How to do things: successful past task strategies |
 
 No single type covers everything. Production agents typically combine two or three, reading from external stores into context at session start and writing back on session end or milestone.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### In-context memory (working memory)
 
@@ -66,7 +66,7 @@ class InContextMemory:
 
 ### External key-value memory
 
-For facts that should persist across sessions — user preferences, confirmed facts, session state:
+For facts that should persist across sessions: user preferences, confirmed facts, session state:
 
 ```python
 import json
@@ -122,7 +122,7 @@ class KeyValueMemory:
 
 ### Vector (semantic) memory
 
-For retrieval by meaning — past conversations, documents, examples:
+For retrieval by meaning: past conversations, documents, examples:
 
 ```python
 class VectorMemory:
@@ -221,7 +221,7 @@ def store_with_provenance(memory: KeyValueMemory, key: str, value: str, source: 
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Memory coherence across stores
 
@@ -274,15 +274,15 @@ def decay_confidences(memory: KeyValueMemory, decay_rate: float = 0.05):
 
 ### Memory poisoning
 
-If an agent stores content from external sources without validation, those memories can contain injected instructions (see module 3.6). Memories retrieved at session start are particularly dangerous — they are treated as high-trust context.
+If an agent stores content from external sources without validation, those memories can contain injected instructions (see module 3.6). Memories retrieved at session start are particularly dangerous: they are treated as high-trust context.
 
 Guards:
-- Never store raw external content verbatim — at minimum, summarise through the model first to reduce surface area; note that summarization alone is not a reliable filter (a model may faithfully preserve injected instructions while paraphrasing), so treat summarised external content as untrusted regardless
+- Never store raw external content verbatim: at minimum, summarise through the model first to reduce surface area; note that summarization alone is not a reliable filter (a model may faithfully preserve injected instructions while paraphrasing), so treat summarised external content as untrusted regardless
 - Apply a content policy check before writing: reject entries that contain imperative instructions, system-prompt patterns, or tool invocation syntax
 - Tag externally-sourced memories with low confidence and `source: "external"`
 - Delimit retrieved memories in the prompt the same way you delimit RAG chunks
 
 ### Further reading
 
-- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) — Packer et al., 2023. Formalises paged memory for LLMs; the tiered store model here draws from this architecture.
-- [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442) — Park et al., 2023. Memory stream + reflection + retrieval architecture; still the clearest published design for episodic agent memory.
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560); Packer et al., 2023. Formalises paged memory for LLMs; the tiered store model here draws from this architecture.
+- [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442); Park et al., 2023. Memory stream + reflection + retrieval architecture; still the clearest published design for episodic agent memory.

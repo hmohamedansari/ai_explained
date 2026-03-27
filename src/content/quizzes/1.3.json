@@ -1,5 +1,5 @@
 {
-  "title": "Models and Model Selection — Check your understanding",
+  "title": "Models and Model Selection: Check your understanding",
   "moduleId": "1.3",
   "questions": [
     {
@@ -8,7 +8,7 @@
       "question": "Your application classifies incoming support tickets into 5 categories. It processes 2 million tickets per day. Which model selection strategy is most appropriate?",
       "options": [
         "Use the frontier model to ensure the highest accuracy on every ticket",
-        "Use a fast, small model — classification is a well-defined task that doesn't require frontier capability",
+        "Use a fast, small model: classification is a well-defined task that doesn't require frontier capability",
         "Use the balanced model as a safe default for all production workloads",
         "Use the frontier model in development and the fast model in production to save costs"
       ],
@@ -19,7 +19,7 @@
     {
       "id": "1.3-q2",
       "type": "multiple-choice",
-      "question": "You deploy a feature using a floating model alias — for example 'gpt-4o' or 'claude-opus-4-6' — without pinning a specific version. Three months later, users report the output style has changed. What most likely happened?",
+      "question": "You deploy a feature using a floating model alias, for example 'gpt-4o' or 'claude-opus-4-6', without pinning a specific version. Three months later, users report the output style has changed. What most likely happened?",
       "options": [
         "Your prompt was modified by another team member",
         "The provider silently updated the model the alias points to",
@@ -53,10 +53,10 @@
         "Fine-tune first, then prompt engineering, then switch models",
         "Switch models first, then fine-tune, then improve the prompt",
         "Improve the prompt first, then try a larger model, then consider fine-tuning",
-        "All three interventions have equal priority — choose based on available budget"
+        "All three interventions have equal priority: choose based on available budget"
       ],
       "answer": 2,
-      "explanation": "Prompt engineering is the cheapest and fastest lever — a better prompt with few-shot examples frequently matches fine-tuned performance. Try a larger model if prompting plateaus. Fine-tuning is a significant data and ops investment; reach for it last, only when you have curated examples and a clear quality gap that prompting can't close.",
+      "explanation": "Prompt engineering is the cheapest and fastest lever: a better prompt with few-shot examples frequently matches fine-tuned performance. Try a larger model if prompting plateaus. Fine-tuning is a significant data and ops investment; reach for it last, only when you have curated examples and a clear quality gap that prompting can't close.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -70,7 +70,7 @@
         "To estimate how long the model will take to process requests in production"
       ],
       "answer": 1,
-      "explanation": "An eval set gives you objective, reproducible scores across model tiers on your actual task. Without one, model selection is based on intuition. With one, you can quantify the quality drop when moving to a cheaper model and make an informed tradeoff — and re-run the eval when providers ship new model versions.",
+      "explanation": "An eval set gives you objective, reproducible scores across model tiers on your actual task. Without one, model selection is based on intuition. With one, you can quantify the quality drop when moving to a cheaper model and make an informed tradeoff, and re-run the eval when providers ship new model versions.",
       "read_more": "https://airc.nist.gov/RMF",
       "personas": ["curious", "leader", "junior", "senior", "sre"]
     }

@@ -1,7 +1,7 @@
 ---
 moduleId: "4.5"
 title: "Agent Failure Modes"
-description: "Agents fail in ways that are qualitatively different from single API calls — errors compound, loops consume unbounded resources, and failures can be invisible until they cause damage. This module catalogues the failure modes and the structural mitigations for each."
+description: "Agents fail in ways that are qualitatively different from single API calls: errors compound, loops consume unbounded resources, and failures can be invisible until they cause damage. This module catalogues the failure modes and the structural mitigations for each."
 track: "agents"
 order: 5
 personas: ["junior", "senior", "sre"]
@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 6
   layer2: 18
   layer3: 13
-productionGotcha: "Compounding errors are the defining failure mode of agentic systems. A wrong fact in step 2 doesn't just produce a wrong answer — it becomes the input to step 3, where the model reasons from that wrong fact to produce a plausible-but-wrong step 4. By the time the final output arrives, the error is deeply embedded and the model's confident synthesis makes it hard to spot. Add verification checkpoints between steps for any task where downstream steps take irreversible actions."
+productionGotcha: "Compounding errors are the defining failure mode of agentic systems. A wrong fact in step 2 doesn't just produce a wrong answer: it becomes the input to step 3, where the model reasons from that wrong fact to produce a plausible-but-wrong step 4. By the time the final output arrives, the error is deeply embedded and the model's confident synthesis makes it hard to spot. Add verification checkpoints between steps for any task where downstream steps take irreversible actions."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Agent failures are harder to detect than API failures. A 500 error is obvious. An agent that completes with a confident wrong answer because step 2 retrieved the wrong data and every subsequent step built on it — that is invisible without deliberate instrumentation.
+Agent failures are harder to detect than API failures. A 500 error is obvious. An agent that completes with a confident wrong answer because step 2 retrieved the wrong data and every subsequent step built on it: that is invisible without deliberate instrumentation.
 
 **The five failure modes:**
 
@@ -32,7 +32,7 @@ Agent failures are harder to detect than API failures. A 500 error is obvious. A
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Infinite loop detection
 
@@ -97,7 +97,7 @@ def run_agent_with_loop_detection(goal: str, tools: list[dict]) -> str:
 
 ### Hallucinated tool arguments
 
-The model passes structurally valid arguments that are factually invented — an order ID that doesn't exist, a date in the wrong format, a search query that constructs a URL the model made up.
+The model passes structurally valid arguments that are factually invented: an order ID that doesn't exist, a date in the wrong format, a search query that constructs a URL the model made up.
 
 ```python
 def execute_with_verification(tool_name: str, arguments: dict) -> str:
@@ -252,7 +252,7 @@ When stuck state is detected: cancel the task, release locks, return a partial r
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Failure taxonomy and recovery strategies
 
@@ -300,9 +300,9 @@ class IdempotentStepExecutor:
         return result
 ```
 
-Step IDs should be deterministic from the task context — the same logical step in a retried task must reuse the same ID to hit the cache.
+Step IDs should be deterministic from the task context: the same logical step in a retried task must reuse the same ID to hit the cache.
 
 ### Further reading
 
-- [Failure Modes in LLM Agents](https://arxiv.org/abs/2406.12688) — Empirical study of agent failures across benchmark tasks; useful taxonomy that matches the structure of this module.
-- [Risks from Learned Optimization](https://www.lesswrong.com/posts/FkgsxrGf3QxhfLWHG) — Foundational analysis of how optimising systems fail in unexpected ways; background reading for understanding why agentic failure is structurally different.
+- [Failure Modes in LLM Agents](https://arxiv.org/abs/2406.12688); Empirical study of agent failures across benchmark tasks; useful taxonomy that matches the structure of this module.
+- [Risks from Learned Optimization](https://www.lesswrong.com/posts/FkgsxrGf3QxhfLWHG); Foundational analysis of how optimising systems fail in unexpected ways; background reading for understanding why agentic failure is structurally different.

@@ -1,7 +1,7 @@
 ---
 moduleId: "7.8"
 title: "Incident Response for AI Systems"
-description: "An AI incident is not a software incident — it involves model misbehaviour, safety violations, or data leakage, each with distinct root causes and remediation paths. This module covers detection, containment, investigation, and post-mortem structure for AI-specific incidents, and the one logging investment that makes all of it possible."
+description: "An AI incident is not a software incident: it involves model misbehaviour, safety violations, or data leakage, each with distinct root causes and remediation paths. This module covers detection, containment, investigation, and post-mortem structure for AI-specific incidents, and the one logging investment that makes all of it possible."
 track: "safety"
 order: 8
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "AI incidents often cannot be reproduced because prompts and context are not logged. Without a trace of the full input that triggered the misbehaviour, root cause analysis is guesswork. Invest in prompt logging with retention before you need it — retrofitting logging after an incident is too late."
+productionGotcha: "AI incidents often cannot be reproduced because prompts and context are not logged. Without a trace of the full input that triggered the misbehaviour, root cause analysis is guesswork. Invest in prompt logging with retention before you need it: retrofitting logging after an incident is too late."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Software incidents are usually about the system being down or slow. AI incidents are different: the system is running fine, but it is saying the wrong thing, leaking data, or taking actions it should not. Detecting these requires different monitoring. Fixing them requires understanding whether the problem is in the model, the prompt, the data, or the configuration.
 
@@ -32,17 +32,17 @@ Software incidents are usually about the system being down or slow. AI incidents
 
 ### Why it matters
 
-AI incidents have a different escalation curve than software bugs. A software bug affects a deterministic subset of users. An AI misbehaviour can affect every user who sends a similar input — potentially thousands of people before the incident is detected. The first priority in an AI incident is always containment, then investigation.
+AI incidents have a different escalation curve than software bugs. A software bug affects a deterministic subset of users. An AI misbehaviour can affect every user who sends a similar input: potentially thousands of people before the incident is detected. The first priority in an AI incident is always containment, then investigation.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams build prompt logging into the roadmap but it slips to "later". When an incident occurs, the on-call engineer has the timestamp, the user ID, and a screenshot — but not the actual prompt and context that triggered the misbehaviour. Root cause analysis becomes "the model did something bad" without the ability to reproduce it, fix it, or test that the fix works.
+> Teams build prompt logging into the roadmap but it slips to "later". When an incident occurs, the on-call engineer has the timestamp, the user ID, and a screenshot, but not the actual prompt and context that triggered the misbehaviour. Root cause analysis becomes "the model did something bad" without the ability to reproduce it, fix it, or test that the fix works.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Incident detection: what to monitor
 
@@ -299,7 +299,7 @@ DISCLOSURE_REQUIREMENTS: list[DisclosureRequirement] = [
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Post-mortem structure for AI incidents
 
@@ -308,7 +308,7 @@ AI post-mortems need fields that a standard software post-mortem does not:
 | Section | AI-specific content |
 |---|---|
 | **Timeline** | Include: when monitoring fired, when the incident was first created in production, when it was detected, when containment took effect |
-| **Root cause** | Classify as: model failure / prompt failure / data failure / configuration failure — the fix differs by category |
+| **Root cause** | Classify as: model failure / prompt failure / data failure / configuration failure: the fix differs by category |
 | **Reproduction** | Was the incident reproducible from logs? If not, why not? What logging gaps does this reveal? |
 | **Guardrail assessment** | Which guardrails were in place? Which should have caught this? Why did they not? |
 | **Scope** | How many users were affected? Were any regulatory obligations triggered (GDPR breach notification)? |
@@ -358,6 +358,6 @@ POST-MORTEM
 
 ### Further reading
 
-- [GDPR Article 33 — Notification of a Personal Data Breach](https://gdpr-info.eu/art-33-gdpr/) — Official GDPR text, 2018. The 72-hour breach notification obligation; applies to any personal data breach, including AI-caused leakage.
-- [Incident Review and Postmortem Guide](https://sre.google/workbook/postmortem-culture/) — Google SRE Workbook, 2018. Foundation of blameless post-mortems; applies directly to AI incident reviews.
-- [Llm Monitoring and Observability](https://arxiv.org/abs/2401.13138) — Shankar et al., 2024. Survey of monitoring approaches for production LLM systems; covers the detection layer described in this module.
+- [GDPR Article 33, Notification of a Personal Data Breach](https://gdpr-info.eu/art-33-gdpr/), Official GDPR text, 2018. The 72-hour breach notification obligation; applies to any personal data breach, including AI-caused leakage.
+- [Incident Review and Postmortem Guide](https://sre.google/workbook/postmortem-culture/); Google SRE Workbook, 2018. Foundation of blameless post-mortems; applies directly to AI incident reviews.
+- [Llm Monitoring and Observability](https://arxiv.org/abs/2401.13138); Shankar et al., 2024. Survey of monitoring approaches for production LLM systems; covers the detection layer described in this module.

@@ -1,7 +1,7 @@
 ---
 moduleId: "3.7"
 title: "Production Operations"
-description: "A tool-using system has more moving parts than a simple prompt-response loop — and more things that can go wrong. This module covers the observability, cost management, and resilience patterns that keep tool integrations reliable after launch."
+description: "A tool-using system has more moving parts than a simple prompt-response loop, and more things that can go wrong. This module covers the observability, cost management, and resilience patterns that keep tool integrations reliable after launch."
 track: "protocols"
 order: 7
 personas: ["junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 17
   layer3: 13
-productionGotcha: "A single slow tool dependency can block every session that calls it. Without a per-tool timeout, one degraded API causes cascading latency across your whole system. Set timeouts per tool call, not just per session. When a tool hits its timeout, return a structured error and let the model decide whether to try a different approach — don't silently hang."
+productionGotcha: "A single slow tool dependency can block every session that calls it. Without a per-tool timeout, one degraded API causes cascading latency across your whole system. Set timeouts per tool call, not just per session. When a tool hits its timeout, return a structured error and let the model decide whether to try a different approach: don't silently hang."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A production tool-using system is a distributed system: your application, the LLM API, and N downstream tool dependencies all need to be up for a session to succeed. Each dependency is a potential failure point.
 
@@ -31,7 +31,7 @@ A production tool-using system is a distributed system: your application, the LL
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Logging tool call lifecycle
 
@@ -80,11 +80,11 @@ def execute_and_log(
 ```
 
 **Key fields to capture:**
-- `tool` — which tool was called
-- `success` — did it return a non-error result
-- `duration_ms` — how long it took (p50/p95 per tool)
-- `session_id` — links all tool calls in one conversation
-- `result_bytes` — tracks whether tools are returning unexpectedly large responses
+- `tool`: which tool was called
+- `success`: did it return a non-error result
+- `duration_ms`: how long it took (p50/p95 per tool)
+- `session_id`: links all tool calls in one conversation
+- `result_bytes`: tracks whether tools are returning unexpectedly large responses
 
 ### Per-session cost tracking
 
@@ -210,7 +210,7 @@ def execute_with_degradation(tool_name: str, arguments: dict) -> str:
 
 ```
 
-When an optional tool returns a degradation message, the model understands it should proceed without that data — you've given it a path forward.
+When an optional tool returns a degradation message, the model understands it should proceed without that data: you've given it a path forward.
 
 ### Alerting thresholds
 
@@ -236,7 +236,7 @@ High `session_iterations_p95` is an early warning for loop-like behavior before 
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Distributed tracing for tool chains
 
@@ -285,7 +285,7 @@ Pass `X-Trace-ID` headers to downstream API calls so the full tool chain is visi
 | p95 session latency | under 15s | Time from first user message to final response |
 | Cost per session p95 | under $0.10 | LLM tokens + tool costs |
 
-Track per-tool availability separately — when SLO breaches, you need to know which tool caused it.
+Track per-tool availability separately: when SLO breaches, you need to know which tool caused it.
 
 ### On-call runbook template
 
@@ -317,6 +317,6 @@ Runbooks reduce MTTR and prevent each incident from requiring tribal knowledge.
 
 ### Further reading
 
-- [Google SRE Book — Chapter 6: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) — The four golden signals (latency, traffic, errors, saturation) applied to tool-using systems; relevant beyond Google infrastructure.
-- [Martin Fowler — Circuit Breaker](https://martinfowler.com/bliki/CircuitBreaker.html) — Definitive description of the circuit breaker pattern with state diagram.
-- [OpenTelemetry](https://opentelemetry.io/) — Vendor-neutral distributed tracing standard; use to propagate trace IDs across model API calls and tool invocations.
+- [Google SRE Book, Chapter 6: Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/), The four golden signals (latency, traffic, errors, saturation) applied to tool-using systems; relevant beyond Google infrastructure.
+- [Martin Fowler, Circuit Breaker](https://martinfowler.com/bliki/CircuitBreaker.html), Definitive description of the circuit breaker pattern with state diagram.
+- [OpenTelemetry](https://opentelemetry.io/); Vendor-neutral distributed tracing standard; use to propagate trace IDs across model API calls and tool invocations.

@@ -1,7 +1,7 @@
 ---
 moduleId: "7.7"
 title: "Regulatory Landscape"
-description: "The regulatory environment for AI is moving quickly. The EU AI Act introduced risk tiers and mandatory requirements. GDPR has always applied to automated decision-making. The US has the NIST AI RMF. This module maps the landscape for a B2B SaaS product using LLMs — what you likely need to document, what you need to avoid, and where you need legal counsel."
+description: "The regulatory environment for AI is moving quickly. The EU AI Act introduced risk tiers and mandatory requirements. GDPR has always applied to automated decision-making. The US has the NIST AI RMF. This module maps the landscape for a B2B SaaS product using LLMs: what you likely need to document, what you need to avoid, and where you need legal counsel."
 track: "safety"
 order: 7
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,22 +12,22 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "The EU AI Act's high-risk classification is broader than most teams expect — AI systems used in hiring, credit, education, law enforcement, and critical infrastructure fall into high-risk regardless of the underlying model. Classify your use case before assuming you're in the minimal-risk tier."
+productionGotcha: "The EU AI Act's high-risk classification is broader than most teams expect; AI systems used in hiring, credit, education, law enforcement, and critical infrastructure fall into high-risk regardless of the underlying model. Classify your use case before assuming you're in the minimal-risk tier."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Three regulatory frameworks matter most for teams building with LLMs today: the EU AI Act, GDPR, and the NIST AI Risk Management Framework. They approach AI risk from different angles and have different geographic reach — but if you ship to EU users, all three are relevant.
+Three regulatory frameworks matter most for teams building with LLMs today: the EU AI Act, GDPR, and the NIST AI Risk Management Framework. They approach AI risk from different angles and have different geographic reach, but if you ship to EU users, all three are relevant.
 
 **The frameworks at a glance:**
 
 | Framework | Geography | Approach | Binding? |
 |---|---|---|---|
-| **EU AI Act** | EU (and global if you serve EU users or deploy in EU) | Risk-tier classification with mandatory requirements for high-risk systems | Yes — fines up to 3% or 6% of global turnover |
-| **GDPR** | EU and EEA (and anyone processing EU residents' data) | Data protection principles applied to automated processing | Yes — fines up to 4% of global turnover |
-| **NIST AI RMF** | US (voluntary but referenced by federal contracts) | Risk management framework: Govern, Map, Measure, Manage | No — voluntary, but expected by US government customers |
-| **UK DSIT AI Principles** | UK | Context-specific principles (safety, transparency, fairness, accountability) | No — non-statutory, sector regulators apply existing law |
+| **EU AI Act** | EU (and global if you serve EU users or deploy in EU) | Risk-tier classification with mandatory requirements for high-risk systems | Yes: fines up to 3% or 6% of global turnover |
+| **GDPR** | EU and EEA (and anyone processing EU residents' data) | Data protection principles applied to automated processing | Yes: fines up to 4% of global turnover |
+| **NIST AI RMF** | US (voluntary but referenced by federal contracts) | Risk management framework: Govern, Map, Measure, Manage | No: voluntary, but expected by US government customers |
+| **UK DSIT AI Principles** | UK | Context-specific principles (safety, transparency, fairness, accountability) | No: non-statutory, sector regulators apply existing law |
 
 ### Why it matters
 
@@ -37,11 +37,11 @@ Non-compliance can mean fines, but also contract loss (government customers incr
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams building a helpful AI feature for HR, lending, or education often assume they are in the "limited risk" or "minimal risk" tier. They are not. The EU AI Act explicitly lists these sectors in Annex III as high-risk use cases. A chatbot that helps a recruiter screen CVs is a high-risk AI system with mandatory documentation, transparency, and human oversight requirements — regardless of how helpful the chatbot is.
+> Teams building a helpful AI feature for HR, lending, or education often assume they are in the "limited risk" or "minimal risk" tier. They are not. The EU AI Act explicitly lists these sectors in Annex III as high-risk use cases. A chatbot that helps a recruiter screen CVs is a high-risk AI system with mandatory documentation, transparency, and human oversight requirements: regardless of how helpful the chatbot is.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### EU AI Act: risk tier classification
 
@@ -252,7 +252,7 @@ B2B_SAAS_COMPLIANCE_CHECKLIST: list[ComplianceItem] = [
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### EU AI Act timeline and obligations
 
@@ -274,11 +274,11 @@ The NIST AI Risk Management Framework is organised around four functions:
 | Function | What it covers |
 |---|---|
 | **Govern** | Policies, accountability, culture, and workforce (the organisation's AI risk posture) |
-| **Map** | Identify AI risks in context — what can go wrong, for whom, under what conditions |
+| **Map** | Identify AI risks in context: what can go wrong, for whom, under what conditions |
 | **Measure** | Evaluate and assess risks quantitatively and qualitatively |
 | **Manage** | Prioritise and act on identified risks; monitor and adjust |
 
-The NIST AI RMF is less prescriptive than the EU AI Act — it provides a vocabulary and structure rather than specific rules. US government agencies are increasingly using it as a procurement requirement.
+The NIST AI RMF is less prescriptive than the EU AI Act: it provides a vocabulary and structure rather than specific rules. US government agencies are increasingly using it as a procurement requirement.
 
 ### Where this module ends and legal counsel begins
 
@@ -290,6 +290,6 @@ This module helps you understand the landscape and ask the right questions. It d
 
 ### Further reading
 
-- [EU AI Act — Full Text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689) — Official Journal of the EU, 2024. The authoritative text; Annex III lists high-risk use cases.
-- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf) — NIST, 2023. The US framework; voluntary but increasingly required by government customers.
-- [ICO Guidance on AI and Automated Decision-Making](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/) — UK ICO, 2023. UK GDPR application to AI systems including Article 22 guidance.
+- [EU AI Act, Full Text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689), Official Journal of the EU, 2024. The authoritative text; Annex III lists high-risk use cases.
+- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf); NIST, 2023. The US framework; voluntary but increasingly required by government customers.
+- [ICO Guidance on AI and Automated Decision-Making](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/); UK ICO, 2023. UK GDPR application to AI systems including Article 22 guidance.

@@ -1,5 +1,5 @@
 {
-  "title": "Audio and Speech AI — Check your understanding",
+  "title": "Audio and Speech AI: Check your understanding",
   "moduleId": "9.3",
   "questions": [
     {
@@ -8,8 +8,8 @@
       "question": "A team builds a call centre transcription system. Their Whisper large model achieves 4% WER on the LibriSpeech benchmark. In production, they measure 24% WER. What is the most likely cause?",
       "options": [
         "The production environment is running an older version of the model than was benchmarked",
-        "LibriSpeech contains clean, studio-quality English recordings; call centre audio includes background noise, telephone compression (narrowband audio), regional accents, domain-specific product terminology, and crosstalk — all of which degrade ASR accuracy significantly relative to clean-speech benchmarks",
-        "The team is measuring WER incorrectly in production — the formula is being applied to the wrong token sets",
+        "LibriSpeech contains clean, studio-quality English recordings; call centre audio includes background noise, telephone compression (narrowband audio), regional accents, domain-specific product terminology, and crosstalk: all of which degrade ASR accuracy significantly relative to clean-speech benchmarks",
+        "The team is measuring WER incorrectly in production: the formula is being applied to the wrong token sets",
         "Whisper large requires a minimum of 30 seconds of audio per chunk; shorter audio chunks cause accuracy degradation"
       ],
       "answer": 1,
@@ -22,7 +22,7 @@
       "question": "A voice assistant pipeline transcribes user speech, sends the transcript to an LLM, and speaks the LLM's reply using TTS. Users complain the assistant feels slow. Where should the team focus first to reduce perceived latency?",
       "options": [
         "Reduce the LLM's maximum output token length to make responses shorter",
-        "Switch from batch to streaming at every stage: streaming ASR emits partial transcripts as audio arrives (the LLM can start as soon as the first sentence is complete), streaming LLM produces tokens as they are generated, and streaming TTS begins playing the first audio before the full text is ready — each stage waiting for complete output from the previous stage compounds latency; streaming cuts perceived response time dramatically",
+        "Switch from batch to streaming at every stage: streaming ASR emits partial transcripts as audio arrives (the LLM can start as soon as the first sentence is complete), streaming LLM produces tokens as they are generated, and streaming TTS begins playing the first audio before the full text is ready: each stage waiting for complete output from the previous stage compounds latency; streaming cuts perceived response time dramatically",
         "Upgrade to a faster TTS model with higher throughput",
         "Cache the most common user phrases and return pre-recorded responses"
       ],
@@ -36,12 +36,12 @@
       "question": "A team's ASR system is asked to transcribe audio from a quarterly earnings call. The transcript consistently errors on ticker symbols (AAPL, NVDA), financial metrics ('basis points', 'EBITDA'), and executive names. Standard WER is 8%. What is the correct fix?",
       "options": [
         "Increase the audio sample rate from 16kHz to 44.1kHz before transcription",
-        "8% WER understates the impact because errors concentrate on high-value entities (names, numbers, metrics) that matter most for downstream use; domain adaptation is required — either through few-shot prompting with a vocabulary hint list, a custom language model layer, or fine-tuning on in-domain earnings call transcripts — to improve accuracy specifically on domain terminology",
-        "Use a smaller Whisper model — the large model overfits to general vocabulary",
+        "8% WER understates the impact because errors concentrate on high-value entities (names, numbers, metrics) that matter most for downstream use; domain adaptation is required, either through few-shot prompting with a vocabulary hint list, a custom language model layer, or fine-tuning on in-domain earnings call transcripts, to improve accuracy specifically on domain terminology",
+        "Use a smaller Whisper model: the large model overfits to general vocabulary",
         "Post-process the transcript with a spell-checker to fix obvious errors"
       ],
       "answer": 1,
-      "explanation": "Aggregate WER is a misleading metric when errors concentrate on the words that matter most. An 8% WER might mean 92% of common words are correct while virtually all ticker symbols and financial terms are mis-transcribed. ASR models have frequency-weighted training — common words are represented heavily, domain-specific vocabulary rarely. The solution is domain adaptation: providing vocabulary hints (many ASR APIs accept a word list to boost rare term recognition), using prompt conditioning to prime the model with domain context, or fine-tuning on in-domain data. A spell-checker cannot fix transcription errors for terms that sound similar to each other.",
+      "explanation": "Aggregate WER is a misleading metric when errors concentrate on the words that matter most. An 8% WER might mean 92% of common words are correct while virtually all ticker symbols and financial terms are mis-transcribed. ASR models have frequency-weighted training: common words are represented heavily, domain-specific vocabulary rarely. The solution is domain adaptation: providing vocabulary hints (many ASR APIs accept a word list to boost rare term recognition), using prompt conditioning to prime the model with domain context, or fine-tuning on in-domain data. A spell-checker cannot fix transcription errors for terms that sound similar to each other.",
       "personas": ["senior", "sre"]
     },
     {
@@ -55,7 +55,7 @@
         "Hallucinations only occur in the first and last 10 minutes of each file due to audio normalisation issues"
       ],
       "answer": 1,
-      "explanation": "Whisper processes audio in 30-second windows internally. When the API receives a longer file, it either silently chunks it (losing cross-boundary context) or the model attempts to process the full file in a way that degrades quality because it operates outside its training distribution. A documented failure mode for long files is repetition and hallucination — the model starts generating plausible-sounding but incorrect content when it loses track of the audio signal. The correct approach is explicit chunking at speech pause boundaries (2–5 minutes per chunk is typically stable) with the chunks transcribed independently and merged with timestamp adjustment.",
+      "explanation": "Whisper processes audio in 30-second windows internally. When the API receives a longer file, it either silently chunks it (losing cross-boundary context) or the model attempts to process the full file in a way that degrades quality because it operates outside its training distribution. A documented failure mode for long files is repetition and hallucination: the model starts generating plausible-sounding but incorrect content when it loses track of the audio signal. The correct approach is explicit chunking at speech pause boundaries (2–5 minutes per chunk is typically stable) with the chunks transcribed independently and merged with timestamp adjustment.",
       "personas": ["senior", "sre"]
     },
     {
@@ -64,12 +64,12 @@
       "question": "A team's TTS system reports a TTFA (time to first audio) of 1.8 seconds in testing. Users report the voice assistant feels unresponsive. The TTS vendor's documentation shows a TTFA of 300ms is achievable in streaming mode. What change reduces TTFA?",
       "options": [
         "Increase the TTS model size to generate higher-quality audio faster",
-        "The 1.8 second TTFA is caused by waiting for the complete LLM response before sending any text to TTS; switching to streaming TTS where each sentence is sent to TTS as soon as the LLM emits it — rather than buffering the full response — brings TTFA in line with the vendor's 300ms streaming latency, since TTS starts speaking the first sentence while the LLM generates the rest",
+        "The 1.8 second TTFA is caused by waiting for the complete LLM response before sending any text to TTS; switching to streaming TTS where each sentence is sent to TTS as soon as the LLM emits it, rather than buffering the full response, brings TTFA in line with the vendor's 300ms streaming latency, since TTS starts speaking the first sentence while the LLM generates the rest",
         "Move TTS processing closer to the user's geographic region to reduce network latency",
         "Use a faster TTS voice with lower audio quality to reduce processing time"
       ],
       "answer": 1,
-      "explanation": "TTFA of 1.8 seconds with a vendor that achieves 300ms in streaming mode indicates that the pipeline is not actually streaming — it is waiting for the full LLM response (which takes roughly 1.5 seconds to generate) before sending anything to TTS. In a streaming pipeline, the LLM's output is sentence-buffered: as soon as a sentence boundary is detected, that sentence is sent to the TTS service. TTS begins processing and returns the first audio within 300ms of receiving the first sentence. The user hears the start of the response while the LLM is still generating the end. This change alone reduces perceived TTFA from ~2 seconds to under 500ms.",
+      "explanation": "TTFA of 1.8 seconds with a vendor that achieves 300ms in streaming mode indicates that the pipeline is not actually streaming: it is waiting for the full LLM response (which takes roughly 1.5 seconds to generate) before sending anything to TTS. In a streaming pipeline, the LLM's output is sentence-buffered: as soon as a sentence boundary is detected, that sentence is sent to the TTS service. TTS begins processing and returns the first audio within 300ms of receiving the first sentence. The user hears the start of the response while the LLM is still generating the end. This change alone reduces perceived TTFA from ~2 seconds to under 500ms.",
       "personas": ["senior", "sre"]
     }
   ]

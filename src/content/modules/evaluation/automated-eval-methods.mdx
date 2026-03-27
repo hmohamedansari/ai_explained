@@ -1,7 +1,7 @@
 ---
 moduleId: "6.3"
 title: "Automated Evaluation Methods"
-description: "Master the spectrum of automated eval techniques — from exact match and string overlap through semantic similarity and LLM-as-judge — and learn which method to apply for which task."
+description: "Master the spectrum of automated eval techniques, from exact match and string overlap through semantic similarity and LLM-as-judge, and learn which method to apply for which task."
 track: "evaluation"
 order: 3
 personas: ["junior", "senior", "sre"]
@@ -16,23 +16,23 @@ productionGotcha: "LLM judges exhibit position bias (favoring the first option i
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-You cannot scale human evaluation to the volume of outputs an LLM system produces in production. Automated evaluation is what makes continuous quality measurement possible — but choosing the wrong method for the wrong task produces misleading scores.
+You cannot scale human evaluation to the volume of outputs an LLM system produces in production. Automated evaluation is what makes continuous quality measurement possible, but choosing the wrong method for the wrong task produces misleading scores.
 
 There is a spectrum of automated eval techniques, ordered roughly by sophistication:
 
-**Exact match** — the output must equal the expected answer character-for-character. Only works when there is exactly one correct answer phrased in exactly one way.
+**Exact match**: the output must equal the expected answer character-for-character. Only works when there is exactly one correct answer phrased in exactly one way.
 
-**String overlap metrics** (BLEU, ROUGE) — measure how much vocabulary the output shares with a reference. Designed for machine translation and summarization; poorly calibrated for open-ended generation.
+**String overlap metrics** (BLEU, ROUGE): measure how much vocabulary the output shares with a reference. Designed for machine translation and summarization; poorly calibrated for open-ended generation.
 
-**Semantic similarity** — embed both the output and the reference, measure cosine distance. Captures meaning rather than surface form, but misses factual errors that preserve surface meaning.
+**Semantic similarity**: embed both the output and the reference, measure cosine distance. Captures meaning rather than surface form, but misses factual errors that preserve surface meaning.
 
-**Programmatic checks** — schema validation, regex matching, code execution. The most reliable for tasks with structured outputs.
+**Programmatic checks**: schema validation, regex matching, code execution. The most reliable for tasks with structured outputs.
 
-**LLM-as-judge** — use a strong model to evaluate output quality according to a rubric. The most flexible method; the most expensive; requires careful calibration against human labels.
+**LLM-as-judge**: use a strong model to evaluate output quality according to a rubric. The most flexible method; the most expensive; requires careful calibration against human labels.
 
-The right choice depends entirely on the task. Using BLEU to evaluate a chatbot is like using a ruler to measure temperature — the tool exists, it will give you a number, and the number will be meaningless.
+The right choice depends entirely on the task. Using BLEU to evaluate a chatbot is like using a ruler to measure temperature: the tool exists, it will give you a number, and the number will be meaningless.
 
 ### Why it matters
 
@@ -46,7 +46,7 @@ Calibrate every LLM judge against a gold set of human-scored examples before rel
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Exact match and programmatic checks
 
@@ -345,7 +345,7 @@ def pairwise_compare(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### When to use each method
 
@@ -362,7 +362,7 @@ def pairwise_compare(
 
 ### Calibrating an LLM judge
 
-An uncalibrated judge is not an evaluator — it is a source of noise. Calibration requires a gold set:
+An uncalibrated judge is not an evaluator: it is a source of noise. Calibration requires a gold set:
 
 ```python
 from dataclasses import dataclass
@@ -420,7 +420,7 @@ A judge with correlation below 0.70 with human scores should not be used as a pr
 
 ### Chain-of-thought judging for transparency
 
-Standard scoring gives you a number. Chain-of-thought judging gives you a number plus a rationale — useful for debugging why a case scored low:
+Standard scoring gives you a number. Chain-of-thought judging gives you a number plus a rationale: useful for debugging why a case scored low:
 
 ```python
 def cot_judge(user_input: str, output: str, dimension: str) -> dict:
@@ -453,7 +453,7 @@ def cot_judge(user_input: str, output: str, dimension: str) -> dict:
 
 ### Further reading
 
-- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — Zheng et al., 2023. The foundational study on LLM-as-judge reliability; documents position bias, verbosity bias, and calibration methodology.
-- [G-EVAL: NLG Evaluation using GPT-4 with Better Human Alignment](https://arxiv.org/abs/2303.16634) — Liu et al., 2023. Chain-of-thought judging and probability-weighted scoring; directly applicable to the CoT judge approach.
-- [ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/) — Lin, 2004. The original ROUGE paper; understanding what it was designed for clarifies when it is inappropriate.
-- [BERTScore: Evaluating Text Generation with BERT](https://arxiv.org/abs/1904.09675) — Zhang et al., 2020. Embedding-based evaluation that outperforms ROUGE on correlation with human judgments; a practical upgrade from token overlap.
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685); Zheng et al., 2023. The foundational study on LLM-as-judge reliability; documents position bias, verbosity bias, and calibration methodology.
+- [G-EVAL: NLG Evaluation using GPT-4 with Better Human Alignment](https://arxiv.org/abs/2303.16634); Liu et al., 2023. Chain-of-thought judging and probability-weighted scoring; directly applicable to the CoT judge approach.
+- [ROUGE: A Package for Automatic Evaluation of Summaries](https://aclanthology.org/W04-1013/); Lin, 2004. The original ROUGE paper; understanding what it was designed for clarifies when it is inappropriate.
+- [BERTScore: Evaluating Text Generation with BERT](https://arxiv.org/abs/1904.09675); Zhang et al., 2020. Embedding-based evaluation that outperforms ROUGE on correlation with human judgments; a practical upgrade from token overlap.

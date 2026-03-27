@@ -1,5 +1,5 @@
 {
-  "title": "Structured Output and Tool Use — Check your understanding",
+  "title": "Structured Output and Tool Use: Check your understanding",
   "moduleId": "1.5",
   "questions": [
     {
@@ -9,11 +9,11 @@
       "options": [
         "Tool use is faster because it skips the text generation step",
         "Tool use costs fewer tokens than generating JSON text",
-        "Tool use returns structured function arguments instead of free text — no markdown stripping, no json.loads; strict mode adds API-level schema enforcement",
+        "Tool use returns structured function arguments instead of free text: no markdown stripping, no json.loads; strict mode adds API-level schema enforcement",
         "Tool use allows the model to search the web before returning results"
       ],
       "answer": 2,
-      "explanation": "With prompted JSON, the model may wrap output in markdown, add explanation, or format fields inconsistently — you parse and hope. With tool use, the response arrives as a typed dict, not a string. Add strict: true to the tool definition for API-level guarantees (correct types, required fields always present); without it, the model generally conforms but the API does not guarantee it.",
+      "explanation": "With prompted JSON, the model may wrap output in markdown, add explanation, or format fields inconsistently: you parse and hope. With tool use, the response arrives as a typed dict, not a string. Add strict: true to the tool definition for API-level guarantees (correct types, required fields always present); without it, the model generally conforms but the API does not guarantee it.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -35,13 +35,13 @@
       "type": "multiple-choice",
       "question": "Your tool-use loop runs but never terminates. The model keeps calling tools without producing a final answer. What is the most likely cause and the correct fix?",
       "options": [
-        "The model is too large — switch to a smaller model that terminates faster",
-        "The tools are returning errors — fix the tools so they always succeed",
+        "The model is too large: switch to a smaller model that terminates faster",
+        "The tools are returning errors: fix the tools so they always succeed",
         "The loop is not checking stop_reason, and there is no maximum turn limit",
-        "tool_choice is set incorrectly — remove it so the model can decide when to stop"
+        "tool_choice is set incorrectly: remove it so the model can decide when to stop"
       ],
       "answer": 2,
-      "explanation": "An infinite tool loop almost always means stop_reason is not being checked, or there is no turn limit. When stop_reason is 'end_turn', the model has finished — return the text response and exit the loop. Always add a maximum turn limit (e.g. 20) as a safety net for ambiguous tasks or misbehaving tools.",
+      "explanation": "An infinite tool loop almost always means stop_reason is not being checked, or there is no turn limit. When stop_reason is 'end_turn', the model has finished: return the text response and exit the loop. Always add a maximum turn limit (e.g. 20) as a safety net for ambiguous tasks or misbehaving tools.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -69,7 +69,7 @@
         "The API will reject requests with more than 20 tools"
       ],
       "answer": 2,
-      "explanation": "Tool definitions are included in the request payload and count against the context window. 40 detailed tool definitions can add thousands of tokens to every call — even when 37 of them are irrelevant. The fix is to select only the tools relevant to the current task before sending the request.",
+      "explanation": "Tool definitions are included in the request payload and count against the context window. 40 detailed tool definitions can add thousands of tokens to every call: even when 37 of them are irrelevant. The fix is to select only the tools relevant to the current task before sending the request.",
       "personas": ["senior", "sre"]
     }
   ]

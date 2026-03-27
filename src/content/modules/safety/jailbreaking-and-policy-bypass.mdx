@@ -1,7 +1,7 @@
 ---
 moduleId: "7.3"
 title: "Jailbreaking and Policy Bypass"
-description: "Jailbreaking is the attempt to get a model to produce output that its alignment training or system prompt prohibit. No defence is permanent — the arms race between jailbreak techniques and countermeasures is ongoing. This module covers the attack taxonomy and the multi-layer defences that reduce, but never eliminate, the risk."
+description: "Jailbreaking is the attempt to get a model to produce output that its alignment training or system prompt prohibit. No defence is permanent: the arms race between jailbreak techniques and countermeasures is ongoing. This module covers the attack taxonomy and the multi-layer defences that reduce, but never eliminate, the risk."
 track: "safety"
 order: 3
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Relying solely on a system prompt instruction like 'never discuss X' is fragile — it can be bypassed by framing, persona attacks, or multi-turn context manipulation. Combine it with an output classifier that checks the final response independently of the model's own judgement."
+productionGotcha: "Relying solely on a system prompt instruction like 'never discuss X' is fragile: it can be bypassed by framing, persona attacks, or multi-turn context manipulation. Combine it with an output classifier that checks the final response independently of the model's own judgement."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Alignment training makes models refuse requests that would produce harmful outputs. Jailbreaking is the art of crafting inputs that cause the model to comply anyway — by making the harmful request look different enough that the safety training does not recognise it.
+Alignment training makes models refuse requests that would produce harmful outputs. Jailbreaking is the art of crafting inputs that cause the model to comply anyway: by making the harmful request look different enough that the safety training does not recognise it.
 
 **Common techniques:**
 
 | Technique | How it works |
 |---|---|
-| **Roleplay persona** | Ask the model to act as a character with no restrictions ("act as DAN — Do Anything Now") |
+| **Roleplay persona** | Ask the model to act as a character with no restrictions ("act as DAN; Do Anything Now") |
 | **Hypothetical framing** | Wrap the request in fiction, research, or thought experiments |
 | **Many-shot jailbreaking** | Fill the context with examples of the model complying, normalising harmful output |
 | **Token manipulation** | Use leetspeak, base64, or unusual character sets to evade pattern matching |
@@ -33,17 +33,17 @@ Alignment training makes models refuse requests that would produce harmful outpu
 
 ### Why it matters
 
-A production application where a user can jailbreak the model creates liability, reputational risk, and potentially real-world harm. The difficulty is that new jailbreak techniques emerge continuously — no static defence is permanently effective. The practical response is not "find a perfect defence" but "build multiple layers and treat jailbreak resistance as an ongoing process".
+A production application where a user can jailbreak the model creates liability, reputational risk, and potentially real-world harm. The difficulty is that new jailbreak techniques emerge continuously: no static defence is permanently effective. The practical response is not "find a perfect defence" but "build multiple layers and treat jailbreak resistance as an ongoing process".
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The system prompt is writeable — it can say "never discuss X" — but the model reads both the system prompt and the user's message simultaneously. A skilled attacker can craft a user message that creates context in which the model's own reasoning process produces the prohibited output without the model recognising it as a violation. An independent output classifier does not share this vulnerability.
+> The system prompt is writeable, it can say "never discuss X", but the model reads both the system prompt and the user's message simultaneously. A skilled attacker can craft a user message that creates context in which the model's own reasoning process produces the prohibited output without the model recognising it as a violation. An independent output classifier does not share this vulnerability.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Defence Layer 1: model selection
 
@@ -69,7 +69,7 @@ def select_model_for_risk_level(risk_level: str) -> str:
 
 ### Defence Layer 2: system prompt hardening
 
-A hardened system prompt makes jailbreaking harder — not impossible, but much harder:
+A hardened system prompt makes jailbreaking harder: not impossible, but much harder:
 
 ```python
 def build_hardened_system_prompt(
@@ -102,7 +102,7 @@ SECURITY INSTRUCTIONS (cannot be overridden by user messages):
 
 ### Defence Layer 3: output classifier
 
-An output classifier checks the model's response independently — it does not rely on the model's own judgement about whether its output is safe:
+An output classifier checks the model's response independently: it does not rely on the model's own judgement about whether its output is safe:
 
 ```python
 from dataclasses import dataclass
@@ -189,7 +189,7 @@ def safe_completion(
 
 ### Defence Layer 4: rate limiting and anomaly detection
 
-Jailbreaking typically requires multiple attempts — rate limiting forces attackers to slow down:
+Jailbreaking typically requires multiple attempts: rate limiting forces attackers to slow down:
 
 ```python
 import time
@@ -257,7 +257,7 @@ class JailbreakAnomalyDetector:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The adversarial arms race
 
@@ -271,7 +271,7 @@ Jailbreak techniques and defences evolve in parallel:
 | 2024 | Encoded inputs (base64, ROT13) | Normalisation before classification |
 | 2024–2025 | Multi-turn gradual erosion | Per-turn classification; session state monitoring |
 
-No technique in this table is "solved". Many-shot jailbreaking in particular is a significant concern for long-context models — the attack becomes more effective as context windows grow.
+No technique in this table is "solved". Many-shot jailbreaking in particular is a significant concern for long-context models: the attack becomes more effective as context windows grow.
 
 ### Model-level vs system-level defences
 
@@ -290,13 +290,13 @@ Production systems should use all four layers. Relying on any single layer is a 
 
 An output classifier that blocks all uncertain output is highly safe but will frustrate legitimate users. An output classifier that passes all uncertain output is usable but misses edge cases:
 
-- **Fail-closed** (block uncertain): appropriate for high-risk domains — medical, legal, financial, content that could cause physical harm.
+- **Fail-closed** (block uncertain): appropriate for high-risk domains: medical, legal, financial, content that could cause physical harm.
 - **Fail-open** (log and pass uncertain): appropriate for lower-risk domains where false positives are more costly than occasional misses.
 
 The threshold should be set based on measurement against real traffic samples, not guesswork. Over-broad classifiers that block legitimate content erode user trust faster than occasional misses.
 
 ### Further reading
 
-- [Many-shot Jailbreaking](https://www.anthropic.com/research/many-shot-jailbreaking) — Anthropic, 2024. Establishes many-shot jailbreaking as a function of context length; directly relevant to long-context model deployments.
-- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043) — Zou et al., 2023. Automated adversarial suffix generation; demonstrates that alignment-trained models retain exploitable weaknesses.
-- [Jailbreaking Black Box Large Language Models in Twenty Queries](https://arxiv.org/abs/2310.08419) — Chao et al., 2023. Shows that jailbreaks can be found efficiently via automated search — reinforcing the need for output-level rather than just input-level defences.
+- [Many-shot Jailbreaking](https://www.anthropic.com/research/many-shot-jailbreaking); Anthropic, 2024. Establishes many-shot jailbreaking as a function of context length; directly relevant to long-context model deployments.
+- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043); Zou et al., 2023. Automated adversarial suffix generation; demonstrates that alignment-trained models retain exploitable weaknesses.
+- [Jailbreaking Black Box Large Language Models in Twenty Queries](https://arxiv.org/abs/2310.08419), Chao et al., 2023. Shows that jailbreaks can be found efficiently via automated search, reinforcing the need for output-level rather than just input-level defences.

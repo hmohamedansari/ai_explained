@@ -1,7 +1,7 @@
 ---
 moduleId: "7.1"
 title: "The AI Threat Landscape"
-description: "Every LLM application has a multi-layer attack surface — model, context, tools, memory, and outputs. Understanding what attackers want and what they can do is the prerequisite to building defences that actually hold. This module maps the threat landscape and establishes why defence in depth is not optional."
+description: "Every LLM application has a multi-layer attack surface: model, context, tools, memory, and outputs. Understanding what attackers want and what they can do is the prerequisite to building defences that actually hold. This module maps the threat landscape and establishes why defence in depth is not optional."
 track: "safety"
 order: 1
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Most LLM security incidents are not exotic model attacks — they are failures of basic application security: unsanitised inputs, over-privileged tools, no output validation, and missing rate limits. Start with these before worrying about model-level attacks."
+productionGotcha: "Most LLM security incidents are not exotic model attacks: they are failures of basic application security: unsanitised inputs, over-privileged tools, no output validation, and missing rate limits. Start with these before worrying about model-level attacks."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An LLM application is not just a model. It is a model connected to a context window, a set of tools, possibly a memory store, and a stream of outputs that flow into other systems. Each of those layers is an attack surface.
 
@@ -24,28 +24,28 @@ An LLM application is not just a model. It is a model connected to a context win
 
 | Goal | What it looks like |
 |---|---|
-| **Data exfiltration** | Extract information from the context, memory, or tool results — user records, system prompts, API keys |
+| **Data exfiltration** | Extract information from the context, memory, or tool results: user records, system prompts, API keys |
 | **Policy bypass** | Get the model to produce output it was instructed not to produce |
 | **Resource abuse** | Drive up compute costs; exploit free tiers; use the model for bulk generation |
 | **Reputational damage** | Make the model say something that harms your brand, your users, or third parties |
 
 **Why LLM security differs from traditional application security:**
 
-Traditional applications have a finite, enumerable input surface. You can write an allow-list. LLM applications accept natural language — which is effectively unbounded. An attacker's instruction can look identical to a legitimate user request. The model's own reasoning process can be turned against you: a sufficiently crafted prompt can cause the model to override its own instructions.
+Traditional applications have a finite, enumerable input surface. You can write an allow-list. LLM applications accept natural language: which is effectively unbounded. An attacker's instruction can look identical to a legitimate user request. The model's own reasoning process can be turned against you: a sufficiently crafted prompt can cause the model to override its own instructions.
 
 ### Why it matters
 
-A successful attack on an LLM application can range from embarrassing (the model says something offensive) to critical (user data is extracted, financial transactions are authorised without consent, or the model is used to generate harmful content at scale). The OWASP Top 10 for LLM Applications is the current reference taxonomy — it maps the most common failure modes to the real attack patterns behind them.
+A successful attack on an LLM application can range from embarrassing (the model says something offensive) to critical (user data is extracted, financial transactions are authorised without consent, or the model is used to generate harmful content at scale). The OWASP Top 10 for LLM Applications is the current reference taxonomy: it maps the most common failure modes to the real attack patterns behind them.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams building their first LLM application tend to focus on alignment (will the model be polite?) while neglecting infrastructure security. The boring things — input length limits, rate limiting, output validation, tool permission scoping — prevent the majority of real incidents.
+> Teams building their first LLM application tend to focus on alignment (will the model be polite?) while neglecting infrastructure security. The boring things, input length limits, rate limiting, output validation, tool permission scoping, prevent the majority of real incidents.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Mapping the attack surface
 
@@ -239,7 +239,7 @@ DEFENCE_LAYERS = [
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### OWASP Top 10 for LLM Applications
 
@@ -262,7 +262,7 @@ In practice, LLM01, LLM02, LLM06, LLM07, and LLM08 account for the majority of p
 
 ### Why "the model is aligned" is not a defence
 
-Alignment training reduces the probability of a model producing unsafe outputs in response to typical requests. It does not eliminate it. Alignment is a statistical property of the training distribution — adversarial inputs are specifically designed to be out-of-distribution. Even a well-aligned model can be manipulated by a sufficiently crafted input that falls outside the attack patterns seen during RLHF.
+Alignment training reduces the probability of a model producing unsafe outputs in response to typical requests. It does not eliminate it. Alignment is a statistical property of the training distribution: adversarial inputs are specifically designed to be out-of-distribution. Even a well-aligned model can be manipulated by a sufficiently crafted input that falls outside the attack patterns seen during RLHF.
 
 The practical implication: never use alignment as your only control for a given risk. An aligned model that also has no output classifier, no rate limit, and no tool permission scoping is far less safe than a baseline model with all three controls applied.
 
@@ -280,6 +280,6 @@ The practical implication: never use alignment as your only control for a given 
 
 ### Further reading
 
-- [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — OWASP, 2023–2024. The definitive public taxonomy; updated as new attack patterns emerge.
-- [Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injections](https://arxiv.org/abs/2302.12173) — Greshake et al., 2023. Establishes indirect injection as a distinct and serious threat class.
-- [Baseline Cyber Security Controls for Critical Systems — NIST SP 800-53](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final) — NIST, 2020. The application security baseline that LLM systems should meet before addressing model-specific threats.
+- [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/); OWASP, 2023–2024. The definitive public taxonomy; updated as new attack patterns emerge.
+- [Not What You've Signed Up For: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injections](https://arxiv.org/abs/2302.12173); Greshake et al., 2023. Establishes indirect injection as a distinct and serious threat class.
+- [Baseline Cyber Security Controls for Critical Systems, NIST SP 800-53](https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final), NIST, 2020. The application security baseline that LLM systems should meet before addressing model-specific threats.

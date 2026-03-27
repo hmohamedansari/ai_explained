@@ -1,5 +1,5 @@
 {
-  "title": "Protocol Landscape and MCP — Check your understanding",
+  "title": "Protocol Landscape and MCP: Check your understanding",
   "moduleId": "3.1",
   "questions": [
     {
@@ -7,10 +7,10 @@
       "type": "multiple-choice",
       "question": "You are building a tool-using agent and want to expose the same tools to multiple different models and client applications without rewriting the integration for each one. Which protocol layer is designed specifically for this purpose?",
       "options": [
-        "OpenAPI — define a REST spec and all models can call it natively",
-        "JSON-RPC 2.0 — the message envelope used by MCP that any client can implement",
-        "MCP — a standardised protocol for exposing tools, resources, and prompts to AI models, with dynamic tool discovery at connect time",
-        "REST — HTTP is universal and all models can call REST APIs directly"
+        "OpenAPI: define a REST spec and all models can call it natively",
+        "JSON-RPC 2.0: the message envelope used by MCP that any client can implement",
+        "MCP: a standardised protocol for exposing tools, resources, and prompts to AI models, with dynamic tool discovery at connect time",
+        "REST; HTTP is universal and all models can call REST APIs directly"
       ],
       "answer": 2,
       "explanation": "MCP is specifically designed for the AI model use case: it standardises tool/resource/prompt exposure and includes dynamic discovery (list_tools at connect time), version negotiation, and a host/client/server architecture that lets multiple models share the same tool server without per-model integration work. OpenAPI describes REST APIs but does not include AI-specific primitives. JSON-RPC 2.0 is the underlying envelope MCP uses, not MCP itself.",
@@ -23,11 +23,11 @@
       "options": [
         "The MCP protocol version negotiation rejects the connection until clients upgrade",
         "Clients continue to work because MCP ignores unknown schema changes",
-        "Clients pass null or omit the new parameter — the call arrives but with missing data, causing silent failures in the tool implementation",
+        "Clients pass null or omit the new parameter: the call arrives but with missing data, causing silent failures in the tool implementation",
         "The MCP server refuses calls that don't include all required parameters"
       ],
       "answer": 2,
-      "explanation": "MCP does not prevent old clients from calling updated tools. The model generates arguments based on the schema it received at connect time (before the change). It will omit the new required parameter, and the tool receives a call with missing data — which fails silently or with a confusing error. This is why adding required parameters to existing tools is a breaking change: use a new tool name or make the parameter optional first.",
+      "explanation": "MCP does not prevent old clients from calling updated tools. The model generates arguments based on the schema it received at connect time (before the change). It will omit the new required parameter, and the tool receives a call with missing data: which fails silently or with a confusing error. This is why adding required parameters to existing tools is a breaking change: use a new tool name or make the parameter optional first.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -41,7 +41,7 @@
         "Enum enables the model to search the enum list for partial matches"
       ],
       "answer": 1,
-      "explanation": "A plain string type allows any value — the model might pass 'Open', 'OPEN', 'open ', or 'in progress', all of which could fail at runtime. An enum explicitly lists valid values, so the model knows exactly what is acceptable. This reduces invalid argument errors and removes the need for normalisation code in the tool implementation. It also makes the schema self-documenting.",
+      "explanation": "A plain string type allows any value: the model might pass 'Open', 'OPEN', 'open ', or 'in progress', all of which could fail at runtime. An enum explicitly lists valid values, so the model knows exactly what is acceptable. This reduces invalid argument errors and removes the need for normalisation code in the tool implementation. It also makes the schema self-documenting.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "Which MCP transport is most appropriate for a tool server that needs to handle requests from multiple application instances in a production cloud deployment?",
       "options": [
-        "stdio — lowest latency because it runs as a local subprocess",
-        "Streamable HTTP — network-accessible, scalable, and supports multiple concurrent clients over a standard HTTP endpoint",
-        "WebSocket — required for any tool that returns results asynchronously",
-        "stdio — easiest to deploy because it requires no network configuration"
+        "stdio: lowest latency because it runs as a local subprocess",
+        "Streamable HTTP: network-accessible, scalable, and supports multiple concurrent clients over a standard HTTP endpoint",
+        "WebSocket: required for any tool that returns results asynchronously",
+        "stdio: easiest to deploy because it requires no network configuration"
       ],
       "answer": 1,
-      "explanation": "stdio is a subprocess transport — it runs the MCP server as a child process of a single application instance. For a cloud deployment with multiple instances, each would spawn its own subprocess, which defeats sharing and scaling. Streamable HTTP (the current MCP production transport as of the 2025-11-25 spec) is network-addressable: a single MCP server handles requests from all application instances via standard HTTP POST, scales horizontally, and supports both simple JSON responses and SSE streaming for longer operations. The older 'HTTP+SSE' transport model from the 2024-11-05 spec has been superseded by Streamable HTTP.",
+      "explanation": "stdio is a subprocess transport: it runs the MCP server as a child process of a single application instance. For a cloud deployment with multiple instances, each would spawn its own subprocess, which defeats sharing and scaling. Streamable HTTP (the current MCP production transport as of the 2025-11-25 spec) is network-addressable: a single MCP server handles requests from all application instances via standard HTTP POST, scales horizontally, and supports both simple JSON responses and SSE streaming for longer operations. The older 'HTTP+SSE' transport model from the 2024-11-05 spec has been superseded by Streamable HTTP.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -63,13 +63,13 @@
       "type": "multiple-choice",
       "question": "Your company already has a comprehensive OpenAPI spec for its internal APIs. What is the most practical approach to exposing these APIs as MCP tools?",
       "options": [
-        "MCP and OpenAPI are incompatible — you must rewrite the API from scratch",
-        "Generate MCP tool definitions from the OpenAPI spec's operationId, summary, and parameter schemas — MCP wraps the existing API rather than replacing it",
-        "Import the OpenAPI spec directly into MCP — it is natively supported",
+        "MCP and OpenAPI are incompatible: you must rewrite the API from scratch",
+        "Generate MCP tool definitions from the OpenAPI spec's operationId, summary, and parameter schemas; MCP wraps the existing API rather than replacing it",
+        "Import the OpenAPI spec directly into MCP: it is natively supported",
         "MCP only supports simple key-value tools; OpenAPI specs are too complex to wrap"
       ],
       "answer": 1,
-      "explanation": "MCP does not replace REST APIs — it adds an AI-friendly wrapper. A common production pattern is to parse the OpenAPI spec, map each operation to an MCP tool definition (operationId → tool name, summary → description, parameters/requestBody → inputSchema), and implement each tool by calling the existing REST endpoint. This reuses existing API infrastructure and lets you curate which operations to expose as tools.",
+      "explanation": "MCP does not replace REST APIs: it adds an AI-friendly wrapper. A common production pattern is to parse the OpenAPI spec, map each operation to an MCP tool definition (operationId → tool name, summary → description, parameters/requestBody → inputSchema), and implement each tool by calling the existing REST endpoint. This reuses existing API infrastructure and lets you curate which operations to expose as tools.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "title": "Guardrails Architecture — Check your understanding",
+  "title": "Guardrails Architecture: Check your understanding",
   "moduleId": "7.5",
   "questions": [
     {
@@ -7,7 +7,7 @@
       "type": "multiple-choice",
       "question": "A team adds a frontier model as an output safety classifier that checks every response before delivery. Users start complaining about 2-second delays. The team considers removing the classifier. What is the correct architectural response?",
       "options": [
-        "Remove the classifier — 2-second latency is unacceptable for user-facing applications",
+        "Remove the classifier: 2-second latency is unacceptable for user-facing applications",
         "Move the heavyweight classifier to async post-processing for lower-risk outputs and replace it with a fast classifier (regex or small model, under 400 ms) in the synchronous path; reserve the frontier classifier for flagged cases or high-risk content types where accuracy matters more than latency",
         "Keep the classifier in the synchronous path and communicate to users that safety checks add latency",
         "Replace the frontier classifier with a keyword blocklist to eliminate latency"
@@ -22,20 +22,20 @@
       "question": "A guardrail is set to fail-closed (block on uncertainty). After two weeks in production, the team finds that 15% of legitimate user requests are being blocked. Support tickets are rising. What should the team do?",
       "options": [
         "Switch to fail-open immediately to eliminate false positives",
-        "Calibrate the classifier threshold against real production traffic samples — the false positive rate of 15% indicates the threshold is too aggressive; measure precision and recall on labelled samples, adjust the threshold to reduce false positives while maintaining acceptable detection rate, then monitor both metrics as primary operational indicators",
+        "Calibrate the classifier threshold against real production traffic samples: the false positive rate of 15% indicates the threshold is too aggressive; measure precision and recall on labelled samples, adjust the threshold to reduce false positives while maintaining acceptable detection rate, then monitor both metrics as primary operational indicators",
         "Accept the 15% false positive rate as the cost of maintaining safety",
         "Replace the guardrail with a different technology that has no false positives"
       ],
       "answer": 1,
-      "explanation": "A 15% false positive rate means the guardrail is blocking one in seven legitimate requests — this erodes user trust and creates support overhead. The production gotcha is explicit: calibrate on real traffic, not on intuition. The calibration process involves labelling a sample of the blocked traffic to confirm false positive rate, measuring precision and recall on labelled samples at different thresholds, and finding a threshold that balances detection rate against false positive rate for the specific risk profile. Switching to fail-open without calibration risks swinging to the opposite extreme. There is no threshold with zero false positives — the goal is to find the right operating point for this application.",
+      "explanation": "A 15% false positive rate means the guardrail is blocking one in seven legitimate requests, this erodes user trust and creates support overhead. The production gotcha is explicit: calibrate on real traffic, not on intuition. The calibration process involves labelling a sample of the blocked traffic to confirm false positive rate, measuring precision and recall on labelled samples at different thresholds, and finding a threshold that balances detection rate against false positive rate for the specific risk profile. Switching to fail-open without calibration risks swinging to the opposite extreme. There is no threshold with zero false positives, the goal is to find the right operating point for this application.",
       "personas": ["leader", "junior", "senior", "sre"]
     },
     {
       "id": "7.5-q3",
       "type": "multiple-choice",
-      "question": "A guardrail pipeline runs an injection detector, then a PII detector, then a topic restriction classifier on every user input — all synchronously and in sequence. Each takes approximately 200 ms. What is the total input guardrail latency, and what would you consider to reduce it?",
+      "question": "A guardrail pipeline runs an injection detector, then a PII detector, then a topic restriction classifier on every user input: all synchronously and in sequence. Each takes approximately 200 ms. What is the total input guardrail latency, and what would you consider to reduce it?",
       "options": [
-        "200 ms total — guardrails run in parallel by default",
+        "200 ms total: guardrails run in parallel by default",
         "Approximately 600 ms total (three sequential 200 ms checks); consider running independent guardrails in parallel (they do not depend on each other's output) to bring total latency closer to the duration of the slowest single check, likely around 200 ms",
         "600 ms is acceptable; guardrail latency is separate from model latency and users do not notice it",
         "Reduce latency by removing the slowest guardrail from the pipeline"
@@ -47,7 +47,7 @@
     {
       "id": "7.5-q4",
       "type": "multiple-choice",
-      "question": "A factual consistency guardrail is deployed on a RAG system. It flags a response as potentially inconsistent with source documents. The fail behaviour is 'MODIFY' — the guardrail should rewrite the response to remove the inconsistent claim. What is a risk of this approach?",
+      "question": "A factual consistency guardrail is deployed on a RAG system. It flags a response as potentially inconsistent with source documents. The fail behaviour is 'MODIFY': the guardrail should rewrite the response to remove the inconsistent claim. What is a risk of this approach?",
       "options": [
         "The rewritten response will always be more accurate than the original",
         "A guardrail that modifies responses introduces its own generation step, which can introduce new errors or change the meaning of the response in unintended ways; consider flagging for human review or blocking rather than auto-modifying, especially for high-stakes content",
@@ -55,7 +55,7 @@
         "The modification step adds negligible latency because it uses the same model"
       ],
       "answer": 1,
-      "explanation": "A MODIFY guardrail that rewrites responses is itself an LLM generation step — it can introduce new errors, hallucinate alternative content, or change the semantics of the response in ways that were not intended. For factual consistency in RAG systems, the safer approaches are: BLOCK (replace the response with a safe fallback) or FLAG (pass the response but mark it for review). MODIFY is appropriate for format corrections (fixing malformed JSON) or PII redaction where the modification is deterministic, not for rewriting factual claims where the replacement content could itself be wrong.",
+      "explanation": "A MODIFY guardrail that rewrites responses is itself an LLM generation step: it can introduce new errors, hallucinate alternative content, or change the semantics of the response in ways that were not intended. For factual consistency in RAG systems, the safer approaches are: BLOCK (replace the response with a safe fallback) or FLAG (pass the response but mark it for review). MODIFY is appropriate for format corrections (fixing malformed JSON) or PII redaction where the modification is deterministic, not for rewriting factual claims where the replacement content could itself be wrong.",
       "personas": ["senior", "sre"]
     },
     {
@@ -63,13 +63,13 @@
       "type": "multiple-choice",
       "question": "A team wants to version-control their guardrail configurations alongside their application code. A colleague argues that guardrails are just infrastructure settings, not code. Who is correct and why?",
       "options": [
-        "The colleague is correct — guardrail thresholds are operational settings that belong in a configuration management system, not in code",
-        "The team is correct — guardrails are code: they encode business policy (what is prohibited), have testable behaviour (false positive and detection rates), need to be versioned so changes are auditable, and require the same review process as other safety-critical code",
-        "Both approaches are equivalent — the storage location does not affect guardrail effectiveness",
+        "The colleague is correct: guardrail thresholds are operational settings that belong in a configuration management system, not in code",
+        "The team is correct: guardrails are code: they encode business policy (what is prohibited), have testable behaviour (false positive and detection rates), need to be versioned so changes are auditable, and require the same review process as other safety-critical code",
+        "Both approaches are equivalent: the storage location does not affect guardrail effectiveness",
         "Guardrails should be managed by the security team in a separate system from application code"
       ],
       "answer": 1,
-      "explanation": "Guardrails encode business logic and safety policy — they determine what the system will and will not do. Like any business logic, they should be versioned (so you can audit what was deployed when), reviewed (so policy changes require deliberate approval), tested (so calibration changes are evaluated against known samples before deployment), and subject to the same change management as other safety-critical code. A guardrail threshold change that accidentally drops detection rate from 90% to 50% is a production safety regression — it should be caught in review, not discovered in a post-incident retrospective.",
+      "explanation": "Guardrails encode business logic and safety policy, they determine what the system will and will not do. Like any business logic, they should be versioned (so you can audit what was deployed when), reviewed (so policy changes require deliberate approval), tested (so calibration changes are evaluated against known samples before deployment), and subject to the same change management as other safety-critical code. A guardrail threshold change that accidentally drops detection rate from 90% to 50% is a production safety regression, it should be caught in review, not discovered in a post-incident retrospective.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

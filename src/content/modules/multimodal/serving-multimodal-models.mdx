@@ -1,7 +1,7 @@
 ---
 moduleId: "9.7"
 title: "Serving Multimodal Models"
-description: "Serving a vision-language model is not the same as serving a text-only LLM — the vision encoder adds VRAM, image preprocessing adds latency, and variable image sizes complicate batching. This module covers the serving stack for VLMs and audio models, including the VRAM estimation mistakes that cause production OOMs."
+description: "Serving a vision-language model is not the same as serving a text-only LLM: the vision encoder adds VRAM, image preprocessing adds latency, and variable image sizes complicate batching. This module covers the serving stack for VLMs and audio models, including the VRAM estimation mistakes that cause production OOMs."
 track: "multimodal"
 order: 7
 personas: ["senior", "sre"]
@@ -16,11 +16,11 @@ productionGotcha: "VRAM estimates for VLMs from model cards typically cover the 
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Serving a text-only LLM is hard. Serving a VLM adds two new problems on top of everything from the text serving stack: the vision encoder (a ViT, typically 300MB–3GB depending on size) that must be loaded into VRAM alongside the language model, and an image preprocessing pipeline (decode, resize, tile, encode) that runs before the first token is generated and adds latency.
 
-The VRAM footprint of a VLM is not simply the language model size. It is the language model weights plus the vision encoder weights plus the projection layer plus the KV cache for all active requests — and for VLMs, each image in the context generates many image tokens, each of which requires KV cache entries. An image consuming 768 tokens adds as much KV cache pressure as 768 text tokens per layer, per request.
+The VRAM footprint of a VLM is not simply the language model size. It is the language model weights plus the vision encoder weights plus the projection layer plus the KV cache for all active requests, and for VLMs, each image in the context generates many image tokens, each of which requires KV cache entries. An image consuming 768 tokens adds as much KV cache pressure as 768 text tokens per layer, per request.
 
 Batching is harder for VLMs than for text-only models because requests vary in their image payload. A batch of 8 text-only requests has predictable memory requirements. A batch of 8 requests where some have no images, some have one image, and some have multiple high-resolution images has highly variable memory requirements. This makes static VRAM pre-allocation unreliable and makes accurate batch size estimation difficult.
 
@@ -28,7 +28,7 @@ Audio models (Whisper for ASR, various TTS models) are a distinct serving concer
 
 ### Why it matters
 
-Under-provisioned VLM deployments OOM at unexpected concurrency levels because the model card VRAM estimate does not account for the vision encoder plus KV cache for image-heavy requests. Teams that provision based on language model size alone discover this at the worst time — under production traffic. Accurate estimation requires testing with your actual image mix and concurrency.
+Under-provisioned VLM deployments OOM at unexpected concurrency levels because the model card VRAM estimate does not account for the vision encoder plus KV cache for image-heavy requests. Teams that provision based on language model size alone discover this at the worst time: under production traffic. Accurate estimation requires testing with your actual image mix and concurrency.
 
 ### Production Gotcha
 
@@ -38,7 +38,7 @@ Under-provisioned VLM deployments OOM at unexpected concurrency levels because t
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### VRAM estimation for VLMs
 
@@ -281,11 +281,11 @@ def generate_with_image_embeddings(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### How image tokens affect KV cache
 
-In a text-only LLM, KV cache size is predictable: it scales with sequence length, batch size, and model depth. In a VLM, image tokens are part of the sequence — a request with one high-resolution image (768 image tokens) plus 200 text tokens has an effective sequence length of 968 for KV cache purposes, indistinguishable from a 968-token text request.
+In a text-only LLM, KV cache size is predictable: it scales with sequence length, batch size, and model depth. In a VLM, image tokens are part of the sequence: a request with one high-resolution image (768 image tokens) plus 200 text tokens has an effective sequence length of 968 for KV cache purposes, indistinguishable from a 968-token text request.
 
 This has two consequences for serving:
 
@@ -319,7 +319,7 @@ For high-throughput batch transcription (long audio files, asynchronous), Whispe
 
 ### Further reading
 
-- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485) — Liu et al., 2023. The LLaVA architecture; documents the projection layer design and approximate token counts used as examples here.
-- [vLLM: Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180) — Kwon et al., 2023. The vLLM serving system; the PagedAttention and continuous batching that also underlies VLM serving.
-- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — Radford et al., 2022. The Whisper paper; covers the encoder-decoder architecture and model sizes (tiny, base, small, medium, large).
-- [vLLM multimodal documentation](https://docs.vllm.ai/en/latest/models/vlm.html) — vLLM project, 2024. Practical configuration reference for serving VLMs with vLLM; covers image token accounting and batch management.
+- [LLaVA: Visual Instruction Tuning](https://arxiv.org/abs/2304.08485); Liu et al., 2023. The LLaVA architecture; documents the projection layer design and approximate token counts used as examples here.
+- [vLLM: Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180); Kwon et al., 2023. The vLLM serving system; the PagedAttention and continuous batching that also underlies VLM serving.
+- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356); Radford et al., 2022. The Whisper paper; covers the encoder-decoder architecture and model sizes (tiny, base, small, medium, large).
+- [vLLM multimodal documentation](https://docs.vllm.ai/en/latest/models/vlm.html): vLLM project, 2024. Practical configuration reference for serving VLMs with vLLM; covers image token accounting and batch management.

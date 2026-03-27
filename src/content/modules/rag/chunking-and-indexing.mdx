@@ -1,7 +1,7 @@
 ---
 moduleId: "2.3"
 title: "Chunking and Indexing"
-description: "You can't embed a whole document — you split it into pieces first. How you split determines what you can retrieve. The wrong chunking strategy is one of the most common reasons RAG systems fail to find the right answer even when the information clearly exists."
+description: "You can't embed a whole document: you split it into pieces first. How you split determines what you can retrieve. The wrong chunking strategy is one of the most common reasons RAG systems fail to find the right answer even when the information clearly exists."
 track: "rag"
 order: 3
 personas: ["junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 6
   layer2: 15
   layer3: 18
-productionGotcha: "Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries (each entry is already one chunk) or on code (functions are the natural unit, not arbitrary character counts). Measure retrieval recall on a representative query set before picking a strategy — don't inherit the tutorial's 512-token default."
+productionGotcha: "Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries (each entry is already one chunk) or on code (functions are the natural unit, not arbitrary character counts). Measure retrieval recall on a representative query set before picking a strategy: don't inherit the tutorial's 512-token default."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Before you can embed a document, you have to split it into pieces small enough to be meaningful retrieval units. Those pieces are **chunks**.
 
@@ -26,7 +26,7 @@ The size of each chunk is a tradeoff:
 |---|---|
 | Retrieved chunk contains the answer buried in irrelevant content | Chunk is missing the surrounding context needed to understand the answer |
 | Model has to read more tokens per retrieved chunk | You need more chunks to cover the same content |
-| Similarity search is less precise — chunk covers too many topics | Similarity search is less accurate — too little signal per chunk |
+| Similarity search is less precise, chunk covers too many topics | Similarity search is less accurate, too little signal per chunk |
 
 The right chunk size depends on your content type, your queries, and your model's context budget. There is no universal default.
 
@@ -40,11 +40,11 @@ Three strategies cover most use cases:
 
 ### Production Gotcha
 
-> **Common Gotcha:** Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries or code. Measure retrieval recall on a representative query set before picking a strategy — don't inherit the tutorial's 512-token default.
+> **Common Gotcha:** Chunk size is a hyperparameter, not a universal constant. A chunk size that works for long-form prose fails on short FAQ entries or code. Measure retrieval recall on a representative query set before picking a strategy: don't inherit the tutorial's 512-token default.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Fixed-size chunking
 
@@ -84,7 +84,7 @@ chunks = fixed_chunks(text, chunk_size=800, overlap=150)
 print(f"{len(chunks)} chunks, avg {sum(len(c) for c in chunks) / len(chunks):.0f} chars each")
 ```
 
-**Overlap** is critical: without it, a sentence split across two chunks is unretrievable — neither chunk contains the full thought. A 10–20% overlap (e.g. 100–200 characters out of 1000) is a common starting point.
+**Overlap** is critical: without it, a sentence split across two chunks is unretrievable: neither chunk contains the full thought. A 10–20% overlap (e.g. 100–200 characters out of 1000) is a common starting point.
 
 ### Recursive / structural chunking
 
@@ -173,7 +173,7 @@ Metadata fields to always include: source file/URL, document ID, chunk index. Op
 
 Some document types have inherent structure that fixed-size and recursive approaches ignore:
 
-**Markdown / HTML** — split on headers; keep each section together:
+**Markdown / HTML**: split on headers; keep each section together:
 ```python
 import re
 
@@ -200,7 +200,7 @@ def markdown_chunks(text: str, max_chunk_size: int = 1500) -> list[dict]:
     return chunks
 ```
 
-**Code** — split on function / class boundaries rather than character counts. A function split in the middle loses its signature or return type:
+**Code**: split on function / class boundaries rather than character counts. A function split in the middle loses its signature or return type:
 ```python
 import ast
 
@@ -257,15 +257,15 @@ Run this pipeline once on initial ingestion, then re-run for any document that c
 
 ### Common mistakes
 
-1. **One chunk size for all document types** — PDFs, Markdown docs, database records, and code all have different natural unit sizes. Profile each content type separately.
-2. **No overlap** — Split boundaries will cut sentences in half. Any chunk that starts mid-sentence loses its opening context; any query matching that context returns a broken result.
-3. **Chunking without metadata** — Chunks without source attribution can't be cited, filtered, or debugged. Always attach at minimum a source identifier.
-4. **Not handling empty/short chunks** — After splitting, filter out chunks below a minimum length (e.g. 50 characters). Short chunks from page headers, footers, or whitespace add noise without signal.
-5. **Re-indexing full corpus on every change** — Hashing chunk content lets you detect which chunks actually changed and only re-embed those. Embedding APIs cost money; full re-index on every update is wasteful.
+1. **One chunk size for all document types**: PDFs, Markdown docs, database records, and code all have different natural unit sizes. Profile each content type separately.
+2. **No overlap**: Split boundaries will cut sentences in half. Any chunk that starts mid-sentence loses its opening context; any query matching that context returns a broken result.
+3. **Chunking without metadata**: Chunks without source attribution can't be cited, filtered, or debugged. Always attach at minimum a source identifier.
+4. **Not handling empty/short chunks**: After splitting, filter out chunks below a minimum length (e.g. 50 characters). Short chunks from page headers, footers, or whitespace add noise without signal.
+5. **Re-indexing full corpus on every change**: Hashing chunk content lets you detect which chunks actually changed and only re-embed those. Embedding APIs cost money; full re-index on every update is wasteful.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Measuring chunk quality
 
@@ -276,11 +276,11 @@ Chunking strategy ultimately has one metric that matters: does retrieval find th
 3. Run your retrieval pipeline and check whether those chunks appear in the top-k results
 4. Compute **recall@k**: `(queries where correct chunk appears in top-k) / total queries`
 
-Then change one variable at a time (chunk size, overlap, strategy) and re-measure. Module 2.6 covers the full evaluation framework; the point here is that intuition about chunk size is unreliable — measure it.
+Then change one variable at a time (chunk size, overlap, strategy) and re-measure. Module 2.6 covers the full evaluation framework; the point here is that intuition about chunk size is unreliable: measure it.
 
 ### Context window allocation
 
-Chunks don't live in isolation — they compete for context window space along with the system prompt, conversation history, and model output. A practical chunk sizing heuristic:
+Chunks don't live in isolation: they compete for context window space along with the system prompt, conversation history, and model output. A practical chunk sizing heuristic:
 
 ```
 Available context budget for retrieved content
@@ -293,11 +293,11 @@ Available context budget for retrieved content
 Max chunks to retrieve = available budget / chunk size (in tokens)
 ```
 
-If your system prompt is 500 tokens, history is 2000 tokens, and your context limit is 16K with a 2K output reserve, you have ~11K tokens for retrieved content. At 500 tokens per chunk, that's ~22 chunks maximum — but passing all 22 to the model usually hurts quality. Aim for 3–8 high-quality, relevant chunks.
+If your system prompt is 500 tokens, history is 2000 tokens, and your context limit is 16K with a 2K output reserve, you have ~11K tokens for retrieved content. At 500 tokens per chunk, that's ~22 chunks maximum, but passing all 22 to the model usually hurts quality. Aim for 3–8 high-quality, relevant chunks.
 
 ### Late chunking
 
-A newer approach (2024) embeds the full document first to capture long-range context, then splits the resulting token embeddings into chunks. This preserves context that fixed-chunking loses — a chunk at the end of a document can retain semantic information from the beginning.
+A newer approach (2024) embeds the full document first to capture long-range context, then splits the resulting token embeddings into chunks. This preserves context that fixed-chunking loses: a chunk at the end of a document can retain semantic information from the beginning.
 
 The trade-off: late chunking requires embedding the entire document (expensive for long documents), and is tied to token-level embedding models that expose intermediate representations. It's not universally available across embedding providers.
 
@@ -312,6 +312,6 @@ This is also called "small-to-big retrieval" and is a pattern covered in more de
 
 ### Further reading
 
-- [Evaluating the Ideal Chunk Size for RAG](https://www.llamaindex.ai/blog/evaluating-the-ideal-chunk-size-for-a-rag-system-using-llamaindex-6207e5d3fec5) — LlamaIndex blog with empirical measurements of how chunk size affects answer quality across different document types; shows the non-linear relationship between chunk size and retrieval quality.
-- [Unstructured](https://github.com/Unstructured-IO/unstructured) — Open-source library for document preprocessing (PDF, Word, HTML, email); handles the text extraction step before chunking across dozens of file types.
-- [Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models](https://arxiv.org/abs/2409.04701) — Günther et al., 2024. The late chunking paper; worth reading if you're working with long documents and seeing quality issues with fixed chunking.
+- [Evaluating the Ideal Chunk Size for RAG](https://www.llamaindex.ai/blog/evaluating-the-ideal-chunk-size-for-a-rag-system-using-llamaindex-6207e5d3fec5); LlamaIndex blog with empirical measurements of how chunk size affects answer quality across different document types; shows the non-linear relationship between chunk size and retrieval quality.
+- [Unstructured](https://github.com/Unstructured-IO/unstructured); Open-source library for document preprocessing (PDF, Word, HTML, email); handles the text extraction step before chunking across dozens of file types.
+- [Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models](https://arxiv.org/abs/2409.04701); Günther et al., 2024. The late chunking paper; worth reading if you're working with long documents and seeing quality issues with fixed chunking.

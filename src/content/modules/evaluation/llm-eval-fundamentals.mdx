@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "A single aggregate accuracy number hides the distribution of failures — a system that's 95% correct may fail systematically on a specific query category that matters most to your users. Always segment eval results by query type, user segment, or input length before reporting a headline number. An 80% average with 0% on your highest-value query category is not an 80% system — it is a broken system for your most important users."
+productionGotcha: "A single aggregate accuracy number hides the distribution of failures, a system that's 95% correct may fail systematically on a specific query category that matters most to your users. Always segment eval results by query type, user segment, or input length before reporting a headline number. An 80% average with 0% on your highest-value query category is not an 80% system, it is a broken system for your most important users."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Traditional software is deterministic. A function that converts Fahrenheit to Celsius gives the same answer every time. You can write a unit test that either passes or fails. LLM outputs are not deterministic, and even when they are consistent, "correctness" is often a matter of degree.
 
@@ -24,11 +24,11 @@ This structural difference means the entire evaluation toolbox from classical so
 
 LLM evaluation is hard for three specific reasons:
 
-**No single ground truth.** For most tasks — summarization, question answering, creative generation — there is no one right answer. Multiple outputs can all be correct. A traditional pass/fail comparison against a reference answer will give misleading results.
+**No single ground truth.** For most tasks, summarization, question answering, creative generation, there is no one right answer. Multiple outputs can all be correct. A traditional pass/fail comparison against a reference answer will give misleading results.
 
 **Open-ended output space.** A classification model can output one of N labels. An LLM can output arbitrary text. The number of possible failure modes is effectively unbounded, which means you cannot enumerate them all up front.
 
-**Context-dependent quality.** An output that is excellent for a technical audience may be terrible for a general consumer. An answer that is correct in English may be wrong if your user's query was in another language. Quality is not a property of the output alone — it depends on who is reading it and why.
+**Context-dependent quality.** An output that is excellent for a technical audience may be terrible for a general consumer. An answer that is correct in English may be wrong if your user's query was in another language. Quality is not a property of the output alone: it depends on who is reading it and why.
 
 ### Why it matters
 
@@ -42,7 +42,7 @@ This happens because aggregate metrics are easy to report and hard to argue with
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The three axes of eval design
 
@@ -154,9 +154,9 @@ EVAL_TIMING = {
 
 ### Reference-based vs reference-free evaluation
 
-Reference-based eval compares the system output against a known-good answer. It is high-precision when the reference is correct, but requires maintaining a labelled dataset. It also penalizes paraphrases — a correct answer phrased differently from the reference may score poorly.
+Reference-based eval compares the system output against a known-good answer. It is high-precision when the reference is correct, but requires maintaining a labelled dataset. It also penalizes paraphrases: a correct answer phrased differently from the reference may score poorly.
 
-Reference-free eval judges the output without a reference. An LLM judge, given only the input and the output, can assess whether the output is factually plausible, complete, and appropriately toned — without needing a gold answer. This scales better but is less precise.
+Reference-free eval judges the output without a reference. An LLM judge, given only the input and the output, can assess whether the output is factually plausible, complete, and appropriately toned: without needing a gold answer. This scales better but is less precise.
 
 ```python
 def reference_based_score(output: str, reference: str) -> float:
@@ -202,11 +202,11 @@ def reference_free_score(user_input: str, output: str) -> int:
 | **A/B eval** | Compare two versions on the same inputs | When promoting a change |
 | **Red-team eval** | Discover failure modes via adversarial inputs | Before major releases |
 
-The rest of this track covers each in depth. This module has given you the vocabulary and the mental model. The key insight to carry forward: there is no single right answer for how to evaluate an LLM system — the method, timing, and coverage must be designed for the specific system and the specific quality dimensions that matter to your users.
+The rest of this track covers each in depth. This module has given you the vocabulary and the mental model. The key insight to carry forward: there is no single right answer for how to evaluate an LLM system: the method, timing, and coverage must be designed for the specific system and the specific quality dimensions that matter to your users.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Why aggregate metrics are dangerous
 
@@ -220,7 +220,7 @@ Consider a system that handles five query categories with the following correctn
 | Account closure | 20% | 4% |
 | Escalation routing | 10% | 1% |
 
-Weighted aggregate: approximately 95% — which looks excellent. But the two lowest-performing categories are precisely the highest-stakes ones: account closure and escalation routing. A user who needs to close their account is failing 80% of the time. No aggregate metric reveals this.
+Weighted aggregate: approximately 95%: which looks excellent. But the two lowest-performing categories are precisely the highest-stakes ones: account closure and escalation routing. A user who needs to close their account is failing 80% of the time. No aggregate metric reveals this.
 
 The discipline of segmented evaluation requires:
 
@@ -232,14 +232,14 @@ The discipline of segmented evaluation requires:
 
 ### The eval coverage problem
 
-You cannot enumerate all failure modes before deployment. This is not a limitation of your process — it is a structural property of open-ended generation. The space of possible inputs is infinite; the space of possible failure modes is unbounded.
+You cannot enumerate all failure modes before deployment. This is not a limitation of your process: it is a structural property of open-ended generation. The space of possible inputs is infinite; the space of possible failure modes is unbounded.
 
 What you can do:
 
-- **Cover known categories exhaustively** — the cases you can anticipate should be well-represented
-- **Sample from the long tail** — production queries surface failure modes that development testing never will
-- **Use adversarial construction** — systematically probe boundaries (empty inputs, very long inputs, multilingual inputs, injected instructions)
-- **Track uncovered failures** — when something fails in production, add it to the eval set immediately
+- **Cover known categories exhaustively**: the cases you can anticipate should be well-represented
+- **Sample from the long tail**: production queries surface failure modes that development testing never will
+- **Use adversarial construction**: systematically probe boundaries (empty inputs, very long inputs, multilingual inputs, injected instructions)
+- **Track uncovered failures**: when something fails in production, add it to the eval set immediately
 
 The eval coverage problem does not have a solution; it has a practice. The practice is continuous: add cases, measure coverage, add more cases.
 
@@ -250,7 +250,7 @@ The eval coverage problem does not have a solution; it has a practice. The pract
 | Ground truth source | Human annotation | When quality is subjective and stakes are high |
 | | LLM-generated + human review | When volume is high and you want speed with oversight |
 | | Programmatic (schema, regex) | When output has a well-defined structure |
-| Judge model | Same model being evaluated | Avoid — self-favouritism bias |
+| Judge model | Same model being evaluated | Avoid: self-favouritism bias |
 | | Stronger model of same family | Acceptable for quality tasks |
 | | Different model family | Preferred for safety and bias auditing |
 | Scoring scale | Binary pass/fail | Classification, structured output tasks |
@@ -259,6 +259,6 @@ The eval coverage problem does not have a solution; it has a practice. The pract
 
 ### Further reading
 
-- [A Survey on Evaluation of Large Language Models](https://arxiv.org/abs/2307.03109) — Chang et al., 2023. Comprehensive taxonomy of LLM eval approaches, metrics, and benchmarks; the three-axis framing in this module is consistent with their categorical breakdown.
-- [Holistic Evaluation of Language Models (HELM)](https://crfm.stanford.edu/helm/) — Stanford CRFM. Multi-dimensional evaluation framework; the per-scenario breakdown is the practical implementation of segmented evaluation.
-- [Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference](https://arxiv.org/abs/2403.04132) — Chiang et al., 2024. Pairwise comparison at scale; shows why aggregate win-rates hide per-category differences.
+- [A Survey on Evaluation of Large Language Models](https://arxiv.org/abs/2307.03109); Chang et al., 2023. Comprehensive taxonomy of LLM eval approaches, metrics, and benchmarks; the three-axis framing in this module is consistent with their categorical breakdown.
+- [Holistic Evaluation of Language Models (HELM)](https://crfm.stanford.edu/helm/); Stanford CRFM. Multi-dimensional evaluation framework; the per-scenario breakdown is the practical implementation of segmented evaluation.
+- [Chatbot Arena: An Open Platform for Evaluating LLMs by Human Preference](https://arxiv.org/abs/2403.04132); Chiang et al., 2024. Pairwise comparison at scale; shows why aggregate win-rates hide per-category differences.

@@ -1,7 +1,7 @@
 ---
 moduleId: "2.8"
 title: "Production RAG Checklist"
-description: "A RAG prototype that works on your test documents is not a production system. This capstone synthesises the full RAG track into a checklist — the gaps that consistently cause RAG failures after launch, and the order to address them."
+description: "A RAG prototype that works on your test documents is not a production system. This capstone synthesises the full RAG track into a checklist: the gaps that consistently cause RAG failures after launch, and the order to address them."
 track: "rag"
 order: 8
 personas: ["junior", "senior", "sre"]
@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 7
   layer2: 18
   layer3: 15
-productionGotcha: "The most expensive production RAG incidents come not from retrieval or generation failing, but from stale data. A knowledge base months out of date produces confident, grounded-sounding wrong answers — the model faithfully cites outdated documents. Build refresh pipelines before you need them. Track the last-updated timestamp of every indexed document and alert when critical sources haven't been refreshed."
+productionGotcha: "The most expensive production RAG incidents come not from retrieval or generation failing, but from stale data. A knowledge base months out of date produces confident, grounded-sounding wrong answers: the model faithfully cites outdated documents. Build refresh pipelines before you need them. Track the last-updated timestamp of every indexed document and alert when critical sources haven't been refreshed."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A RAG prototype answers the question: *does this approach work?* A production RAG system answers a harder set of questions: what happens when the knowledge base gets stale? When a user asks something outside the corpus? When retrieval returns irrelevant chunks? When the index grows to millions of documents? When a document is updated?
 
-The gap between prototype and production is not model quality — it is everything around the retrieval and generation pipeline that makes the system reliable, maintainable, and observable at scale.
+The gap between prototype and production is not model quality: it is everything around the retrieval and generation pipeline that makes the system reliable, maintainable, and observable at scale.
 
 **The six areas:**
 
@@ -35,34 +35,34 @@ The gap between prototype and production is not model quality — it is everythi
 
 ### Production Gotcha
 
-> **Common Gotcha:** The most expensive RAG incidents come from stale data. A knowledge base months out of date produces confident, grounded-sounding wrong answers — the model faithfully cites outdated documents. Build refresh pipelines before you need them. Track the last-updated timestamp of every indexed document.
+> **Common Gotcha:** The most expensive RAG incidents come from stale data. A knowledge base months out of date produces confident, grounded-sounding wrong answers: the model faithfully cites outdated documents. Build refresh pipelines before you need them. Track the last-updated timestamp of every indexed document.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### 1. Indexing pipeline
 
 **Document ingestion**
 - [ ] Text extraction handles all content types in your corpus (PDF, HTML, Markdown, plain text, database records)
 - [ ] Preprocessing removes noise: page headers/footers, navigation elements, encoding artefacts
-- [ ] Document deduplication in place — indexing the same content twice degrades retrieval precision
+- [ ] Document deduplication in place: indexing the same content twice degrades retrieval precision
 
 **Chunking**
-- [ ] Chunk strategy matched to content type — not a single size for all document types (module 2.3)
+- [ ] Chunk strategy matched to content type: not a single size for all document types (module 2.3)
 - [ ] Overlap set to prevent information loss at split boundaries (10–20% of chunk size)
 - [ ] Metadata attached to every chunk: source, document ID, timestamp, chunk index
 - [ ] Empty and sub-minimum-length chunks filtered out
 
 **Embedding and storage**
-- [ ] Same embedding model used for indexing and querying — documented and enforced
+- [ ] Same embedding model used for indexing and querying: documented and enforced
 - [ ] Embedding model version pinned (same production gotcha as LLM model aliases)
-- [ ] Batch embedding enabled — not one API call per chunk
+- [ ] Batch embedding enabled: not one API call per chunk
 - [ ] Content hash stored per chunk to detect changes without full re-index
 
 **Refresh**
 - [ ] Change detection in place: new documents auto-indexed, modified documents re-embedded, deleted documents removed
-- [ ] Full re-index process documented and tested — able to run without downtime
+- [ ] Full re-index process documented and tested: able to run without downtime
 - [ ] Last-indexed timestamp per document tracked and alerted on when stale
 
 ---
@@ -71,34 +71,34 @@ The gap between prototype and production is not model quality — it is everythi
 
 **Retrieval**
 - [ ] Dense retrieval baseline established and measured (recall@5 on eval set)
-- [ ] Hybrid search (dense + sparse) enabled for production — dense-only misses exact matches (module 2.4)
+- [ ] Hybrid search (dense + sparse) enabled for production: dense-only misses exact matches (module 2.4)
 - [ ] Relevance threshold set: chunks below the threshold excluded, not passed to the model
 - [ ] Metadata filtering applied before similarity search where access control or date scoping is required
 
 **Re-ranking**
 - [ ] Re-ranking considered if recall@20 is good but recall@5 is poor
-- [ ] Re-ranking limited to top-20–50 candidates — not applied to the full corpus
+- [ ] Re-ranking limited to top-20–50 candidates: not applied to the full corpus
 - [ ] Latency impact of re-ranker measured at p95 before enabling in production
 
 **Scale**
 - [ ] ANN index configured for target corpus size and latency requirements
 - [ ] Vector database connection pooling and error handling in place
-- [ ] Query timeout set — retrieval that takes >5 seconds should fail fast rather than block
+- [ ] Query timeout set: retrieval that takes >5 seconds should fail fast rather than block
 
 ---
 
 ### 3. Augmentation / prompting
 
 **Grounding**
-- [ ] Grounding instruction in system prompt — not the user message (module 2.5)
+- [ ] Grounding instruction in system prompt: not the user message (module 2.5)
 - [ ] No-answer instruction explicit: exact phrase the model should use when answer is absent
 - [ ] Chunks numbered and source-labelled in context block
 - [ ] Most relevant chunk placed first in context block
 
 **No-answer handling**
-- [ ] Empty retrieval result handled before reaching the model — returns a useful message directly
+- [ ] Empty retrieval result handled before reaching the model: returns a useful message directly
 - [ ] Low-relevance retrieval result handled (relevance threshold check, not just count check)
-- [ ] Model's "I don't know" response handled gracefully in the UI — not shown as an error
+- [ ] Model's "I don't know" response handled gracefully in the UI: not shown as an error
 
 **Safety**
 - [ ] Untrusted document content delimited with explicit tags (e.g. `<document>`) and model instructed to treat as data, not instructions (module 1.8)
@@ -113,7 +113,7 @@ The gap between prototype and production is not model quality — it is everythi
 - [ ] Ground-truth eval set exists with ≥ 50 (query, relevant_chunk_ids) pairs
 - [ ] Eval set includes ~10–15% unanswerable queries (no relevant chunk exists)
 - [ ] Recall@5 measured and above threshold before any indexing pipeline change is promoted
-- [ ] Retrieval eval runs in CI without model calls — fast and cheap
+- [ ] Retrieval eval runs in CI without model calls: fast and cheap
 
 **Generation eval**
 - [ ] Faithfulness and answer relevancy measured on a sample of the eval set
@@ -122,7 +122,7 @@ The gap between prototype and production is not model quality — it is everythi
 
 **Eval set maintenance**
 - [ ] Eval set seeded with real traffic queries within first week of launch
-- [ ] New failure modes added to eval set within 24 hours of discovery — don't let regressions recur
+- [ ] New failure modes added to eval set within 24 hours of discovery: don't let regressions recur
 
 ---
 
@@ -130,7 +130,7 @@ The gap between prototype and production is not model quality — it is everythi
 
 **Retrieval metrics**
 - [ ] Retrieval latency (p50, p95) logged per request
-- [ ] Retrieval miss rate logged — fraction of queries where no chunk passes the relevance threshold
+- [ ] Retrieval miss rate logged: fraction of queries where no chunk passes the relevance threshold
 - [ ] Chunk count retrieved and chunk count used logged separately (detects over-retrieval)
 
 **Generation metrics**
@@ -139,7 +139,7 @@ The gap between prototype and production is not model quality — it is everythi
 - [ ] Per-request cost calculated: embedding cost + retrieval compute + generation tokens
 
 **Alerting**
-- [ ] Alert on retrieval miss rate spike — indicates knowledge base gap or query distribution shift
+- [ ] Alert on retrieval miss rate spike: indicates knowledge base gap or query distribution shift
 - [ ] Alert on generation latency p95 > baseline × 2
 - [ ] Alert on cost per request exceeding budget threshold
 - [ ] Alert when any document in the corpus hasn't been refreshed in [staleness threshold]
@@ -149,19 +149,19 @@ The gap between prototype and production is not model quality — it is everythi
 ### 6. Maintenance
 
 **Knowledge base**
-- [ ] Document ownership defined — who is responsible for each source staying current
+- [ ] Document ownership defined: who is responsible for each source staying current
 - [ ] Refresh cadence set per source (daily for news feeds, weekly for policy docs, on-merge for code)
-- [ ] Deletion propagation tested — removing a document from source removes it from the index
+- [ ] Deletion propagation tested: removing a document from source removes it from the index
 
 **Model versions**
-- [ ] Embedding model version pinned in production — model upgrade requires re-indexing the full corpus
-- [ ] Generation model version pinned — upgrade process: run eval set against new version, canary deploy, full rollout
+- [ ] Embedding model version pinned in production: model upgrade requires re-indexing the full corpus
+- [ ] Generation model version pinned: upgrade process: run eval set against new version, canary deploy, full rollout
 - [ ] Model deprecation notices subscribed to for both embedding and generation providers
 
 **Access control**
 - [ ] Per-user or per-tenant document access enforced at retrieval time (metadata filter by user/tenant)
 - [ ] Retrieval cannot surface documents the requesting user is not permitted to read
-- [ ] Access control changes propagate to the index — revoking a user's access removes chunks from their result set
+- [ ] Access control changes propagate to the index: revoking a user's access removes chunks from their result set
 
 ---
 
@@ -216,26 +216,26 @@ def ask(question: str, user_id: str) -> str:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Prioritisation: what to do first
 
 Not everything ships on day one. A practical sequence:
 
-**P0 — must-have before launch**
+**P0: must-have before launch**
 - Grounding instruction and no-answer path in production
-- Relevance threshold — never send empty or low-quality chunks to the model
+- Relevance threshold: never send empty or low-quality chunks to the model
 - User input length cap
 - Retrieval latency logging
 - Refresh mechanism for at least the highest-priority documents
 
-**P1 — first sprint after launch**
+**P1: first sprint after launch**
 - Hybrid search (if dense-only at launch)
 - Ground-truth eval set seeded with first real traffic queries
 - Retrieval miss rate alert
 - Cost per request logging and alert
 
-**P2 — within 30 days**
+**P2: within 30 days**
 - Re-ranker (if eval data shows recall@20 >> recall@5)
 - Faithfulness scoring on a production traffic sample
 - Access control at retrieval time (if multi-tenant)
@@ -243,13 +243,13 @@ Not everything ships on day one. A practical sequence:
 
 ### The four failure modes that kill RAG features
 
-**Retrieval miss** — The right chunk isn't retrieved. Users get confident wrong answers (if the model fills the gap) or "I don't know" responses (if the grounding instruction holds). Fix: improve hybrid search, tune chunk size, add multi-query.
+**Retrieval miss**: The right chunk isn't retrieved. Users get confident wrong answers (if the model fills the gap) or "I don't know" responses (if the grounding instruction holds). Fix: improve hybrid search, tune chunk size, add multi-query.
 
-**Context confusion** — The model receives the right chunks but produces a wrong answer. Usually a prompting issue (no grounding instruction, instruction placement, conflicting chunks). Fix: module 2.5.
+**Context confusion**: The model receives the right chunks but produces a wrong answer. Usually a prompting issue (no grounding instruction, instruction placement, conflicting chunks). Fix: module 2.5.
 
-**Stale knowledge** — Retrieved chunks are correct per the index but the underlying source has been updated. The model faithfully cites outdated information. Fix: document refresh pipeline with staleness monitoring.
+**Stale knowledge**: Retrieved chunks are correct per the index but the underlying source has been updated. The model faithfully cites outdated information. Fix: document refresh pipeline with staleness monitoring.
 
-**Knowledge gap** — The user's question isn't covered by any document in the corpus. Without an explicit no-answer path, the model hallucinates. Fix: track retrieval miss rate; identify high-miss query categories and fill the corpus gap.
+**Knowledge gap**: The user's question isn't covered by any document in the corpus. Without an explicit no-answer path, the model hallucinates. Fix: track retrieval miss rate; identify high-miss query categories and fill the corpus gap.
 
 ### Cost model for a RAG request
 
@@ -279,14 +279,14 @@ The generation cost dominates. Reducing retrieved chunk count from 5 to 3, or ri
 
 In a multi-tenant RAG system (different users or organisations with isolated data), access control at retrieval time is non-negotiable:
 
-- **Per-tenant indexes**: each tenant has a separate collection — strong isolation, higher operational cost
-- **Shared index with metadata filtering**: all tenants in one index, filtered by `tenant_id` at query time — lower cost, requires trust in filter implementation
-- **Row-level security in pgvector**: leverage Postgres RLS to enforce access control at the database level — strong guarantees without application-layer filtering
+- **Per-tenant indexes**: each tenant has a separate collection: strong isolation, higher operational cost
+- **Shared index with metadata filtering**: all tenants in one index, filtered by `tenant_id` at query time: lower cost, requires trust in filter implementation
+- **Row-level security in pgvector**: leverage Postgres RLS to enforce access control at the database level: strong guarantees without application-layer filtering
 
 Never rely on the model to enforce access control ("tell users only about their own data"). A jailbreak or confused retrieval bypasses this entirely. Enforce isolation at the retrieval layer.
 
 ### Further reading
 
-- [Building Effective Agents — Anthropic](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Production architecture principles that apply to RAG systems as well as agent pipelines; particularly relevant sections on context management and tool use.
-- [Seven Failure Points When Engineering a Retrieval Augmented Generation System](https://arxiv.org/abs/2401.05856) — Barnett et al., 2024. Practitioner taxonomy of RAG failure modes from real deployments; maps directly to this checklist.
-- [RAG vs Fine-Tuning: Pipelines, Tradeoffs, and a Case Study on Agriculture](https://arxiv.org/abs/2401.08406) — Ovadia et al., 2024. Empirical comparison of RAG and fine-tuning on a domain-specific task; useful data for the RAG vs fine-tuning decision.
+- [Building Effective Agents, Anthropic](https://www.anthropic.com/research/building-effective-agents) [Anthropic], Production architecture principles that apply to RAG systems as well as agent pipelines; particularly relevant sections on context management and tool use.
+- [Seven Failure Points When Engineering a Retrieval Augmented Generation System](https://arxiv.org/abs/2401.05856); Barnett et al., 2024. Practitioner taxonomy of RAG failure modes from real deployments; maps directly to this checklist.
+- [RAG vs Fine-Tuning: Pipelines, Tradeoffs, and a Case Study on Agriculture](https://arxiv.org/abs/2401.08406); Ovadia et al., 2024. Empirical comparison of RAG and fine-tuning on a domain-specific task; useful data for the RAG vs fine-tuning decision.

@@ -1,7 +1,7 @@
 ---
 moduleId: "5.2"
 title: "Quantization & Compression"
-description: "Quantization reduces the memory and compute cost of running a model by storing its weights in lower precision — understanding the tradeoffs between FP16, INT8, and INT4 and the methods used to get there lets you serve larger models on smaller hardware without silently breaking quality."
+description: "Quantization reduces the memory and compute cost of running a model by storing its weights in lower precision: understanding the tradeoffs between FP16, INT8, and INT4 and the methods used to get there lets you serve larger models on smaller hardware without silently breaking quality."
 track: "infrastructure"
 order: 2
 personas: ["senior", "sre"]
@@ -12,36 +12,36 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "INT4 quantization can look fine on general benchmarks while meaningfully degrading on domain-specific tasks — always evaluate on YOUR task, not just perplexity. A model that scores well on general knowledge questions may fail on code generation, structured output, or narrow technical domains after aggressive quantization. Measure on a task-representative eval set before deploying a quantized model to production."
+productionGotcha: "INT4 quantization can look fine on general benchmarks while meaningfully degrading on domain-specific tasks: always evaluate on YOUR task, not just perplexity. A model that scores well on general knowledge questions may fail on code generation, structured output, or narrow technical domains after aggressive quantization. Measure on a task-representative eval set before deploying a quantized model to production."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Neural network weights are just numbers. By default, those numbers are stored as 16-bit or 32-bit floats. Quantization is the process of storing them in fewer bits — 8 bits or 4 bits instead. A model stored in 4-bit integers uses roughly one-quarter the memory of the same model stored in 16-bit floats. That means a 70B parameter model that would normally require around 140GB of VRAM fits in approximately 35GB — within reach of a pair of A100s instead of eight.
+Neural network weights are just numbers. By default, those numbers are stored as 16-bit or 32-bit floats. Quantization is the process of storing them in fewer bits, 8 bits or 4 bits instead. A model stored in 4-bit integers uses roughly one-quarter the memory of the same model stored in 16-bit floats. That means a 70B parameter model that would normally require around 140GB of VRAM fits in approximately 35GB, within reach of a pair of A100s instead of eight.
 
-The tradeoff: lower precision introduces rounding error. Most of the time this is invisible to a user. Occasionally — especially on tasks that require precise numerical reasoning, structured output, or narrow technical domains — it degrades quality noticeably.
+The tradeoff: lower precision introduces rounding error. Most of the time this is invisible to a user. Occasionally, especially on tasks that require precise numerical reasoning, structured output, or narrow technical domains, it degrades quality noticeably.
 
 **The three compression approaches:**
-- **Quantization** — reduce weight precision (bits per number)
-- **Pruning** — remove weights entirely (set them to zero)
-- **Distillation** — train a smaller student model to mimic a larger teacher
+- **Quantization**: reduce weight precision (bits per number)
+- **Pruning**: remove weights entirely (set them to zero)
+- **Distillation**: train a smaller student model to mimic a larger teacher
 
 This module focuses on quantization because it is the most commonly applied and the most directly relevant to inference serving.
 
 ### Why it matters
 
-Quantization is what makes it practical to run large models on hardware you can actually buy. Without it, a 13B model requires around 26GB of VRAM in FP16 — over the limit of most single GPUs. With INT8 quantization, it fits in around 13GB. With INT4, around 6.5GB. That difference determines which GPU tier you need, and by extension, what serving costs.
+Quantization is what makes it practical to run large models on hardware you can actually buy. Without it, a 13B model requires around 26GB of VRAM in FP16: over the limit of most single GPUs. With INT8 quantization, it fits in around 13GB. With INT4, around 6.5GB. That difference determines which GPU tier you need, and by extension, what serving costs.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> General benchmarks like perplexity measure how surprised the model is by typical text. They do not measure whether the model can follow a specific JSON schema, reproduce exact code syntax, or maintain precision in a narrow technical domain. INT4 quantization compresses weights uniformly — some heads and layers matter more for your specific task than others, and the quality loss is uneven.
+> General benchmarks like perplexity measure how surprised the model is by typical text. They do not measure whether the model can follow a specific JSON schema, reproduce exact code syntax, or maintain precision in a narrow technical domain. INT4 quantization compresses weights uniformly: some heads and layers matter more for your specific task than others, and the quality loss is uneven.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Precision formats and memory impact
 
@@ -202,17 +202,17 @@ def evaluate_quantization_impact(
     }
 ```
 
-What to evaluate on: your actual task distribution — not a generic benchmark. If your application generates SQL, test SQL generation accuracy. If it extracts structured data, test structured output correctness. General perplexity scores poorly predict task-specific degradation.
+What to evaluate on: your actual task distribution: not a generic benchmark. If your application generates SQL, test SQL generation accuracy. If it extracts structured data, test structured output correctness. General perplexity scores poorly predict task-specific degradation.
 
 ### Pruning and distillation (brief)
 
 **Pruning** removes individual weights or entire heads/layers by setting them to zero or deleting them. Unstructured pruning (individual weights) is hard to accelerate on GPU hardware because sparse matrices are not faster on dense GPU cores without specialized kernels. Structured pruning (entire attention heads or layers) is more hardware-friendly but requires careful evaluation to avoid degrading quality. Pruning is less commonly applied to LLMs than quantization.
 
-**Distillation** trains a smaller model (the student) to reproduce the output distribution of a larger model (the teacher). The result is a genuinely smaller model — fewer parameters — not a compressed representation of the original. Distillation achieves better quality per parameter than a same-size model trained from scratch, because the student learns from soft probability distributions rather than hard labels. It requires significant compute and access to the teacher model's outputs. Examples: DistilBERT (BERT distillation), Phi-series models (partially distillation-influenced).
+**Distillation** trains a smaller model (the student) to reproduce the output distribution of a larger model (the teacher). The result is a genuinely smaller model, fewer parameters, not a compressed representation of the original. Distillation achieves better quality per parameter than a same-size model trained from scratch, because the student learns from soft probability distributions rather than hard labels. It requires significant compute and access to the teacher model's outputs. Examples: DistilBERT (BERT distillation), Phi-series models (partially distillation-influenced).
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Quality degradation patterns by task type
 
@@ -247,12 +247,12 @@ Most public GGUF and GPTQ releases use WikiText or a similar general corpus for 
 
 ### Mixed-precision quantization
 
-Some formats (including GGUF and some AWQ variants) support mixing precision within a single model — keeping the most sensitive layers at higher precision while quantizing others more aggressively. For example, the first and last transformer layers and the embedding layer are often kept at higher precision because they have outsized impact on output quality.
+Some formats (including GGUF and some AWQ variants) support mixing precision within a single model: keeping the most sensitive layers at higher precision while quantizing others more aggressively. For example, the first and last transformer layers and the embedding layer are often kept at higher precision because they have outsized impact on output quality.
 
-This is why GGUF files are labeled Q4_K_M (4-bit quantization with medium key/value matrices kept at higher precision) or similar — the suffix describes the per-layer precision strategy.
+This is why GGUF files are labeled Q4_K_M (4-bit quantization with medium key/value matrices kept at higher precision) or similar: the suffix describes the per-layer precision strategy.
 
 ### Further reading
 
-- [GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers](https://arxiv.org/abs/2210.17323) — Frantar et al., 2022. The GPTQ paper; explains the layer-wise quantization approach and reconstruction objective.
-- [AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration](https://arxiv.org/abs/2306.00978) — Lin et al., 2023. The AWQ paper; explains why protecting salient weights improves INT4 quality.
-- [llama.cpp — GGUF format documentation](https://github.com/ggerganov/llama.cpp/blob/master/docs/gguf.md) — The GGUF file format specification; useful reference for understanding the quantization variants and their naming.
+- [GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers](https://arxiv.org/abs/2210.17323); Frantar et al., 2022. The GPTQ paper; explains the layer-wise quantization approach and reconstruction objective.
+- [AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration](https://arxiv.org/abs/2306.00978); Lin et al., 2023. The AWQ paper; explains why protecting salient weights improves INT4 quality.
+- [llama.cpp, GGUF format documentation](https://github.com/ggerganov/llama.cpp/blob/master/docs/gguf.md), The GGUF file format specification; useful reference for understanding the quantization variants and their naming.

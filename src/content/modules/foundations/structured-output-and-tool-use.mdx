@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 7
   layer2: 16
   layer3: 19
-productionGotcha: "Tool definitions count against your context window. An application that registers 30 tools per request is burning tokens on every call, even when most tools are irrelevant. Define only the tools the model needs for the current task — or implement dynamic tool selection that injects only the relevant subset based on user intent."
+productionGotcha: "Tool definitions count against your context window. An application that registers 30 tools per request is burning tokens on every call, even when most tools are irrelevant. Define only the tools the model needs for the current task, or implement dynamic tool selection that injects only the relevant subset based on user intent."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 LLMs return free-form text. Your application usually needs structured data.
 
-The naive approach — parse the text yourself — breaks as soon as the model formats its output slightly differently. The robust approach is to constrain what the model is allowed to return, either by asking for a specific schema or by using **tool use** (also called function calling), where the model fills in typed function arguments rather than writing free text.
+The naive approach, parse the text yourself, breaks as soon as the model formats its output slightly differently. The robust approach is to constrain what the model is allowed to return, either by asking for a specific schema or by using **tool use** (also called function calling), where the model fills in typed function arguments rather than writing free text.
 
 These are two points on the same spectrum:
 
@@ -29,15 +29,15 @@ These are two points on the same spectrum:
 | **Prompted JSON** | System prompt instructs model to return JSON; you parse and validate | Simple extraction, low stakes |
 | **Tool use** (also called **function calling**) | Model fills typed function arguments; add `strict: true` for API-level schema guarantees | Extraction, triggering actions, agents |
 
-The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output. With `strict: true` on a tool definition, the API enforces that shape — guaranteed types, required fields present, no unexpected properties.
+The key shift: instead of hoping the model formats its response correctly, you define the shape of valid output. With `strict: true` on a tool definition, the API enforces that shape: guaranteed types, required fields present, no unexpected properties.
 
 ### Production Gotcha
 
-> **Common Gotcha:** Tool definitions count against your context window. An application with 30 registered tools is spending tokens on those definitions every single request — even when most tools are irrelevant. Define only the tools needed for the current task, or select a relevant subset dynamically based on user intent before sending the request.
+> **Common Gotcha:** Tool definitions count against your context window. An application with 30 registered tools is spending tokens on those definitions every single request: even when most tools are irrelevant. Define only the tools needed for the current task, or select a relevant subset dynamically based on user intent before sending the request.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Prompted JSON (simplest, least reliable)
 
@@ -87,9 +87,9 @@ Fragile: the model may wrap the JSON in a markdown code block, add a comment, or
 
 ### Tool use / function calling (structured output)
 
-Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments — no markdown stripping, no `json.loads`. Add `strict: true` to the tool definition to get API-level guarantees: correct types, all required fields present, no unexpected properties.
+Tool use asks the model to invoke a typed function instead of writing text. The model returns structured arguments: no markdown stripping, no `json.loads`. Add `strict: true` to the tool definition to get API-level guarantees: correct types, all required fields present, no unexpected properties.
 
-The examples below use Anthropic's SDK. The concept is identical across providers, but the response shape differs — see the provider comparison table at the end of this layer.
+The examples below use Anthropic's SDK. The concept is identical across providers, but the response shape differs: see the provider comparison table at the end of this layer.
 
 ```python
 import anthropic
@@ -129,7 +129,7 @@ def extract_contact(text: str) -> dict:
     return tool_use.input  # already a dict — no json.loads needed
 ```
 
-Without `strict: True`, the model generally conforms to the schema but the API does not guarantee it — you may receive wrong types or missing required fields, and should validate before use.
+Without `strict: True`, the model generally conforms to the schema but the API does not guarantee it: you may receive wrong types or missing required fields, and should validate before use.
 
 `tool_choice: {"type": "tool", "name": "extract_contact"}` forces the model to call that specific tool. Without it, the model may choose to respond in text.
 
@@ -219,7 +219,7 @@ This is the core loop behind most AI agents: model decides what to call → your
 
 ### Before vs After
 
-**String parsing — brittle:**
+**String parsing: brittle:**
 ```python
 # BAD: Fragile, breaks on any formatting variation
 raw = llm_response.text
@@ -227,7 +227,7 @@ raw = llm_response.text
 price = float(raw.split("$")[1].split()[0])  # crashes constantly in production
 ```
 
-**Tool use — robust:**
+**Tool use: robust:**
 ```python
 # GOOD: Model fills a typed field; your code gets a float, always
 tool_use = next(b for b in response.content if b.type == "tool_use")
@@ -236,11 +236,11 @@ price = tool_use.input["price"]  # typed, validated, no parsing
 
 ### Common mistakes
 
-1. **Not specifying `tool_choice`** — When you need a specific tool called, set `tool_choice` explicitly. Without it, the model may answer in plain text.
-2. **Over-broad tool descriptions** — Vague descriptions like "do anything with files" confuse the model. Write descriptions as if documenting a public API: what it does, what it doesn't do, and when to use it.
-3. **Not handling `end_turn` in tool loops** — If you build an agentic loop, always check `stop_reason`. A missing `end_turn` check creates an infinite loop.
-4. **Ignoring required vs optional fields** — Fields not in `required` may be omitted. Code that accesses them without a default will crash.
-5. **Registering all tools for every request** — See the production gotcha.
+1. **Not specifying `tool_choice`**: When you need a specific tool called, set `tool_choice` explicitly. Without it, the model may answer in plain text.
+2. **Over-broad tool descriptions**: Vague descriptions like "do anything with files" confuse the model. Write descriptions as if documenting a public API: what it does, what it doesn't do, and when to use it.
+3. **Not handling `end_turn` in tool loops**: If you build an agentic loop, always check `stop_reason`. A missing `end_turn` check creates an infinite loop.
+4. **Ignoring required vs optional fields**: Fields not in `required` may be omitted. Code that accesses them without a default will crash.
+5. **Registering all tools for every request**: See the production gotcha.
 
 ### Provider comparison: function calling API shapes
 
@@ -253,15 +253,15 @@ The tool / function calling concept is the same across providers, but the reques
 | **Model chose a tool** | `stop_reason == "tool_use"` | `finish_reason == "tool_calls"` |
 | **Tool call in response** | `block.type == "tool_use"` (in `response.content`) | `choice.message.tool_calls[n]` |
 | **Tool call ID** | `block.id` | `tool_call.id` |
-| **Tool arguments** | `block.input` (dict) | `tool_call.function.arguments` (JSON string — parse it) |
+| **Tool arguments** | `block.input` (dict) | `tool_call.function.arguments` (JSON string: parse it) |
 | **Result message role** | `"user"` | `"tool"` |
 | **Result format** | `{"type": "tool_result", "tool_use_id": id, "content": "..."}` | `{"role": "tool", "tool_call_id": id, "content": "..."}` |
 
-The tool definition schema itself (`name`, `description`, `parameters` / `input_schema` using JSON Schema) is nearly identical — both providers follow the same JSON Schema vocabulary. The main structural difference is `parameters` (OpenAI) vs `input_schema` (Anthropic) as the key name.
+The tool definition schema itself (`name`, `description`, `parameters` / `input_schema` using JSON Schema) is nearly identical: both providers follow the same JSON Schema vocabulary. The main structural difference is `parameters` (OpenAI) vs `input_schema` (Anthropic) as the key name.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Schema design
 
@@ -291,7 +291,7 @@ Without an enum, the model may invent valid-sounding but unexpected values (`"pe
 The model reads descriptions at inference time. Precise descriptions reduce ambiguity and reduce the need to re-prompt when the model guesses wrong.
 
 **Mark genuinely optional fields as not required:**
-If a field is truly optional, omit it from `required`. The model will include it when the information is present and omit it when it isn't — more reliable than having it guess a null/empty value.
+If a field is truly optional, omit it from `required`. The model will include it when the information is present and omit it when it isn't: more reliable than having it guess a null/empty value.
 
 ### Multi-tool calls in a single turn
 
@@ -315,7 +315,7 @@ Treat each `tool_use` block independently; collect all results before returning 
 
 ### Error handling in tool loops
 
-Tool execution can fail. Return errors to the model in the result — don't throw exceptions that break the loop. The model can often recover:
+Tool execution can fail. Return errors to the model in the result: don't throw exceptions that break the loop. The model can often recover:
 
 ```python
 def run_tool_safe(name: str, inputs: dict) -> str:
@@ -363,7 +363,7 @@ The sophistication of an agent is largely a function of the tools it has access 
 
 ### Further reading
 
-- [Tool use — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) [Anthropic] — Reference for tool definition, `tool_choice`, multi-tool calls, and the full request/response lifecycle using Anthropic's API.
-- [Function calling — OpenAI documentation](https://platform.openai.com/docs/guides/function-calling) [OpenAI] — The equivalent OpenAI reference; useful for understanding the `tool_calls` response shape and `role: "tool"` result format.
-- [JSON Schema specification](https://json-schema.org/specification) — The schema language used for tool input definitions across all providers. Understanding `type`, `enum`, `required`, and `$ref` covers 95% of tool authoring.
-- [ReAct: Synergising Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. The paper that formalised the reason-then-act loop that underlies most tool-use agent patterns.
+- [Tool use, Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview) [Anthropic], Reference for tool definition, `tool_choice`, multi-tool calls, and the full request/response lifecycle using Anthropic's API.
+- [Function calling, OpenAI documentation](https://platform.openai.com/docs/guides/function-calling) [OpenAI], The equivalent OpenAI reference; useful for understanding the `tool_calls` response shape and `role: "tool"` result format.
+- [JSON Schema specification](https://json-schema.org/specification); The schema language used for tool input definitions across all providers. Understanding `type`, `enum`, `required`, and `$ref` covers 95% of tool authoring.
+- [ReAct: Synergising Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629); Yao et al., 2022. The paper that formalised the reason-then-act loop that underlies most tool-use agent patterns.

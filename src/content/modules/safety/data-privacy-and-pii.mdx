@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "PII scrubbing before sending to an LLM API is commonly implemented on user input but not on retrieved documents — a RAG system that fetches customer records without scrubbing can send far more PII than the user directly typed."
+productionGotcha: "PII scrubbing before sending to an LLM API is commonly implemented on user input but not on retrieved documents: a RAG system that fetches customer records without scrubbing can send far more PII than the user directly typed."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-PII (Personally Identifiable Information) — names, email addresses, phone numbers, identification numbers, health data — enters LLM systems through more channels than most teams anticipate. The user types some of it. But retrieved documents, tool results, and conversation history can carry far more.
+PII (Personally Identifiable Information), names, email addresses, phone numbers, identification numbers, health data, enters LLM systems through more channels than most teams anticipate. The user types some of it. But retrieved documents, tool results, and conversation history can carry far more.
 
 **How PII leaks from LLM systems:**
 
@@ -38,11 +38,11 @@ Sending PII to an LLM API without a data processing agreement, storing it in log
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams focus their PII controls on the user input field — a text box they can see. They do not apply the same scrutiny to the 15 documents their RAG pipeline fetches from a CRM database, each of which may contain a customer's full name, email, phone number, and purchase history. The fix is to apply PII scrubbing at every point where external data enters the context.
+> Teams focus their PII controls on the user input field: a text box they can see. They do not apply the same scrutiny to the 15 documents their RAG pipeline fetches from a CRM database, each of which may contain a customer's full name, email, phone number, and purchase history. The fix is to apply PII scrubbing at every point where external data enters the context.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### PII detection: regex + NER
 
@@ -253,7 +253,7 @@ class SessionStore:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Data residency and retention
 
@@ -267,7 +267,7 @@ Where prompts and responses are stored determines who can access them and what r
 | User session store | Application backend | Session data counts as personal data under GDPR |
 
 Minimum requirements:
-1. Set a log retention limit — 30–90 days is typical for operational logs.
+1. Set a log retention limit: 30–90 days is typical for operational logs.
 2. Redact or pseudonymise PII in logs before storage.
 3. Sign a Data Processing Agreement (DPA) with your LLM provider.
 4. Confirm whether your provider uses your prompts for training; opt out if so.
@@ -286,7 +286,7 @@ What DPAs typically **do not** cover:
 - Downstream use of outputs by your users
 - On-premises or VPC deployment guarantees (separate contract)
 
-For GDPR compliance, a DPA with the provider is necessary but not sufficient — you also need a legal basis for processing the personal data you send.
+For GDPR compliance, a DPA with the provider is necessary but not sufficient: you also need a legal basis for processing the personal data you send.
 
 ### GDPR Article 22 and automated decision-making
 
@@ -299,6 +299,6 @@ If your LLM application makes or significantly influences decisions about indivi
 
 ### Further reading
 
-- [ICO Guidance on AI and Data Protection](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/) — UK ICO, 2023. Practical guidance on applying UK GDPR to AI systems; particularly relevant to automated decision-making and data minimisation in training.
-- [Privacy Considerations in Large Language Models](https://arxiv.org/abs/2310.10383) — Neel et al., 2023. Technical review of memorisation, extraction, and mitigation in LLMs.
-- [Extracting Training Data from Large Language Models](https://arxiv.org/abs/2012.07805) — Carlini et al., 2021. Demonstrates that models can verbatim reproduce training data; the foundational paper on memorisation risk.
+- [ICO Guidance on AI and Data Protection](https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/artificial-intelligence/guidance-on-ai-and-data-protection/); UK ICO, 2023. Practical guidance on applying UK GDPR to AI systems; particularly relevant to automated decision-making and data minimisation in training.
+- [Privacy Considerations in Large Language Models](https://arxiv.org/abs/2310.10383); Neel et al., 2023. Technical review of memorisation, extraction, and mitigation in LLMs.
+- [Extracting Training Data from Large Language Models](https://arxiv.org/abs/2012.07805); Carlini et al., 2021. Demonstrates that models can verbatim reproduce training data; the foundational paper on memorisation risk.

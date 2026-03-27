@@ -1,7 +1,7 @@
 ---
 moduleId: "3.4"
 title: "Real API Integration"
-description: "Wrapping a real API as a tool means handling all the things the happy path ignores — auth token expiry, rate limits, flaky networks, non-idempotent operations, and paginated results. This module covers the mechanics of building tool integrations that survive production."
+description: "Wrapping a real API as a tool means handling all the things the happy path ignores: auth token expiry, rate limits, flaky networks, non-idempotent operations, and paginated results. This module covers the mechanics of building tool integrations that survive production."
 track: "protocols"
 order: 4
 personas: ["junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 6
   layer2: 20
   layer3: 15
-productionGotcha: "Retrying a non-idempotent POST on a 500 error causes duplicate side effects — a payment charged twice, an order created twice, an email sent twice. Before adding retry logic to any tool, determine whether the underlying operation is safe to repeat. If it is not, add an idempotency key so the API can detect and deduplicate the repeat."
+productionGotcha: "Retrying a non-idempotent POST on a 500 error causes duplicate side effects: a payment charged twice, an order created twice, an email sent twice. Before adding retry logic to any tool, determine whether the underlying operation is safe to repeat. If it is not, add an idempotency key so the API can detect and deduplicate the repeat."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A tool that calls a real API has to handle what real APIs do: require authentication, enforce rate limits, sometimes fail, return more results than fit in one response, and occasionally deliver results asynchronously via webhooks.
 
@@ -34,7 +34,7 @@ Each of these is a one-time implementation that prevents an entire class of prod
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Authentication patterns
 
@@ -91,7 +91,7 @@ class OAuthClient:
         return response.json()
 ```
 
-Never fetch a new token on every request — that's N extra round-trips per tool call and will hit auth rate limits. Cache with expiry.
+Never fetch a new token on every request: that's N extra round-trips per tool call and will hit auth rate limits. Cache with expiry.
 
 ### Retry with exponential backoff and jitter
 
@@ -176,7 +176,7 @@ def create_order(
     return response.json()
 ```
 
-Generate a random key (`uuid4`) once when the user initiates the operation and pass it through all retry attempts. The same key scopes deduplication to a single intended operation — the server returns the original result if it has already processed a request with this key. Never derive the key from the payload alone: two customers placing identical orders, or one customer legitimately reordering the same items, would be wrongly collapsed into one.
+Generate a random key (`uuid4`) once when the user initiates the operation and pass it through all retry attempts. The same key scopes deduplication to a single intended operation: the server returns the original result if it has already processed a request with this key. Never derive the key from the payload alone: two customers placing identical orders, or one customer legitimately reordering the same items, would be wrongly collapsed into one.
 
 Not all APIs support idempotency keys. For those that don't, either avoid retrying mutations or implement deduplication on your side by caching the operation result.
 
@@ -229,7 +229,7 @@ Return `has_more` and `next_cursor` so the model can decide whether to request t
 
 ### Receiving webhooks
 
-Webhooks deliver events asynchronously — the API calls you, rather than you calling the API. Common pattern: register a webhook endpoint, verify the payload, enqueue for processing.
+Webhooks deliver events asynchronously: the API calls you, rather than you calling the API. Common pattern: register a webhook endpoint, verify the payload, enqueue for processing.
 
 ```python
 import hashlib
@@ -256,11 +256,11 @@ async def receive_order_webhook(request: Request):
     return {"status": "accepted"}
 ```
 
-Return 200 immediately — a slow webhook response causes the API to retry, creating duplicate events. Do the work asynchronously.
+Return 200 immediately: a slow webhook response causes the API to retry, creating duplicate events. Do the work asynchronously.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Backoff strategies compared
 
@@ -316,7 +316,7 @@ class CircuitBreaker:
             raise
 ```
 
-The circuit breaker prevents the agentic loop from hammering a broken downstream service — after `failure_threshold` consecutive failures, it rejects calls immediately until the service has had time to recover.
+The circuit breaker prevents the agentic loop from hammering a broken downstream service: after `failure_threshold` consecutive failures, it rejects calls immediately until the service has had time to recover.
 
 ### Webhook security patterns
 
@@ -354,6 +354,6 @@ Pin API versions explicitly. Subscribe to the provider's deprecation notices and
 
 ### Further reading
 
-- [AWS — Exponential Backoff and Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) — The definitive analysis of backoff strategies under concurrent load, with simulation data.
-- [Stripe — Idempotent Requests](https://stripe.com/docs/api/idempotent_requests) — Clear example of how idempotency keys work in a production payment API.
-- [Webhook.site](https://webhook.site/) — Free tool for testing and debugging webhook payloads during development.
+- [AWS, Exponential Backoff and Jitter](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/), The definitive analysis of backoff strategies under concurrent load, with simulation data.
+- [Stripe, Idempotent Requests](https://stripe.com/docs/api/idempotent_requests), Clear example of how idempotency keys work in a production payment API.
+- [Webhook.site](https://webhook.site/); Free tool for testing and debugging webhook payloads during development.

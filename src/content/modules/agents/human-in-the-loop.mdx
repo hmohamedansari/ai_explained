@@ -1,7 +1,7 @@
 ---
 moduleId: "4.6"
 title: "Human-in-the-Loop"
-description: "Human oversight is not a bolt-on safety feature — it is an architectural primitive that determines what an agent is permitted to do autonomously and what requires a human decision. This module covers the design of approval gates, interrupt points, confidence escalation, and audit trails that make human oversight practical at scale."
+description: "Human oversight is not a bolt-on safety feature: it is an architectural primitive that determines what an agent is permitted to do autonomously and what requires a human decision. This module covers the design of approval gates, interrupt points, confidence escalation, and audit trails that make human oversight practical at scale."
 track: "agents"
 order: 6
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 17
   layer3: 13
-productionGotcha: "Human-in-the-loop that adds 30 seconds of wait time to every action is indistinguishable from not having an agent. HITL must be selective — applied to high-risk, irreversible, or low-confidence actions, not to everything. The design question is not 'should we add human review?' but 'which specific actions require human approval, under what conditions, and how do we make the approval fast enough to be practical?'"
+productionGotcha: "Human-in-the-loop that adds 30 seconds of wait time to every action is indistinguishable from not having an agent. HITL must be selective: applied to high-risk, irreversible, or low-confidence actions, not to everything. The design question is not 'should we add human review?' but 'which specific actions require human approval, under what conditions, and how do we make the approval fast enough to be practical?'"
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An agent without human oversight is only as safe as its worst tool call. Human-in-the-loop (HITL) is the architecture that defines where humans remain in the decision chain.
 
@@ -28,11 +28,11 @@ An agent without human oversight is only as safe as its worst tool call. Human-i
 | **Confidence escalation** | Agent proceeds autonomously when confident; routes to human when uncertain | When task quality degrades below a threshold |
 | **Interrupt point** | Human can pause or cancel an in-flight agent session | Long-running tasks where requirements may change |
 
-None of these are binary — they exist on a spectrum, and the right combination depends on the risk profile of the task and the cost of human review time.
+None of these are binary: they exist on a spectrum, and the right combination depends on the risk profile of the task and the cost of human review time.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Approval gates
 
@@ -230,11 +230,11 @@ def export_audit_report(session_id: str) -> str:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### HITL as architectural primitive
 
-Human oversight is not an afterthought added to handle edge cases — it is a design constraint that shapes the entire agent architecture. Before building, answer:
+Human oversight is not an afterthought added to handle edge cases: it is a design constraint that shapes the entire agent architecture. Before building, answer:
 
 1. **What actions require human approval, always?** (irreversible writes, high-cost operations, external communications)
 2. **What triggers escalation?** (confidence thresholds, specific entity types, value thresholds)
@@ -288,5 +288,5 @@ A flat "human approves everything" model doesn't scale. Structure escalation in 
 
 ### Further reading
 
-- [Responsible Scaling Policy — Anthropic](https://www.anthropic.com/news/anthropics-responsible-scaling-policy) [Anthropic] — Concrete framework for classifying risk levels and required oversight; the tier structure here is informed by this approach.
-- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — Bai et al., 2022. The RLHF + constitutional approach; background on how human feedback shapes model behaviour at training vs inference time.
+- [Responsible Scaling Policy, Anthropic](https://www.anthropic.com/news/anthropics-responsible-scaling-policy) [Anthropic], Concrete framework for classifying risk levels and required oversight; the tier structure here is informed by this approach.
+- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073); Bai et al., 2022. The RLHF + constitutional approach; background on how human feedback shapes model behaviour at training vs inference time.

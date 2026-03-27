@@ -1,5 +1,5 @@
 {
-  "title": "Evaluating LLM Systems — Check your understanding",
+  "title": "Evaluating LLM Systems: Check your understanding",
   "moduleId": "1.7",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "You update your classification system prompt and the eval score drops from 91% to 74%. What should you do?",
       "options": [
-        "Deploy anyway — a 74% accuracy is still acceptable for most use cases",
+        "Deploy anyway: a 74% accuracy is still acceptable for most use cases",
         "Remove the failing examples from the eval set so the score recovers",
         "Block the change, investigate which examples regressed, and fix the prompt before merging",
         "Switch to a larger model to recover the accuracy loss"
       ],
       "answer": 2,
-      "explanation": "A regression in eval score means the change made things worse on known inputs. The eval set is the ground truth — removing failing examples to make the score look better defeats the purpose. Block the change, identify which inputs now fail, understand why, and fix the prompt. Only then re-run and merge.",
+      "explanation": "A regression in eval score means the change made things worse on known inputs. The eval set is the ground truth: removing failing examples to make the score look better defeats the purpose. Block the change, identify which inputs now fail, understand why, and fix the prompt. Only then re-run and merge.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -27,7 +27,7 @@
         "Eval sets must come from production traffic to be valid"
       ],
       "answer": 2,
-      "explanation": "If you wrote the prompt while looking at the same examples you use to evaluate it, the eval measures how well you optimised for those specific cases — not how the system generalises. Use held-out examples the prompt author has not seen. Include edge cases and adversarial inputs the prompt was not designed for.",
+      "explanation": "If you wrote the prompt while looking at the same examples you use to evaluate it, the eval measures how well you optimised for those specific cases: not how the system generalises. Use held-out examples the prompt author has not seen. Include edge cases and adversarial inputs the prompt was not designed for.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -41,7 +41,7 @@
         "The judge model scores lower when the temperature is above 0.5"
       ],
       "answer": 1,
-      "explanation": "Verbosity bias — favouring longer responses — is one of the most consistently documented biases in LLM-as-judge evaluations. Other known biases include positional bias (favouring whichever response appears first) and self-preference. Mitigate by randomising response order and averaging scores across multiple judge calls.",
+      "explanation": "Verbosity bias, favouring longer responses, is one of the most consistently documented biases in LLM-as-judge evaluations. Other known biases include positional bias (favouring whichever response appears first) and self-preference. Mitigate by randomising response order and averaging scores across multiple judge calls.",
       "personas": ["senior", "sre"]
     },
     {
@@ -51,11 +51,11 @@
       "options": [
         "The model provider silently changed the model between deploy and launch",
         "The eval set did not include inputs representative of real user traffic",
-        "88% accuracy is too low a threshold — it should have been set to 100%",
+        "88% accuracy is too low a threshold: it should have been set to 100%",
         "Eval scores degrade over time as the model forgets the training data"
       ],
       "answer": 1,
-      "explanation": "Pre-deploy evals only catch failure modes present in the eval set. If real user inputs differ from your eval inputs — different phrasing, different topics, different languages — the eval gives a false sense of security. Seed your eval set with real traffic samples, and add any production bug to the eval set immediately so it can't recur.",
+      "explanation": "Pre-deploy evals only catch failure modes present in the eval set. If real user inputs differ from your eval inputs, different phrasing, different topics, different languages, the eval gives a false sense of security. Seed your eval set with real traffic samples, and add any production bug to the eval set immediately so it can't recur.",
       "personas": ["junior", "senior", "sre"]
     },
     {

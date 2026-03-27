@@ -1,5 +1,5 @@
 {
-  "title": "How Prompts Work — Check your understanding",
+  "title": "How Prompts Work: Check your understanding",
   "moduleId": "1.2",
   "questions": [
     {
@@ -19,7 +19,7 @@
     {
       "id": "1.2-q2",
       "type": "multiple-choice",
-      "question": "Your LLM feature returns inconsistent output formats — sometimes JSON, sometimes plain text. What is the most reliable fix?",
+      "question": "Your LLM feature returns inconsistent output formats: sometimes JSON, sometimes plain text. What is the most reliable fix?",
       "options": [
         "Switch to a larger model",
         "Increase the temperature so the model explores more options",
@@ -41,7 +41,7 @@
         "Sending short prompts to reduce token costs"
       ],
       "answer": 1,
-      "explanation": "Few-shot prompting means adding example pairs (input → expected output) directly in the prompt. The model generalises from these examples to produce output in the same style or format — no training required.",
+      "explanation": "Few-shot prompting means adding example pairs (input → expected output) directly in the prompt. The model generalises from these examples to produce output in the same style or format: no training required.",
       "personas": ["curious", "leader", "junior", "senior", "sre"]
     },
     {

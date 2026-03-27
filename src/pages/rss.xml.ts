@@ -18,8 +18,8 @@ export async function GET(context: APIContext) {
   });
 
   return rss({
-    title: 'AI Explained — New Modules',
-    description: 'Free, open-source AI education — new modules as they are published.',
+    title: 'AI Explained: New Modules',
+    description: 'Free, open-source AI education; new modules as they are published.',
     site: context.site!,
     items: sorted.map(mod => {
       const slug = mod.slug.split('/')[1];

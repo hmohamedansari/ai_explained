@@ -12,37 +12,37 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously — model versions are upgraded, prompts are edited, new tools are added — and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate."
+productionGotcha: "AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously, model versions are upgraded, prompts are edited, new tools are added, and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-AI systems create risks that traditional software governance was not designed to manage. A conventional software system does what its code says. An AI system does what its model and data predict — and that prediction can be wrong in ways that are hard to anticipate, hard to reproduce, and hard to audit.
+AI systems create risks that traditional software governance was not designed to manage. A conventional software system does what its code says. An AI system does what its model and data predict, and that prediction can be wrong in ways that are hard to anticipate, hard to reproduce, and hard to audit.
 
 There are five categories of risk an organisation must manage:
 
 1. **Model risk**: The AI produces wrong, biased, or harmful outputs. This includes hallucinations, discriminatory outputs, and confidently incorrect recommendations.
 2. **Operational risk**: The AI system fails, is slow, is unavailable, or behaves inconsistently in ways that disrupt operations.
-3. **Reputational risk**: The AI system fails publicly — a viral screenshot, a news story, a social media incident — damaging trust in the brand.
-4. **Compliance risk**: The AI system violates laws or regulations — data protection, anti-discrimination, financial advice, medical advice, or sector-specific rules.
+3. **Reputational risk**: The AI system fails publicly, a viral screenshot, a news story, a social media incident, damaging trust in the brand.
+4. **Compliance risk**: The AI system violates laws or regulations: data protection, anti-discrimination, financial advice, medical advice, or sector-specific rules.
 5. **Strategic risk**: The organisation becomes dependent on an external AI provider that changes pricing, restricts access, or ceases to operate.
 
 Good risk management is not about preventing all failures. It is about knowing which failures are acceptable and which are not, and building appropriate controls for the ones that are not.
 
 ### Why it matters
 
-Organisations that treat AI risk as a one-time project approval exercise discover the problem when a failure occurs in production — typically at the worst possible time, with the highest possible visibility.
+Organisations that treat AI risk as a one-time project approval exercise discover the problem when a failure occurs in production: typically at the worst possible time, with the highest possible visibility.
 
 ### Production Gotcha
 
-> **Common Gotcha:** AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously — model versions are upgraded, prompts are edited, new tools are added — and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate.
+> **Common Gotcha:** AI risk registers are typically completed at project initiation and never updated. Production AI systems change continuously, model versions are upgraded, prompts are edited, new tools are added, and each change potentially introduces new risks. Risk management must be continuous, not a one-time approval gate.
 >
-> The assumption: "We approved this system at launch, so it's covered." The reality: the system you approved no longer exists — it has been updated dozens of times since.
+> The assumption: "We approved this system at launch, so it's covered." The reality: the system you approved no longer exists: it has been updated dozens of times since.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Risk appetite by use case
 
@@ -50,11 +50,11 @@ Not every AI application carries the same risk. Set your risk appetite explicitl
 
 | Use case type | Model risk tolerance | Compliance exposure | Recommended oversight |
 |---|---|---|---|
-| Internal productivity tools (summarisation, drafting) | Medium — errors are caught by human reviewer | Low | Minimal: basic output review |
-| Customer-facing informational (FAQ, search) | Low — errors reach customers directly | Medium | Output guardrails + monitoring |
-| Customer-facing advisory (recommendations, advice) | Very low — incorrect advice has real consequences | High | Human review checkpoint for high-stakes outputs |
-| Automated decision-making (approvals, scoring) | Very low — no human in the loop | Very high | Regulatory compliance required; human oversight often mandated |
-| Internal process automation (document processing, data entry) | Low — downstream processes depend on accuracy | Medium | Validation of outputs before use |
+| Internal productivity tools (summarisation, drafting) | Medium: errors are caught by human reviewer | Low | Minimal: basic output review |
+| Customer-facing informational (FAQ, search) | Low: errors reach customers directly | Medium | Output guardrails + monitoring |
+| Customer-facing advisory (recommendations, advice) | Very low: incorrect advice has real consequences | High | Human review checkpoint for high-stakes outputs |
+| Automated decision-making (approvals, scoring) | Very low: no human in the loop | Very high | Regulatory compliance required; human oversight often mandated |
+| Internal process automation (document processing, data entry) | Low: downstream processes depend on accuracy | Medium | Validation of outputs before use |
 
 ### Governance structure
 
@@ -156,7 +156,7 @@ Mitigation strategies:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The regulatory landscape
 
@@ -172,9 +172,9 @@ Compliance risk management for AI is not a one-time legal review. It requires on
 
 One-time risk reviews fail because AI systems change continuously and the risk landscape shifts. A continuous practice requires:
 
-**Change management integration**: Every change to a production AI system — prompt update, model version change, new tool added, new data source — triggers a lightweight risk reassessment. Not a full approval process; a structured checklist that takes under 30 minutes.
+**Change management integration**: Every change to a production AI system, prompt update, model version change, new tool added, new data source, triggers a lightweight risk reassessment. Not a full approval process; a structured checklist that takes under 30 minutes.
 
-**Production monitoring as risk intelligence**: The signals from production monitoring are not just operational — they are risk signals. A spike in guardrail trigger rate may indicate a new attack pattern. A quality score drop may indicate model drift. A cluster of user complaints may indicate a failure mode the risk register missed.
+**Production monitoring as risk intelligence**: The signals from production monitoring are not just operational: they are risk signals. A spike in guardrail trigger rate may indicate a new attack pattern. A quality score drop may indicate model drift. A cluster of user complaints may indicate a failure mode the risk register missed.
 
 **Regular risk register reviews**: Quarterly at minimum. Review open actions, update likelihood and impact assessments based on what has happened, and add new risks discovered through monitoring.
 
@@ -189,10 +189,10 @@ Financial services regulators have developed model risk management (MRM) framewo
 - Material changes to models require revalidation
 - Model inventory must be maintained with ownership, purpose, and status
 
-Organisations outside financial services can adopt these practices without the regulatory mandate. The discipline they create — treating models as governed assets, not code — is exactly what AI production systems need.
+Organisations outside financial services can adopt these practices without the regulatory mandate. The discipline they create, treating models as governed assets, not code, is exactly what AI production systems need.
 
 ### Further reading
 
-- [EU Artificial Intelligence Act — Official text](https://artificialintelligenceact.eu/) — The full EU AI Act with risk classification system and requirements by tier; essential reading for organisations operating in European markets.
-- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf) — NIST, 2023. Voluntary framework for managing AI risks; the most comprehensive publicly available guidance; widely referenced in US enterprise AI governance.
-- [Model Risk Management — Federal Reserve SR 11-7](https://www.federalreserve.gov/supervisionreg/srletters/sr1107.htm) — Originally for financial models, but the validation, monitoring, and governance principles apply directly to AI systems in any industry.
+- [EU Artificial Intelligence Act, Official text](https://artificialintelligenceact.eu/), The full EU AI Act with risk classification system and requirements by tier; essential reading for organisations operating in European markets.
+- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf); NIST, 2023. Voluntary framework for managing AI risks; the most comprehensive publicly available guidance; widely referenced in US enterprise AI governance.
+- [Model Risk Management, Federal Reserve SR 11-7](https://www.federalreserve.gov/supervisionreg/srletters/sr1107.htm), Originally for financial models, but the validation, monitoring, and governance principles apply directly to AI systems in any industry.

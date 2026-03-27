@@ -1,7 +1,7 @@
 ---
 moduleId: "1.4"
 title: "Hallucinations and Model Reliability"
-description: "LLMs generate plausible text, not verified truth. Understanding why models hallucinate — and how to architect around it — is the single most important reliability concern in production AI systems."
+description: "LLMs generate plausible text, not verified truth. Understanding why models hallucinate, and how to architect around it, is the single most important reliability concern in production AI systems."
 track: "foundations"
 order: 4
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,17 +12,17 @@ estimatedMinutes:
   layer1: 7
   layer2: 15
   layer3: 20
-productionGotcha: "Hallucinations produce no error, no warning, and no signal — just confident, wrong output that looks exactly like correct output. A model that fails loudly is easier to debug than one that silently returns plausible-sounding nonsense. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness."
+productionGotcha: "Hallucinations produce no error, no warning, and no signal: just confident, wrong output that looks exactly like correct output. A model that fails loudly is easier to debug than one that silently returns plausible-sounding nonsense. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A hallucination is when a model generates **confident, wrong output**.
 
-The word is misleading — the model is not confused, it is not guessing, and it is not lying. It is doing exactly what it was trained to do: produce the most plausible continuation of the text it received. Sometimes the most plausible continuation happens to be false.
+The word is misleading: the model is not confused, it is not guessing, and it is not lying. It is doing exactly what it was trained to do: produce the most plausible continuation of the text it received. Sometimes the most plausible continuation happens to be false.
 
-This is not a bug that will be patched away. It is a consequence of how LLMs work. They are trained to generate text that looks like text in their training data — not to retrieve verified facts from a database. A model that has never seen a paper cited correctly in training may invent a plausible-sounding citation. A model asked to calculate compound interest may produce a number that looks like the right answer but isn't.
+This is not a bug that will be patched away. It is a consequence of how LLMs work. They are trained to generate text that looks like text in their training data: not to retrieve verified facts from a database. A model that has never seen a paper cited correctly in training may invent a plausible-sounding citation. A model asked to calculate compound interest may produce a number that looks like the right answer but isn't.
 
 The four most common forms:
 
@@ -39,15 +39,15 @@ Hallucinations are **silent**. There is no exception. No warning. No confidence 
 
 ### Production Gotcha
 
-> **Common Gotcha:** Hallucinations produce no error, no warning, and no signal — just confident, wrong output that looks exactly like correct output. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness.
+> **Common Gotcha:** Hallucinations produce no error, no warning, and no signal: just confident, wrong output that looks exactly like correct output. Never pass raw LLM output into downstream systems (databases, emails, APIs) without validation. The absence of an exception is not evidence of correctness.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Why hallucinations happen
 
-LLMs are trained to predict the next token given all previous tokens. During training, the loss function rewards generating tokens that match the training data — not tokens that are factually verifiable. The model learns which facts appear frequently and in what context, but it has no mechanism to distinguish "I was trained on this fact" from "I am generating a plausible-sounding fact."
+LLMs are trained to predict the next token given all previous tokens. During training, the loss function rewards generating tokens that match the training data: not tokens that are factually verifiable. The model learns which facts appear frequently and in what context, but it has no mechanism to distinguish "I was trained on this fact" from "I am generating a plausible-sounding fact."
 
 This means hallucination risk is higher when:
 - The topic is obscure or underrepresented in training data
@@ -59,7 +59,7 @@ This means hallucination risk is higher when:
 
 **1. Retrieval-Augmented Generation (RAG)**
 
-Instead of asking the model to recall facts from training, retrieve relevant documents and pass them as context. The model's job becomes reading and synthesising provided text — much more reliable than recall.
+Instead of asking the model to recall facts from training, retrieve relevant documents and pass them as context. The model's job becomes reading and synthesising provided text: much more reliable than recall.
 
 ```python
 # --- pseudocode ---
@@ -178,11 +178,11 @@ system = (
 )
 ```
 
-This does not guarantee correctness — models can hallucinate citations — but it makes claims auditable and signals to users that verification is expected. In a RAG system, constrain citations to the retrieved document set.
+This does not guarantee correctness, models can hallucinate citations, but it makes claims auditable and signals to users that verification is expected. In a RAG system, constrain citations to the retrieved document set.
 
 ### Before vs After
 
-**Trusting recall — high hallucination risk:**
+**Trusting recall: high hallucination risk:**
 ```python
 # BAD: Asking the model to recall specific facts with no grounding
 response = llm.chat(
@@ -196,7 +196,7 @@ response = llm.chat(
 # The model has no access to this report. It will fabricate plausible-sounding numbers.
 ```
 
-**Grounded in retrieved context — lower hallucination risk:**
+**Grounded in retrieved context: lower hallucination risk:**
 ```python
 # GOOD: Retrieve the actual report; model reads and extracts
 earnings_report = retrieve_document("acme_q3_2025_earnings.pdf")
@@ -213,25 +213,25 @@ response = llm.chat(
 
 ### Common mistakes
 
-1. **Treating LLM output as a source of truth** — Using model output to populate databases, generate reports, or drive decisions without human review or validation.
-2. **No "I don't know" path** — Not explicitly instructing the model to say when it lacks information. Without this, models fill gaps with hallucinations.
-3. **Validating structure but not facts** — JSON schema validation tells you the output is well-formed, not that the facts inside are correct.
-4. **Single-pass extraction on high-stakes data** — For important extractions, run the same prompt twice and compare. Consistent outputs are more reliable; divergent outputs flag uncertainty.
-5. **Conflating low temperature with factual accuracy** — Low temperature makes outputs more deterministic, not more factually correct. The same wrong answer, every time.
+1. **Treating LLM output as a source of truth**: Using model output to populate databases, generate reports, or drive decisions without human review or validation.
+2. **No "I don't know" path**: Not explicitly instructing the model to say when it lacks information. Without this, models fill gaps with hallucinations.
+3. **Validating structure but not facts**: JSON schema validation tells you the output is well-formed, not that the facts inside are correct.
+4. **Single-pass extraction on high-stakes data**: For important extractions, run the same prompt twice and compare. Consistent outputs are more reliable; divergent outputs flag uncertainty.
+5. **Conflating low temperature with factual accuracy**: Low temperature makes outputs more deterministic, not more factually correct. The same wrong answer, every time.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The calibration problem
 
-A well-calibrated model would assign high confidence to correct claims and low confidence to uncertain ones. Current LLMs are poorly calibrated in this sense — they generate equally fluent text whether they are certain or guessing. The surface features that signal confidence in human writing (precise language, specific details, citations) are learned stylistic patterns, not indicators of underlying knowledge.
+A well-calibrated model would assign high confidence to correct claims and low confidence to uncertain ones. Current LLMs are poorly calibrated in this sense: they generate equally fluent text whether they are certain or guessing. The surface features that signal confidence in human writing (precise language, specific details, citations) are learned stylistic patterns, not indicators of underlying knowledge.
 
-This is why hallucinations are particularly hard to detect: the model's most confident-sounding outputs are not reliably its most accurate ones. TruthfulQA found that larger models were generally *less* truthful on its benchmark — scaling alone does not fix hallucination.
+This is why hallucinations are particularly hard to detect: the model's most confident-sounding outputs are not reliably its most accurate ones. TruthfulQA found that larger models were generally *less* truthful on its benchmark: scaling alone does not fix hallucination.
 
 ### Sycophancy
 
-Sycophancy is a closely related failure mode: models that agree with incorrect user claims when pushed. If a user says "Actually, I think the answer is X" and X is wrong, the model will often validate X rather than maintain the correct answer. This is a product of RLHF training — feedback providers reward responses that feel satisfying, and agreement tends to feel satisfying.
+Sycophancy is a closely related failure mode: models that agree with incorrect user claims when pushed. If a user says "Actually, I think the answer is X" and X is wrong, the model will often validate X rather than maintain the correct answer. This is a product of RLHF training: feedback providers reward responses that feel satisfying, and agreement tends to feel satisfying.
 
 Production implications:
 - Do not use LLMs to validate facts users provide
@@ -248,15 +248,15 @@ For applications requiring factual consistency across a session (e.g. document a
 
 RAG is the primary production mitigation for factual hallucinations. The architecture separates two concerns:
 
-1. **Retrieval** — find documents relevant to the query (vector search, keyword search, or hybrid)
-2. **Generation** — given the retrieved documents, extract or synthesise the answer
+1. **Retrieval**: find documents relevant to the query (vector search, keyword search, or hybrid)
+2. **Generation**: given the retrieved documents, extract or synthesise the answer
 
 The model's reliability depends heavily on retrieval quality. If the retrieval step returns irrelevant documents, the model will either say it doesn't know (good) or synthesise an answer from the irrelevant content (bad). Evaluate retrieval recall and precision independently from generation quality.
 
 Common RAG failure modes:
-- **Retrieval misses the relevant document** — model lacks the context it needs; may hallucinate to fill the gap
-- **Retrieved context is too long** — model attends unevenly; details in the middle of long contexts are missed more often
-- **Model blends retrieved and recalled facts** — especially common when retrieved context partially answers the question
+- **Retrieval misses the relevant document**: model lacks the context it needs; may hallucinate to fill the gap
+- **Retrieved context is too long**: model attends unevenly; details in the middle of long contexts are missed more often
+- **Model blends retrieved and recalled facts**: especially common when retrieved context partially answers the question
 
 ### Hallucination detection
 
@@ -269,7 +269,7 @@ Building reliable hallucination detection is an open research problem, but pract
 
 ### Further reading
 
-- [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958) — Lin et al., 2021. Benchmark showing larger models were generally less truthful on its question set — scaling alone does not reduce hallucination.
-- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The foundational RAG paper.
-- [Sycophancy to Subterfuge: Investigating Reward Tampering in Language Models](https://arxiv.org/abs/2406.10162) — Anthropic, 2024. Analysis of sycophancy and reward-hacking behaviours in RLHF-trained models.
-- [Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629) — Ji et al., 2022. Comprehensive taxonomy of hallucination types and mitigation strategies.
+- [TruthfulQA: Measuring How Models Mimic Human Falsehoods](https://arxiv.org/abs/2109.07958), Lin et al., 2021. Benchmark showing larger models were generally less truthful on its question set, scaling alone does not reduce hallucination.
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401); Lewis et al., 2020. The foundational RAG paper.
+- [Sycophancy to Subterfuge: Investigating Reward Tampering in Language Models](https://arxiv.org/abs/2406.10162); Anthropic, 2024. Analysis of sycophancy and reward-hacking behaviours in RLHF-trained models.
+- [Survey of Hallucination in Natural Language Generation](https://arxiv.org/abs/2202.03629); Ji et al., 2022. Comprehensive taxonomy of hallucination types and mitigation strategies.

@@ -12,18 +12,18 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "At-least-once execution is the default failure mode for any retried agent task. When a worker crashes after completing step 3 but before marking it done, the task queue retries from step 1. Without idempotent steps and a persisted checkpoint, steps 1–3 execute again — including any external side effects like emails sent or charges made. Every step that has a side effect must be idempotent, and checkpoints must be committed atomically with the side effect."
+productionGotcha: "At-least-once execution is the default failure mode for any retried agent task. When a worker crashes after completing step 3 but before marking it done, the task queue retries from step 1. Without idempotent steps and a persisted checkpoint, steps 1–3 execute again: including any external side effects like emails sent or charges made. Every step that has a side effect must be idempotent, and checkpoints must be committed atomically with the side effect."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Production agents fail in ways that have nothing to do with the model: the process crashes, the network drops, the task queue retries a completed job. Without durability design, these infrastructure events cause:
 
-- **Duplicate side effects** — email sent twice, charge made twice
-- **Lost progress** — 40-minute task restarts from scratch after a crash
-- **Stuck leases** — a worker claims a task, dies, and no other worker can pick it up
-- **Inconsistent state** — some steps completed, others not, with no record of which
+- **Duplicate side effects**: email sent twice, charge made twice
+- **Lost progress**: 40-minute task restarts from scratch after a crash
+- **Stuck leases**: a worker claims a task, dies, and no other worker can pick it up
+- **Inconsistent state**: some steps completed, others not, with no record of which
 
 **The four durability primitives:**
 
@@ -36,7 +36,7 @@ Production agents fail in ways that have nothing to do with the model: the proce
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Checkpointing
 
@@ -148,7 +148,7 @@ class IdempotentEffectExecutor:
         return result
 ```
 
-The key must be deterministic from `(task_id, step_id)` — not from wall-clock time or random values. This ensures that a retried step uses the same key and hits the cache.
+The key must be deterministic from `(task_id, step_id)`: not from wall-clock time or random values. This ensures that a retried step uses the same key and hits the cache.
 
 ### Lease / lock ownership
 
@@ -266,11 +266,11 @@ class ReplaySafeStep:
 
 **At-least-once vs exactly-once:**
 
-Most task queues provide at-least-once delivery — a task may execute more than once. Exactly-once is achievable only at the application layer by combining idempotency keys with replay safety. Do not rely on the queue to prevent duplicates.
+Most task queues provide at-least-once delivery: a task may execute more than once. Exactly-once is achievable only at the application layer by combining idempotency keys with replay safety. Do not rely on the queue to prevent duplicates.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Durability requirements by task type
 
@@ -304,20 +304,20 @@ class TaskCostRecord:
         )
 ```
 
-Track cost per task, not per session — it reveals which task types are expensive and guides model right-sizing.
+Track cost per task, not per session: it reveals which task types are expensive and guides model right-sizing.
 
 ### Distributed agent execution
 
 When agents run across multiple workers:
 
 - Each worker holds a lease and renews it while alive
-- Checkpoints are written to shared storage (Redis, DynamoDB) — not local disk
+- Checkpoints are written to shared storage (Redis, DynamoDB): not local disk
 - Lease expiry allows dead-worker recovery without manual intervention
 - Task queues (Celery, BullMQ, Temporal) handle the retry/backoff logic; agents handle the idempotency
 
-Temporal Workflow or similar durable execution frameworks handle much of this infrastructure automatically — worth evaluating before building a custom checkpoint+lease system.
+Temporal Workflow or similar durable execution frameworks handle much of this infrastructure automatically: worth evaluating before building a custom checkpoint+lease system.
 
 ### Further reading
 
-- [Temporal documentation](https://docs.temporal.io/workflows) — Durable workflow execution that handles checkpointing, retries, and lease management; the reference implementation of these patterns for production agent systems.
-- [Designing Data-Intensive Applications — Chapter 7](https://dataintensive.net/) — Kleppmann. The transactions and atomicity chapter; the idempotency and exactly-once semantics material translates directly to agent step execution.
+- [Temporal documentation](https://docs.temporal.io/workflows); Durable workflow execution that handles checkpointing, retries, and lease management; the reference implementation of these patterns for production agent systems.
+- [Designing Data-Intensive Applications, Chapter 7](https://dataintensive.net/), Kleppmann. The transactions and atomicity chapter; the idempotency and exactly-once semantics material translates directly to agent step execution.

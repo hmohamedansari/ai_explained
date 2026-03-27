@@ -1,7 +1,7 @@
 ---
 moduleId: "3.5"
 title: "Streaming and Async Tool Workflows"
-description: "Streaming gives users tokens as they arrive instead of waiting for the full response. Async tools let long-running operations run in the background. Both change how you wire together models and tools — and both have sharp edges that aren't obvious until you're in production."
+description: "Streaming gives users tokens as they arrive instead of waiting for the full response. Async tools let long-running operations run in the background. Both change how you wire together models and tools, and both have sharp edges that aren't obvious until you're in production."
 track: "protocols"
 order: 5
 personas: ["junior", "senior", "sre"]
@@ -12,21 +12,21 @@ estimatedMinutes:
   layer1: 5
   layer2: 17
   layer3: 13
-productionGotcha: "A streaming response can contain tool_use blocks mid-stream. You cannot execute a tool call on a partial input — you must buffer the entire tool_use block before executing. A common mistake is to stream output directly to the user while simultaneously watching for tool calls: the user sees partial text, the tool executes on partial arguments, and both break. Separate the streaming surface (what you show) from the execution surface (what you act on)."
+productionGotcha: "A streaming response can contain tool_use blocks mid-stream. You cannot execute a tool call on a partial input: you must buffer the entire tool_use block before executing. A common mistake is to stream output directly to the user while simultaneously watching for tool calls: the user sees partial text, the tool executes on partial arguments, and both break. Separate the streaming surface (what you show) from the execution surface (what you act on)."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-**Streaming** — the model sends tokens as it generates them instead of waiting for the full response. A user sees the first word in under a second instead of waiting 5 seconds for the whole answer.
+**Streaming**: the model sends tokens as it generates them instead of waiting for the full response. A user sees the first word in under a second instead of waiting 5 seconds for the whole answer.
 
-**Async tools** — some tools start work that takes longer than a request-response cycle (run a CI build, process a video, generate a report). Instead of blocking, the tool returns a job ID immediately and the result is collected later.
+**Async tools**: some tools start work that takes longer than a request-response cycle (run a CI build, process a video, generate a report). Instead of blocking, the tool returns a job ID immediately and the result is collected later.
 
 These two capabilities are often combined: a model triggers an async tool, streams a status message to the user, polls for completion, then streams the final result.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Basic streaming
 
@@ -111,7 +111,7 @@ def stream_with_tools(user_message: str, tools: list[dict]):
 
 The pattern: stream text events directly to the user, buffer tool events silently, execute after the stream closes, then start a new stream for the model's response to the results.
 
-### Async tools — fire-and-forget
+### Async tools: fire-and-forget
 
 ```python
 # Tool that starts a job and returns immediately
@@ -171,7 +171,7 @@ async def run_and_poll(job_id: str, poll_interval: float = 3.0):
             await asyncio.sleep(poll_interval)
 ```
 
-Cap polling duration — don't poll forever. If a job hasn't completed in a reasonable time (say, 5 minutes for a data export), return an error rather than blocking indefinitely.
+Cap polling duration: don't poll forever. If a job hasn't completed in a reasonable time (say, 5 minutes for a data export), return an error rather than blocking indefinitely.
 
 ### Cancellation
 
@@ -218,7 +218,7 @@ async def chat_stream(request: ChatRequest):
     return StreamingResponse(generate(), media_type="text/event-stream")
 ```
 
-On the frontend, use `fetch()` — `EventSource` only supports GET and cannot send a request body. Read the response as a stream and parse SSE lines manually:
+On the frontend, use `fetch()`: `EventSource` only supports GET and cannot send a request body. Read the response as a stream and parse SSE lines manually:
 
 ```javascript
 async function streamChat(message) {
@@ -255,7 +255,7 @@ async function streamChat(message) {
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Streaming and tool use: event taxonomy
 
@@ -286,7 +286,7 @@ User request timeout:   30s  ← HTTP request must complete within this
             └─ Async job timeout: 300s ← background job; user polls separately
 ```
 
-Never nest async job waits inside the streaming request — they will blow the outer timeout. Async jobs should return a job ID immediately and be polled on a separate endpoint.
+Never nest async job waits inside the streaming request: they will blow the outer timeout. Async jobs should return a job ID immediately and be polled on a separate endpoint.
 
 ### Partial result handling
 
@@ -303,10 +303,10 @@ async def search_with_progress(query: str):
         }
 ```
 
-Not all model APIs support streaming tool results — check your provider's documentation. When streaming tool results are not supported, aggregate to a final result before returning.
+Not all model APIs support streaming tool results: check your provider's documentation. When streaming tool results are not supported, aggregate to a final result before returning.
 
 ### Further reading
 
-- [Anthropic — Streaming messages](https://docs.anthropic.com/en/api/messages-streaming) [Anthropic] — Full event taxonomy for streaming responses including tool_use blocks.
-- [MDN — Server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) — SSE specification and browser API for streaming to web clients.
-- [OpenAI — Streaming](https://platform.openai.com/docs/api-reference/streaming) — OpenAI's streaming format for comparison; uses `delta` objects rather than typed events.
+- [Anthropic, Streaming messages](https://docs.anthropic.com/en/api/messages-streaming) [Anthropic], Full event taxonomy for streaming responses including tool_use blocks.
+- [MDN, Server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events), SSE specification and browser API for streaming to web clients.
+- [OpenAI, Streaming](https://platform.openai.com/docs/api-reference/streaming), OpenAI's streaming format for comparison; uses `delta` objects rather than typed events.

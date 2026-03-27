@@ -1,7 +1,7 @@
 ---
 moduleId: "6.2"
 title: "Building an Eval Dataset"
-description: "Learn to treat eval datasets as engineering artifacts — how to seed them, label them, version them, and keep them representative of real production traffic."
+description: "Learn to treat eval datasets as engineering artifacts: how to seed them, label them, version them, and keep them representative of real production traffic."
 track: "evaluation"
 order: 2
 personas: ["junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Eval datasets built before launch become stale within weeks — production queries diverge from anticipated inputs faster than expected. Allocate 10% of eval maintenance time to refreshing the dataset with production query samples on a regular cadence. A dataset that accurately represented your users six months ago may now be systematically missing the query types that are causing the most failures today."
+productionGotcha: "Eval datasets built before launch become stale within weeks: production queries diverge from anticipated inputs faster than expected. Allocate 10% of eval maintenance time to refreshing the dataset with production query samples on a regular cadence. A dataset that accurately represented your users six months ago may now be systematically missing the query types that are causing the most failures today."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An eval dataset is not a list of examples you write once and forget. It is an engineering artifact that requires the same care as production code: versioning, review, drift management, and regular maintenance.
 
@@ -32,11 +32,11 @@ Your eval dataset is the ground truth your system is measured against. A bad eva
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 
-The root cause is treating the eval set as a one-time artifact. The fix is a documented refresh process that runs on a schedule — not just when something breaks.
+The root cause is treating the eval set as a one-time artifact. The fix is a documented refresh process that runs on a schedule: not just when something breaks.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Seed strategies
 
@@ -67,7 +67,7 @@ class EvalCase:
 
 **Production samples** are the most valuable source once the system is live. Sample 1–5% of real traffic, review for PII, and add cases that reveal new failure modes or represent high-traffic patterns.
 
-**Adversarial cases** probe boundaries: empty inputs, extremely long inputs, inputs in unexpected languages, injection attempts, edge cases near the boundary of the specification. These require deliberate construction — they will not appear naturally.
+**Adversarial cases** probe boundaries: empty inputs, extremely long inputs, inputs in unexpected languages, injection attempts, edge cases near the boundary of the specification. These require deliberate construction: they will not appear naturally.
 
 **LLM-generated cases** can accelerate volume, especially for paraphrase generation. Generate variations on seed cases, then have a human reviewer verify correctness before adding them to the dataset.
 
@@ -272,7 +272,7 @@ def split_eval_dataset(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Minimum viable eval set sizing
 
@@ -327,7 +327,7 @@ def sample_production_queries(
 
 ### Distribution representativeness
 
-An eval dataset should mirror the distribution of production queries — not just cover all categories, but cover them in proportion to how often they occur. If 60% of your production queries are simple lookups and your eval set is 60% complex multi-step cases, your reported accuracy will not predict production performance.
+An eval dataset should mirror the distribution of production queries: not just cover all categories, but cover them in proportion to how often they occur. If 60% of your production queries are simple lookups and your eval set is 60% complex multi-step cases, your reported accuracy will not predict production performance.
 
 Track the distribution of your eval set alongside your query taxonomy:
 
@@ -360,6 +360,6 @@ def check_distribution_alignment(
 
 ### Further reading
 
-- [DataComp: In search of the next generation of multimodal datasets](https://arxiv.org/abs/2304.14108) — Gadre et al., 2023. Dataset design principles that transfer to eval set construction; the curation methodology is instructive.
-- [Dynabench: Rethinking Benchmarking in NLP](https://arxiv.org/abs/2104.14337) — Kiela et al., 2021. The case for dynamic, adversarial benchmarking over static datasets; directly relevant to the "eval sets become stale" problem.
-- [Beyond the Imitation Game: Quantifying and Extrapolating the Capabilities of Language Models](https://arxiv.org/abs/2206.04615) — Srivastava et al., 2022. BIG-bench; large-scale taxonomy of evaluation tasks — useful as a reference for coverage requirements.
+- [DataComp: In search of the next generation of multimodal datasets](https://arxiv.org/abs/2304.14108); Gadre et al., 2023. Dataset design principles that transfer to eval set construction; the curation methodology is instructive.
+- [Dynabench: Rethinking Benchmarking in NLP](https://arxiv.org/abs/2104.14337); Kiela et al., 2021. The case for dynamic, adversarial benchmarking over static datasets; directly relevant to the "eval sets become stale" problem.
+- [Beyond the Imitation Game: Quantifying and Extrapolating the Capabilities of Language Models](https://arxiv.org/abs/2206.04615), Srivastava et al., 2022. BIG-bench; large-scale taxonomy of evaluation tasks, useful as a reference for coverage requirements.

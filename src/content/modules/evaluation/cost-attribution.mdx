@@ -1,7 +1,7 @@
 ---
 moduleId: "6.5"
 title: "Cost Attribution & Token Budgets"
-description: "Learn to track, attribute, and control LLM API costs before the invoice surprises you — per-request tagging, per-feature aggregation, token budget enforcement, and anomaly alerting."
+description: "Learn to track, attribute, and control LLM API costs before the invoice surprises you: per-request tagging, per-feature aggregation, token budget enforcement, and anomaly alerting."
 track: "evaluation"
 order: 5
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,17 +12,17 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Output tokens cost 3–5x more than input tokens at most providers, but most teams instrument input tokens only and are surprised when long-output features dominate the bill. Always track and alert on both independently. A feature that generates 2000-token reports looks cheap on input counts and expensive on the invoice — the mismatch is always output tokens."
+productionGotcha: "Output tokens cost 3–5x more than input tokens at most providers, but most teams instrument input tokens only and are surprised when long-output features dominate the bill. Always track and alert on both independently. A feature that generates 2000-token reports looks cheap on input counts and expensive on the invoice: the mismatch is always output tokens."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-LLM API costs are invisible until the invoice arrives. Traditional software infrastructure costs are predictable — a server costs roughly the same whether you send it one request or a thousand. LLM APIs charge per token: every character in, every character out, at rates that vary by model tier. A single engineering decision — using the frontier model instead of a fast model, or generating verbose outputs instead of concise ones — can multiply your monthly bill by 10x or 100x.
+LLM API costs are invisible until the invoice arrives. Traditional software infrastructure costs are predictable, a server costs roughly the same whether you send it one request or a thousand. LLM APIs charge per token: every character in, every character out, at rates that vary by model tier. A single engineering decision, using the frontier model instead of a fast model, or generating verbose outputs instead of concise ones: can multiply your monthly bill by 10x or 100x.
 
 The problem is not that costs are high. The problem is that costs are unattributed. Most teams cannot answer: which product feature is driving the most spend? Which user segment has the highest cost per session? Which prompt change doubled output token consumption last week?
 
-Cost attribution is the practice of tagging every LLM request with enough metadata to answer these questions, and of aggregating that data into actionable dashboards and alerts. It is not complicated to implement, but it must be designed before launch — retrofitting attribution onto an untagged system requires touching every call site.
+Cost attribution is the practice of tagging every LLM request with enough metadata to answer these questions, and of aggregating that data into actionable dashboards and alerts. It is not complicated to implement, but it must be designed before launch: retrofitting attribution onto an untagged system requires touching every call site.
 
 ### Why it matters
 
@@ -36,7 +36,7 @@ Track input tokens and output tokens as separate metrics with separate alerts. T
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Per-request cost tracking
 
@@ -321,13 +321,13 @@ def emit_alert(message: str) -> None:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The output token multiplier
 
 Understanding the economics of LLM APIs requires accepting one counterintuitive fact: output tokens are expensive relative to input tokens. The ratio varies by provider and model tier, but output typically costs 3–5 times as much as input per token.
 
-This matters because many teams instrument "tokens sent" (input) and ignore "tokens generated" (output). The economic consequence is that features which produce verbose outputs — long reports, detailed explanations, code with comments — can cost dramatically more than features that produce terse outputs, even when the input prompts are similar in length.
+This matters because many teams instrument "tokens sent" (input) and ignore "tokens generated" (output). The economic consequence is that features which produce verbose outputs, long reports, detailed explanations, code with comments, can cost dramatically more than features that produce terse outputs, even when the input prompts are similar in length.
 
 | Feature type | Typical input tokens | Typical output tokens | Cost ratio (output/input) | Cost driver |
 |---|---|---|---|---|
@@ -381,6 +381,6 @@ The minimum viable dashboard shows: top 5 features by spend, cost per request tr
 
 ### Further reading
 
-- [Anthropic API Pricing](https://www.anthropic.com/api) — Anthropic. Official token pricing; verify before implementing cost calculations.
-- [OpenAI Tokenizer](https://platform.openai.com/tokenizer) — OpenAI. Interactive tokenizer for counting tokens; useful for calibrating budget estimates. The tokenization approach is similar across major providers.
-- [FinOps for Cloud — Framework](https://www.finops.org/framework/) — FinOps Foundation, 2023. The FinOps discipline applies directly to LLM cost management: make costs visible, attribute them accurately, and optimize collaboratively across engineering and finance.
+- [Anthropic API Pricing](https://www.anthropic.com/api); Anthropic. Official token pricing; verify before implementing cost calculations.
+- [OpenAI Tokenizer](https://platform.openai.com/tokenizer); OpenAI. Interactive tokenizer for counting tokens; useful for calibrating budget estimates. The tokenization approach is similar across major providers.
+- [FinOps for Cloud, Framework](https://www.finops.org/framework/), FinOps Foundation, 2023. The FinOps discipline applies directly to LLM cost management: make costs visible, attribute them accurately, and optimize collaboratively across engineering and finance.

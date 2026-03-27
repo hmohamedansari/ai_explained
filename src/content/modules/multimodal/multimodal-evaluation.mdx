@@ -1,7 +1,7 @@
 ---
 moduleId: "9.6"
 title: "Multimodal Evaluation"
-description: "Evaluating multimodal AI is harder than evaluating text — there is no ground truth for 'describe this image', visual hallucinations are invisible without the source image, and labelling image datasets is expensive. This module covers evaluation approaches by task type, reference datasets, hallucination detection, and how to build a practical multimodal eval pipeline."
+description: "Evaluating multimodal AI is harder than evaluating text: there is no ground truth for 'describe this image', visual hallucinations are invisible without the source image, and labelling image datasets is expensive. This module covers evaluation approaches by task type, reference datasets, hallucination detection, and how to build a practical multimodal eval pipeline."
 track: "multimodal"
 order: 6
 personas: ["senior", "sre"]
@@ -12,33 +12,33 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "VLM hallucinations on images (describing objects or text that isn't present) are harder to catch than text hallucinations because there is no corpus to cross-reference against — the model confidently describes what it 'sees' and the error is only detectable by someone who can see the image. Build image-grounded verification into your eval pipeline: sample outputs and verify specific claims against the source image."
+productionGotcha: "VLM hallucinations on images (describing objects or text that isn't present) are harder to catch than text hallucinations because there is no corpus to cross-reference against: the model confidently describes what it 'sees' and the error is only detectable by someone who can see the image. Build image-grounded verification into your eval pipeline: sample outputs and verify specific claims against the source image."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Text-only evaluation has a well-worn set of tools: exact match, BLEU, semantic similarity, LLM-as-judge. These all rely on the output being evaluable without the original input artefact — a judge model can read both a question and an answer and decide if the answer is correct.
+Text-only evaluation has a well-worn set of tools: exact match, BLEU, semantic similarity, LLM-as-judge. These all rely on the output being evaluable without the original input artefact: a judge model can read both a question and an answer and decide if the answer is correct.
 
 Multimodal evaluation breaks this assumption. To evaluate whether a model correctly described an image, the evaluator must have access to the image. To check whether an object mentioned in the response actually appears in the photo, you need to look at the photo. This makes automated multimodal evaluation fundamentally more difficult: it requires an evaluator that is itself capable of multimodal reasoning.
 
-The evaluation challenge varies by task type. OCR and text extraction can use exact match or fuzzy match against a ground truth transcript — the evaluation is purely textual once you have the reference. Classification (what type of document is this?) uses standard classification metrics. Visual question answering (VQA) evaluates whether the model's answer to a question about an image matches a set of reference answers. Free-form image description is the hardest: there may be many correct descriptions, and any factual claim needs to be verified against the image.
+The evaluation challenge varies by task type. OCR and text extraction can use exact match or fuzzy match against a ground truth transcript: the evaluation is purely textual once you have the reference. Classification (what type of document is this?) uses standard classification metrics. Visual question answering (VQA) evaluates whether the model's answer to a question about an image matches a set of reference answers. Free-form image description is the hardest: there may be many correct descriptions, and any factual claim needs to be verified against the image.
 
-Visual hallucination is the most insidious failure mode. A model that describes an object not present in the image produces a response that looks completely fluent, is grammatically correct, and is plausible — but is factually wrong in a way that is undetectable without the image. Unlike text hallucinations, there is no external corpus to cross-reference against.
+Visual hallucination is the most insidious failure mode. A model that describes an object not present in the image produces a response that looks completely fluent, is grammatically correct, and is plausible, but is factually wrong in a way that is undetectable without the image. Unlike text hallucinations, there is no external corpus to cross-reference against.
 
 ### Why it matters
 
-Teams that skip image-grounded verification in their eval pipeline discover VLM hallucinations in production — typically when a downstream system acts on a claim the model made about an image that turned out to be false. A quality pipeline that never checks factual claims against source images is not actually evaluating quality; it is evaluating fluency.
+Teams that skip image-grounded verification in their eval pipeline discover VLM hallucinations in production: typically when a downstream system acts on a claim the model made about an image that turned out to be false. A quality pipeline that never checks factual claims against source images is not actually evaluating quality; it is evaluating fluency.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The gap is that text-only eval infrastructure often gets reused without modification for multimodal tasks. An LLM-as-judge that evaluates a response about an image without seeing the image can only judge fluency, coherence, and plausibility — not factual accuracy. If the model says "the invoice shows a total of $4,520" and the invoice actually shows $4,250, a text-only judge will score this as high quality. Only an evaluator that sees the image can catch the transposition.
+> The gap is that text-only eval infrastructure often gets reused without modification for multimodal tasks. An LLM-as-judge that evaluates a response about an image without seeing the image can only judge fluency, coherence, and plausibility: not factual accuracy. If the model says "the invoice shows a total of $4,520" and the invoice actually shows $4,250, a text-only judge will score this as high quality. Only an evaluator that sees the image can catch the transposition.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Evaluation by task type
 
@@ -350,7 +350,7 @@ def run_eval_suite(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Reference benchmarks
 
@@ -386,7 +386,7 @@ Mitigation: calibrate the VLM judge against human-scored examples with known hal
 
 ### Further reading
 
-- [DocVQA: A Dataset for VQA on Document Images](https://arxiv.org/abs/2007.00398) — Mathew et al., 2021. The primary document VQA benchmark; covers annotation methodology and evaluation protocol.
-- [Evaluating Object Hallucination in Large Vision-Language Models](https://arxiv.org/abs/2305.10355) — Li et al., 2023. Introduces POPE, a VQA-based alternative to CHAIR for hallucination detection that is easier to compute.
-- [MMMU: A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark](https://arxiv.org/abs/2311.16502) — Yue et al., 2024. A comprehensive multimodal benchmark across 57 subjects; useful for understanding general reasoning capability.
-- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — Zheng et al., 2023. The foundational bias study for LLM-as-judge; the position bias and verbosity bias documented here apply equally to VLM-as-judge.
+- [DocVQA: A Dataset for VQA on Document Images](https://arxiv.org/abs/2007.00398); Mathew et al., 2021. The primary document VQA benchmark; covers annotation methodology and evaluation protocol.
+- [Evaluating Object Hallucination in Large Vision-Language Models](https://arxiv.org/abs/2305.10355); Li et al., 2023. Introduces POPE, a VQA-based alternative to CHAIR for hallucination detection that is easier to compute.
+- [MMMU: A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark](https://arxiv.org/abs/2311.16502); Yue et al., 2024. A comprehensive multimodal benchmark across 57 subjects; useful for understanding general reasoning capability.
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685); Zheng et al., 2023. The foundational bias study for LLM-as-judge; the position bias and verbosity bias documented here apply equally to VLM-as-judge.

@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 18
   layer3: 14
-productionGotcha: "Mock tools drift. Six months after you write a mock that returns {\"price\": 9.99}, the real API starts returning {\"price\": \"9.99\"} (string, not number) after a schema change. Your unit tests pass. Your contract tests would have caught this — but only if you have them. Run contract tests against real API responses at least weekly in staging, not just at integration time."
+productionGotcha: "Mock tools drift. Six months after you write a mock that returns {\"price\": 9.99}, the real API starts returning {\"price\": \"9.99\"} (string, not number) after a schema change. Your unit tests pass. Your contract tests would have caught this, but only if you have them. Run contract tests against real API responses at least weekly in staging, not just at integration time."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Testing a tool-using system has three distinct layers:
 
@@ -32,7 +32,7 @@ Most teams write only unit and integration tests, skipping contract tests. This 
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Unit tests for tool implementations
 
@@ -211,7 +211,7 @@ class TraceReplayer:
         return entry["result"]
 ```
 
-Replay tests catch regressions when you change model, prompt, or tool schema — if the recorded trace no longer matches what the model requests, the test fails.
+Replay tests catch regressions when you change model, prompt, or tool schema: if the recorded trace no longer matches what the model requests, the test fails.
 
 ### Failure injection
 
@@ -301,7 +301,7 @@ else:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Property-based testing for schemas
 
@@ -343,7 +343,7 @@ Development → Staging → Canary → Production
 | **Canary** | 5% of production traffic | Real | Real |
 | **Production** | 100% of traffic | Real | Real |
 
-In staging, use real tool APIs but against test/sandbox accounts. Never point staging at production data stores — tool call errors in staging can corrupt production data.
+In staging, use real tool APIs but against test/sandbox accounts. Never point staging at production data stores: tool call errors in staging can corrupt production data.
 
 ### Eval sets for tool-using systems
 
@@ -377,6 +377,6 @@ Run the eval set on every model upgrade, prompt change, or tool schema change. A
 
 ### Further reading
 
-- [Pact — Consumer-Driven Contract Testing](https://docs.pact.io/) — Framework for contract testing between services; the concepts apply directly to tool mock contracts.
-- [Hypothesis — Property-based testing for Python](https://hypothesis.readthedocs.io/) — Generate test inputs automatically; particularly valuable for schema validation edge cases.
-- [Martin Fowler — TestDouble](https://martinfowler.com/bliki/TestDouble.html) — Taxonomy of test doubles (mocks, stubs, fakes, spies) — understanding which to use where keeps your test suite clean.
+- [Pact, Consumer-Driven Contract Testing](https://docs.pact.io/), Framework for contract testing between services; the concepts apply directly to tool mock contracts.
+- [Hypothesis, Property-based testing for Python](https://hypothesis.readthedocs.io/), Generate test inputs automatically; particularly valuable for schema validation edge cases.
+- [Martin Fowler, TestDouble](https://martinfowler.com/bliki/TestDouble.html), Taxonomy of test doubles (mocks, stubs, fakes, spies): understanding which to use where keeps your test suite clean.

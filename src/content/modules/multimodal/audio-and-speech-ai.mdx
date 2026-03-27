@@ -12,23 +12,23 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "ASR word error rate on clean speech in benchmarks (typically 3–5% for Whisper large) degrades significantly with background noise, accents, domain-specific terminology, and crosstalk — real-world WER in a contact centre or meeting transcription context is routinely 15–30%. Always benchmark on your actual audio conditions, not clean-speech datasets."
+productionGotcha: "ASR word error rate on clean speech in benchmarks (typically 3–5% for Whisper large) degrades significantly with background noise, accents, domain-specific terminology, and crosstalk: real-world WER in a contact centre or meeting transcription context is routinely 15–30%. Always benchmark on your actual audio conditions, not clean-speech datasets."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Audio AI has four distinct capabilities that are often conflated: ASR (automatic speech recognition) converts audio to text; TTS (text-to-speech) converts text back to audio; audio classification identifies what kind of sound is present; and speaker diarisation identifies who is speaking and when in a multi-speaker recording. Most production voice AI applications use ASR and TTS together, with a language model in the middle.
 
-The standard voice AI pipeline is: audio in → ASR → text → LLM → text → TTS → audio out. The language model never touches audio directly — it works on the transcript, and the TTS system speaks the language model's reply. This architecture means you can swap any component independently, but it also means latency compounds: you must wait for ASR before the LLM starts, and for the LLM before TTS starts.
+The standard voice AI pipeline is: audio in → ASR → text → LLM → text → TTS → audio out. The language model never touches audio directly: it works on the transcript, and the TTS system speaks the language model's reply. This architecture means you can swap any component independently, but it also means latency compounds: you must wait for ASR before the LLM starts, and for the LLM before TTS starts.
 
-The most important metric for ASR is Word Error Rate (WER): the fraction of words in the transcript that differ from what was actually said. Whisper large achieves roughly 3–5% WER on clean English speech from benchmark datasets. On a contact centre call with background noise, regional accents, and technical product names, the same model routinely produces 15–30% WER — often high enough to corrupt downstream LLM reasoning.
+The most important metric for ASR is Word Error Rate (WER): the fraction of words in the transcript that differ from what was actually said. Whisper large achieves roughly 3–5% WER on clean English speech from benchmark datasets. On a contact centre call with background noise, regional accents, and technical product names, the same model routinely produces 15–30% WER: often high enough to corrupt downstream LLM reasoning.
 
 For TTS, the key metric is TTFA (time to first audio): how long after the request before the user hears the first syllable. A streaming TTS that begins speaking after receiving the first sentence token feels dramatically more responsive than one that waits for the full LLM output before speaking.
 
 ### Why it matters
 
-Teams that benchmark ASR on LibriSpeech or similar clean-speech datasets and then deploy to real-world audio conditions discover a significant gap at the worst possible time: in production. Domain-specific vocabulary (medical terms, product names, acronyms) is a particularly common failure — the model confidently transcribes a novel word as the nearest-sounding common word, producing subtle errors that the LLM then reasons about incorrectly.
+Teams that benchmark ASR on LibriSpeech or similar clean-speech datasets and then deploy to real-world audio conditions discover a significant gap at the worst possible time: in production. Domain-specific vocabulary (medical terms, product names, acronyms) is a particularly common failure: the model confidently transcribes a novel word as the nearest-sounding common word, producing subtle errors that the LLM then reasons about incorrectly.
 
 ### Production Gotcha
 
@@ -38,7 +38,7 @@ Teams that benchmark ASR on LibriSpeech or similar clean-speech datasets and the
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### ASR with Whisper: the basic pipeline
 
@@ -308,13 +308,13 @@ def word_error_rate(hypothesis: str, reference: str) -> float:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### ASR architecture: from CNNs to transformers
 
 Whisper uses an encoder-decoder transformer architecture. The audio encoder processes mel spectrogram features (a frequency-over-time representation of audio) and produces audio embeddings. The decoder generates the transcript token by token, attending to the encoder output.
 
-The mel spectrogram is the key preprocessing step: raw audio samples (PCM waveform) are converted to a frequency representation that separates human speech frequencies from background noise and captures features relevant to phoneme recognition. This is why sample rate normalisation matters — Whisper is trained on 16kHz audio, and resampling from 8kHz (telephone audio) or 44.1kHz (CD quality) is necessary for correct operation.
+The mel spectrogram is the key preprocessing step: raw audio samples (PCM waveform) are converted to a frequency representation that separates human speech frequencies from background noise and captures features relevant to phoneme recognition. This is why sample rate normalisation matters; Whisper is trained on 16kHz audio, and resampling from 8kHz (telephone audio) or 44.1kHz (CD quality) is necessary for correct operation.
 
 ### Latency components in a voice pipeline
 
@@ -342,7 +342,7 @@ Common open-weight options include pyannote.audio. Diarisation accuracy degrades
 
 ### TTS voice cloning and considerations
 
-Modern TTS systems can clone a voice from a short audio sample (as little as 3–10 seconds). This capability has obvious misuse potential — generating audio in someone's voice without their consent. Responsible deployment requires:
+Modern TTS systems can clone a voice from a short audio sample (as little as 3–10 seconds). This capability has obvious misuse potential: generating audio in someone's voice without their consent. Responsible deployment requires:
 
 - Consent verification before cloning a voice
 - Watermarking generated audio (e.g., AudioSeal from Meta)
@@ -352,7 +352,7 @@ Voice cloning quality degrades with very short samples, noisy reference audio, a
 
 ### Further reading
 
-- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356) — Radford et al., 2022. The Whisper paper; explains the training approach and benchmark WER. The gap between LibriSpeech WER and real-world WER is addressed in the limitations section.
-- [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884) — Shen et al., 2018. Tacotron 2; the architecture that established the mel spectrogram-based TTS pipeline.
-- [pyannote.audio: neural building blocks for speaker diarization](https://arxiv.org/abs/1911.01255) — Bredin et al., 2020. The main open-weight diarisation library for Python.
-- [AudioSeal: Proactive Detection of Voice Cloning with In-the-Wild Detection](https://arxiv.org/abs/2401.17264) — San Roman et al., 2024. Audio watermarking approach from Meta; relevant to responsible TTS deployment.
+- [Robust Speech Recognition via Large-Scale Weak Supervision](https://arxiv.org/abs/2212.04356); Radford et al., 2022. The Whisper paper; explains the training approach and benchmark WER. The gap between LibriSpeech WER and real-world WER is addressed in the limitations section.
+- [Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions](https://arxiv.org/abs/1712.05884); Shen et al., 2018. Tacotron 2; the architecture that established the mel spectrogram-based TTS pipeline.
+- [pyannote.audio: neural building blocks for speaker diarization](https://arxiv.org/abs/1911.01255); Bredin et al., 2020. The main open-weight diarisation library for Python.
+- [AudioSeal: Proactive Detection of Voice Cloning with In-the-Wild Detection](https://arxiv.org/abs/2401.17264); San Roman et al., 2024. Audio watermarking approach from Meta; relevant to responsible TTS deployment.

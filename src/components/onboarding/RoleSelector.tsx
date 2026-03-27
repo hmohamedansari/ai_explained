@@ -12,7 +12,7 @@ const ROLES = [
     id: 'leader',
     emoji: '🏛️',
     title: 'Tech Leader',
-    description: 'CTO, VP, or architect. You want the accurate mental model, the real risk surface, and the strategic decisions — without wading through implementation detail.',
+    description: 'CTO, VP, or architect. You want the accurate mental model, the real risk surface, and the strategic decisions: without wading through implementation detail.',
     path: '/paths/tech-leader',
   },
   {

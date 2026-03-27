@@ -1,5 +1,5 @@
 {
-  "title": "Regulatory Landscape — Check your understanding",
+  "title": "Regulatory Landscape: Check your understanding",
   "moduleId": "7.7",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A startup builds an AI system that helps university admissions offices score applicant essays. The founders assume this is 'limited risk' under the EU AI Act because they are just providing a helpfulness tool, not making decisions. Is this correct?",
       "options": [
-        "Correct — if a human admissions officer makes the final decision, the AI is a limited-risk tool",
-        "Incorrect — education and vocational training is explicitly listed in Annex III of the EU AI Act as a high-risk use case; an AI that influences admissions decisions falls into the high-risk tier regardless of how helpful or advisory it is described to be, and requires conformity assessment, documentation, and human oversight obligations",
-        "Correct — AI Act high-risk classification only applies to public sector systems, not private startups",
-        "Uncertain — the classification depends on the size of the startup's EU user base"
+        "Correct: if a human admissions officer makes the final decision, the AI is a limited-risk tool",
+        "Incorrect: education and vocational training is explicitly listed in Annex III of the EU AI Act as a high-risk use case; an AI that influences admissions decisions falls into the high-risk tier regardless of how helpful or advisory it is described to be, and requires conformity assessment, documentation, and human oversight obligations",
+        "Correct; AI Act high-risk classification only applies to public sector systems, not private startups",
+        "Uncertain: the classification depends on the size of the startup's EU user base"
       ],
       "answer": 1,
-      "explanation": "The EU AI Act Annex III explicitly lists education and vocational training as a high-risk category — specifically, AI systems used to evaluate students and determine access to educational programmes. An essay scoring tool that influences admissions decisions is squarely in this category. The production gotcha is relevant: teams assume 'advisory' or 'helpful' tools are minimal risk. Annex III classifies by use case domain and function, not by how the system is marketed. High-risk obligations include technical documentation, conformity assessment, logging of system operation, transparency to users, and human oversight — these must be designed in, not bolted on after launch.",
+      "explanation": "The EU AI Act Annex III explicitly lists education and vocational training as a high-risk category, specifically, AI systems used to evaluate students and determine access to educational programmes. An essay scoring tool that influences admissions decisions is squarely in this category. The production gotcha is relevant: teams assume 'advisory' or 'helpful' tools are minimal risk. Annex III classifies by use case domain and function, not by how the system is marketed. High-risk obligations include technical documentation, conformity assessment, logging of system operation, transparency to users, and human oversight, these must be designed in, not bolted on after launch.",
       "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     },
@@ -22,13 +22,13 @@
       "type": "multiple-choice",
       "question": "A company receives a request from a user under GDPR Article 22 to have their automated credit scoring decision reviewed by a human. The company's response is: 'Our AI provides a score, and our human team then decides.' Investigation reveals the human approvers reject fewer than 0.1% of AI-recommended decisions and spend on average 4 seconds per case. Does this satisfy Article 22?",
       "options": [
-        "Yes — a human is technically involved in every decision",
-        "No — Article 22 requires meaningful human oversight, not nominal human involvement; a human who spends 4 seconds per decision and rejects fewer than 1 in 1000 AI recommendations is functioning as a rubber stamp, not as a genuine reviewer; regulatory guidance consistently requires that humans have the capability, time, and authority to meaningfully review and override automated decisions",
-        "Yes — Article 22 does not specify how much time a human reviewer must spend per decision",
-        "Only partially — Article 22 is satisfied but the company should improve reviewer training"
+        "Yes: a human is technically involved in every decision",
+        "No; Article 22 requires meaningful human oversight, not nominal human involvement; a human who spends 4 seconds per decision and rejects fewer than 1 in 1000 AI recommendations is functioning as a rubber stamp, not as a genuine reviewer; regulatory guidance consistently requires that humans have the capability, time, and authority to meaningfully review and override automated decisions",
+        "Yes; Article 22 does not specify how much time a human reviewer must spend per decision",
+        "Only partially; Article 22 is satisfied but the company should improve reviewer training"
       ],
       "answer": 1,
-      "explanation": "Article 22 requires 'suitable measures to safeguard the data subject's rights and freedoms and legitimate interests', which regulators interpret as requiring genuine human review, not nominal human involvement. A reviewer spending 4 seconds on a decision and overriding fewer than 0.1% of AI recommendations is functionally automated decision-making with a human label. The ICO and EDPB guidance both emphasise that the human must have the authority, time, competence, and relevant information to meaningfully override the AI — and must actually do so when appropriate. Rubber-stamp review exposes the company to regulatory challenge on the same basis as fully automated decisions.",
+      "explanation": "Article 22 requires 'suitable measures to safeguard the data subject's rights and freedoms and legitimate interests', which regulators interpret as requiring genuine human review, not nominal human involvement. A reviewer spending 4 seconds on a decision and overriding fewer than 0.1% of AI recommendations is functionally automated decision-making with a human label. The ICO and EDPB guidance both emphasise that the human must have the authority, time, competence, and relevant information to meaningfully override the AI, and must actually do so when appropriate. Rubber-stamp review exposes the company to regulatory challenge on the same basis as fully automated decisions.",
       "read_more": "https://gdpr-info.eu/art-22-gdpr/",
       "personas": ["leader", "junior", "senior", "sre"]
     },
@@ -37,13 +37,13 @@
       "type": "multiple-choice",
       "question": "The EU AI Act's prohibited practices tier became applicable in February 2025. A company has been operating a workplace productivity monitoring system that uses AI to analyse employee behaviour and generate 'social scores' used in performance reviews. What should the company's legal team advise?",
       "options": [
-        "Monitor the system for compliance issues but continue operating — there is a grace period for existing systems",
-        "Evaluate immediately whether the system constitutes a prohibited AI practice under Article 5 — social scoring by employers using AI may fall into the prohibited tier depending on how broadly it is applied; if it does, the system must be modified or discontinued regardless of sunk costs or operational dependence",
+        "Monitor the system for compliance issues but continue operating: there is a grace period for existing systems",
+        "Evaluate immediately whether the system constitutes a prohibited AI practice under Article 5: social scoring by employers using AI may fall into the prohibited tier depending on how broadly it is applied; if it does, the system must be modified or discontinued regardless of sunk costs or operational dependence",
         "The prohibition only applies to government social scoring systems, not private employer systems",
         "Obtain user consent from employees to bring the system into compliance"
       ],
       "answer": 1,
-      "explanation": "Article 5 of the EU AI Act prohibits AI systems that evaluate or classify natural persons based on their social behaviour or personal characteristics in a way that causes detrimental treatment. Workplace social scoring that affects employment conditions is in scope for this analysis. The prohibition became applicable in February 2025 with no grandfather clause for existing systems. Legal counsel should assess the specific system against Article 5, consider whether it falls under any exemptions, and advise on modification or discontinuation if it is in scope. Consent from employees does not override a prohibition — the category of practice is banned, not made permissible with consent.",
+      "explanation": "Article 5 of the EU AI Act prohibits AI systems that evaluate or classify natural persons based on their social behaviour or personal characteristics in a way that causes detrimental treatment. Workplace social scoring that affects employment conditions is in scope for this analysis. The prohibition became applicable in February 2025 with no grandfather clause for existing systems. Legal counsel should assess the specific system against Article 5, consider whether it falls under any exemptions, and advise on modification or discontinuation if it is in scope. Consent from employees does not override a prohibition: the category of practice is banned, not made permissible with consent.",
       "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     },
@@ -52,13 +52,13 @@
       "type": "multiple-choice",
       "question": "A US federal agency issues an RFP requiring vendors to complete a NIST AI RMF profile before bidding. An engineer says the NIST AI RMF is voluntary and you can skip this. Is this correct?",
       "options": [
-        "Correct — the NIST AI RMF is voluntary and no federal agency can require it",
-        "Incorrect — while the NIST AI RMF is a voluntary framework at the national level, individual agencies can and do incorporate it as a contractual requirement in procurements; for this specific contract, completing the RMF profile is a bidding requirement regardless of its general voluntary status",
-        "Correct — the NIST AI RMF was superseded by executive order and no longer applies",
-        "Partially correct — you can submit a bid without the RMF profile but it will receive a lower evaluation score"
+        "Correct: the NIST AI RMF is voluntary and no federal agency can require it",
+        "Incorrect: while the NIST AI RMF is a voluntary framework at the national level, individual agencies can and do incorporate it as a contractual requirement in procurements; for this specific contract, completing the RMF profile is a bidding requirement regardless of its general voluntary status",
+        "Correct: the NIST AI RMF was superseded by executive order and no longer applies",
+        "Partially correct: you can submit a bid without the RMF profile but it will receive a lower evaluation score"
       ],
       "answer": 1,
-      "explanation": "The NIST AI RMF is voluntary as a national standard — no federal law mandates its use. However, 'voluntary' at the framework level does not mean 'optional in procurement'. Federal agencies regularly incorporate voluntary frameworks as mandatory contract requirements. An RFP that specifies NIST AI RMF compliance as a requirement makes it a binding condition for that contract. US government customers are increasingly using the RMF as a procurement filter, which means it is de facto mandatory for vendors targeting that market even though it remains voluntary as a national standard.",
+      "explanation": "The NIST AI RMF is voluntary as a national standard: no federal law mandates its use. However, 'voluntary' at the framework level does not mean 'optional in procurement'. Federal agencies regularly incorporate voluntary frameworks as mandatory contract requirements. An RFP that specifies NIST AI RMF compliance as a requirement makes it a binding condition for that contract. US government customers are increasingly using the RMF as a procurement filter, which means it is de facto mandatory for vendors targeting that market even though it remains voluntary as a national standard.",
       "read_more": "https://airc.nist.gov/RMF",
       "personas": ["leader", "junior", "senior", "sre"]
     },
@@ -67,13 +67,13 @@
       "type": "multiple-choice",
       "question": "A product team wants to build an AI feature that provides legal document summaries to small businesses. They plan to add a disclaimer that says 'This is not legal advice.' Does the disclaimer resolve the regulatory risk?",
       "options": [
-        "Yes — a clearly worded disclaimer transfers responsibility to the user",
-        "A disclaimer reduces but does not eliminate regulatory risk — it does not change the risk tier under the EU AI Act if access to legal services is involved, does not prevent professional licensing liability if the output constitutes legal advice, and does not protect against GDPR Article 22 obligations if the summaries influence legal decisions; legal counsel review of the specific use case is required before launch",
-        "Yes — disclaimers are the standard industry practice for managing AI liability",
+        "Yes: a clearly worded disclaimer transfers responsibility to the user",
+        "A disclaimer reduces but does not eliminate regulatory risk: it does not change the risk tier under the EU AI Act if access to legal services is involved, does not prevent professional licensing liability if the output constitutes legal advice, and does not protect against GDPR Article 22 obligations if the summaries influence legal decisions; legal counsel review of the specific use case is required before launch",
+        "Yes: disclaimers are the standard industry practice for managing AI liability",
         "A disclaimer is unnecessary if the tool only summarises rather than generates original legal content"
       ],
       "answer": 1,
-      "explanation": "Disclaimers are a useful risk communication tool but do not constitute legal protection. Under the EU AI Act, access to legal services is listed in Annex III — if the tool influences access to or outcomes from legal processes, a disclaimer does not downgrade the risk tier. In many jurisdictions, providing legal advice without a licence is a regulatory violation regardless of disclaimers — regulators assess what the product actually does, not how it labels itself. For products in regulated domains (legal, medical, financial), the correct step is a legal counsel review of the specific use case and jurisdiction, not a disclaimer.",
+      "explanation": "Disclaimers are a useful risk communication tool but do not constitute legal protection. Under the EU AI Act, access to legal services is listed in Annex III, if the tool influences access to or outcomes from legal processes, a disclaimer does not downgrade the risk tier. In many jurisdictions, providing legal advice without a licence is a regulatory violation regardless of disclaimers, regulators assess what the product actually does, not how it labels itself. For products in regulated domains (legal, medical, financial), the correct step is a legal counsel review of the specific use case and jurisdiction, not a disclaimer.",
       "read_more": "https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689",
       "personas": ["leader", "junior", "senior", "sre"]
     }

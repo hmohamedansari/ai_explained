@@ -1,7 +1,7 @@
 ---
 moduleId: "5.8"
 title: "Scaling & Cost Management"
-description: "LLM serving costs accumulate differently from typical web services — GPU-hours are expensive, autoscaling on CPU metrics is wrong, and scale-to-zero creates cold-start latency that makes it unsuitable for interactive workloads; knowing the right signals to scale on and how to build the cost math keeps infrastructure expenses from becoming a surprise."
+description: "LLM serving costs accumulate differently from typical web services; GPU-hours are expensive, autoscaling on CPU metrics is wrong, and scale-to-zero creates cold-start latency that makes it unsuitable for interactive workloads; knowing the right signals to scale on and how to build the cost math keeps infrastructure expenses from becoming a surprise."
 track: "infrastructure"
 order: 8
 personas: ["leader", "senior", "sre"]
@@ -12,43 +12,43 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Scale-to-zero is tempting for cost but creates cold-start latency of 2–5 minutes for large models; for latency-sensitive workloads, keep a minimum of 1 replica running and accept the idle cost. For a 7B model on an A10G at $0.80/hr, the idle cost is under $580/month — far less than the engineering cost of debugging cold-start complaints, and less than the revenue risk of users bouncing when the first request takes 3 minutes."
+productionGotcha: "Scale-to-zero is tempting for cost but creates cold-start latency of 2–5 minutes for large models; for latency-sensitive workloads, keep a minimum of 1 replica running and accept the idle cost. For a 7B model on an A10G at $0.80/hr, the idle cost is under $580/month: far less than the engineering cost of debugging cold-start complaints, and less than the revenue risk of users bouncing when the first request takes 3 minutes."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Scaling an LLM workload is not the same as scaling a web API. The signals are different, the economics are different, and the tradeoffs are different.
 
 **Wrong signals for autoscaling:**
-- CPU utilization — the inference process may peg one CPU core while the GPU sits at 20% utilization; CPU metrics tell you almost nothing about serving capacity.
-- Memory usage — VRAM is the constraint, not RAM; RAM is often ample while VRAM is saturated.
+- CPU utilization: the inference process may peg one CPU core while the GPU sits at 20% utilization; CPU metrics tell you almost nothing about serving capacity.
+- Memory usage; VRAM is the constraint, not RAM; RAM is often ample while VRAM is saturated.
 
 **Right signals for autoscaling:**
-- GPU utilization — directly indicates whether the serving process has headroom.
-- Request queue depth — how many requests are waiting for a slot; the most reliable signal that you need more capacity.
-- TTFT percentiles — latency degradation is a leading indicator of saturation before OOM occurs.
+- GPU utilization: directly indicates whether the serving process has headroom.
+- Request queue depth: how many requests are waiting for a slot; the most reliable signal that you need more capacity.
+- TTFT percentiles: latency degradation is a leading indicator of saturation before OOM occurs.
 
 **The cost components of LLM serving:**
-1. **Compute** — GPU-hours (the large one)
-2. **Storage** — model weight storage and serving (smaller but ongoing)
-3. **Network** — data transfer costs for API-based inference or output streaming
+1. **Compute**: GPU-hours (the large one)
+2. **Storage**: model weight storage and serving (smaller but ongoing)
+3. **Network**: data transfer costs for API-based inference or output streaming
 
 Understanding these components, building the cost math, and right-sizing models to tasks keeps LLM infrastructure from becoming the largest line item in your cloud bill.
 
 ### Why it matters
 
-GPU compute is expensive. An H100 on-demand runs around $3–4/hr; a cluster of 8 runs over $25/hr. At those rates, inefficient scaling or over-provisioning becomes a significant cost quickly. But under-provisioning causes user-facing degradation and SLA violations. Getting the economics right — which signals to scale on, what minimum replicas to maintain, and which model size to use for which task — directly affects both cost and product quality.
+GPU compute is expensive. An H100 on-demand runs around $3–4/hr; a cluster of 8 runs over $25/hr. At those rates, inefficient scaling or over-provisioning becomes a significant cost quickly. But under-provisioning causes user-facing degradation and SLA violations. Getting the economics right, which signals to scale on, what minimum replicas to maintain, and which model size to use for which task, directly affects both cost and product quality.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The math: one A10G at $0.80/hr, 24/7, is $576/month. For a product with real users, that is a modest infrastructure cost to guarantee sub-second responses. Scale-to-zero saves the $576 but guarantees that the first request after an idle period takes 2–5 minutes — unacceptable for any interactive product. Scale-to-zero is appropriate for batch workloads, not for real-time serving.
+> The math: one A10G at $0.80/hr, 24/7, is $576/month. For a product with real users, that is a modest infrastructure cost to guarantee sub-second responses. Scale-to-zero saves the $576 but guarantees that the first request after an idle period takes 2–5 minutes: unacceptable for any interactive product. Scale-to-zero is appropriate for batch workloads, not for real-time serving.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Autoscaling: the right metrics
 
@@ -297,7 +297,7 @@ class SpendingTracker:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Scale-to-zero economics by workload type
 
@@ -309,7 +309,7 @@ class SpendingTracker:
 | Webhook-triggered processing | Partial | 0 with warm-up | Pre-warm on webhook receipt if acceptable to queue for 3–5 min |
 | Scheduled inference job | Yes | 0 | Scale up on schedule, down after job completes |
 
-For interactive workloads, the cost of maintaining 1 minimum replica is the price of acceptable user experience. For a 7B model on an A10G, that is roughly $576/month — typically far less than the product risk of degraded user experience.
+For interactive workloads, the cost of maintaining 1 minimum replica is the price of acceptable user experience. For a 7B model on an A10G, that is roughly $576/month: typically far less than the product risk of degraded user experience.
 
 ### Multi-model routing in production
 
@@ -353,7 +353,7 @@ def cascade_inference(
     )
 ```
 
-Measure escalation rate in production — it tells you whether your fast model is right-sized for your actual query distribution. An escalation rate above 30–40% may indicate the task complexity requires a higher-tier default.
+Measure escalation rate in production: it tells you whether your fast model is right-sized for your actual query distribution. An escalation rate above 30–40% may indicate the task complexity requires a higher-tier default.
 
 ### Cost attribution and per-feature accounting
 
@@ -393,6 +393,6 @@ Per-feature cost tracking reveals which features are expensive to serve and guid
 
 ### Further reading
 
-- [KEDA — Kubernetes Event-Driven Autoscaling](https://keda.sh/) — The standard tool for scaling Kubernetes deployments on custom metrics (including queue depth and GPU utilization); the practical implementation of queue-based autoscaling described in this module.
-- [NVIDIA DCGM Exporter](https://github.com/NVIDIA/dcgm-exporter) — Exposes GPU metrics (utilization, memory, temperature) to Prometheus; required for GPU-based autoscaling in Kubernetes.
-- [Martin Fowler — Cost Management in Cloud Computing](https://martinfowler.com/articles/is-tdd-dead/) — The general principles of cost attribution and FinOps apply directly to LLM infrastructure; per-feature cost tracking and budget governance follow from standard cloud cost management practices.
+- [KEDA, Kubernetes Event-Driven Autoscaling](https://keda.sh/), The standard tool for scaling Kubernetes deployments on custom metrics (including queue depth and GPU utilization); the practical implementation of queue-based autoscaling described in this module.
+- [NVIDIA DCGM Exporter](https://github.com/NVIDIA/dcgm-exporter); Exposes GPU metrics (utilization, memory, temperature) to Prometheus; required for GPU-based autoscaling in Kubernetes.
+- [Martin Fowler, Cost Management in Cloud Computing](https://martinfowler.com/articles/is-tdd-dead/), The general principles of cost attribution and FinOps apply directly to LLM infrastructure; per-feature cost tracking and budget governance follow from standard cloud cost management practices.

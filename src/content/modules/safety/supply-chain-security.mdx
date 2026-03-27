@@ -1,7 +1,7 @@
 ---
 moduleId: "7.6"
 title: "Supply Chain Security"
-description: "The AI supply chain — base model, fine-tuning data, adapters, Python packages, and API keys — has more attack surfaces than teams typically consider. A .pkl file is executable code. An unverified model weight can contain backdoors. This module covers the controls that keep your AI system trustworthy from training data to production inference."
+description: "The AI supply chain, base model, fine-tuning data, adapters, Python packages, and API keys, has more attack surfaces than teams typically consider. A .pkl file is executable code. An unverified model weight can contain backdoors. This module covers the controls that keep your AI system trustworthy from training data to production inference."
 track: "safety"
 order: 6
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Most teams scrutinise their application code for supply chain risk but load model weights from Hugging Face without verification. A .pkl or .pt file is executable code — always use safetensors format or verify checksums against a known-good source before loading weights in production."
+productionGotcha: "Most teams scrutinise their application code for supply chain risk but load model weights from Hugging Face without verification. A .pkl or .pt file is executable code: always use safetensors format or verify checksums against a known-good source before loading weights in production."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Your AI system is not just the code you wrote. It is the base model you selected, the data you fine-tuned on, the LoRA adapters you downloaded, the Python packages you installed, the inference framework you run on, and the API keys that connect it all together. Each of those is a supply chain component — and each is an attack surface.
+Your AI system is not just the code you wrote. It is the base model you selected, the data you fine-tuned on, the LoRA adapters you downloaded, the Python packages you installed, the inference framework you run on, and the API keys that connect it all together. Each of those is a supply chain component, and each is an attack surface.
 
 **The AI supply chain:**
 
@@ -33,17 +33,17 @@ Your AI system is not just the code you wrote. It is the base model you selected
 
 ### Why it matters
 
-A backdoored model or compromised package can operate silently — normal inputs produce normal outputs, but specific trigger inputs produce attacker-chosen outputs or take attacker-chosen actions. Unlike a traditional software vulnerability, a model backdoor can be invisible to code review. Supply chain security is the practice of verifying what you run before you run it.
+A backdoored model or compromised package can operate silently: normal inputs produce normal outputs, but specific trigger inputs produce attacker-chosen outputs or take attacker-chosen actions. Unlike a traditional software vulnerability, a model backdoor can be invisible to code review. Supply chain security is the practice of verifying what you run before you run it.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Teams rightly scrutinise npm packages and pip dependencies. They apply the same scepticism to a random `.pt` file from Hugging Face far less often. A PyTorch `.pt` file is a pickled Python object — loading it runs arbitrary Python code. The fix is to require the safetensors format (which cannot execute code on load) and to verify checksums even for safetensors files.
+> Teams rightly scrutinise npm packages and pip dependencies. They apply the same scepticism to a random `.pt` file from Hugging Face far less often. A PyTorch `.pt` file is a pickled Python object: loading it runs arbitrary Python code. The fix is to require the safetensors format (which cannot execute code on load) and to verify checksums even for safetensors files.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Verifying model weights before loading
 
@@ -258,7 +258,7 @@ def generate_ai_sbom() -> dict:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Why .pkl and .pt files are dangerous
 
@@ -302,6 +302,6 @@ For fine-tuned models: audit your training data, especially if sourced from user
 
 ### Further reading
 
-- [Poisoning Web-Scale Training Datasets is Practical](https://arxiv.org/abs/2302.10149) — Carlini et al., 2023. Demonstrates that training data poisoning at scale is realistic; establishes the threat model for data poisoning attacks.
-- [safetensors format](https://huggingface.co/docs/safetensors) — Hugging Face, 2022–2024. Technical reference for the safe serialisation format; explains why it cannot execute code on load.
-- [SLSA: Supply Chain Levels for Software Artefacts](https://slsa.dev/) — Google, 2021–2024. Framework for supply chain security levels; applicable to AI model artefacts with adaptation.
+- [Poisoning Web-Scale Training Datasets is Practical](https://arxiv.org/abs/2302.10149); Carlini et al., 2023. Demonstrates that training data poisoning at scale is realistic; establishes the threat model for data poisoning attacks.
+- [safetensors format](https://huggingface.co/docs/safetensors); Hugging Face, 2022–2024. Technical reference for the safe serialisation format; explains why it cannot execute code on load.
+- [SLSA: Supply Chain Levels for Software Artefacts](https://slsa.dev/); Google, 2021–2024. Framework for supply chain security levels; applicable to AI model artefacts with adaptation.

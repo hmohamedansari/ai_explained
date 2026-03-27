@@ -1,7 +1,7 @@
 ---
 moduleId: "5.7"
 title: "Containerization & Deployment"
-description: "Containerizing an LLM inference server is fundamentally different from containerizing a web service — GPU passthrough, multi-stage weight management, and slow pod startup require different patterns for health checks, rolling deployments, and Kubernetes configuration that most teams learn by breaking production first."
+description: "Containerizing an LLM inference server is fundamentally different from containerizing a web service; GPU passthrough, multi-stage weight management, and slow pod startup require different patterns for health checks, rolling deployments, and Kubernetes configuration that most teams learn by breaking production first."
 track: "infrastructure"
 order: 7
 personas: ["senior", "sre"]
@@ -12,34 +12,34 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Rolling deployments for LLM containers are slow — a new pod may take 2–5 minutes to load weights before it is ready. Without correct readiness probes, the load balancer routes traffic to the new pod before the model is loaded, returning errors to users. Set readiness probes to check actual model responsiveness, not just process liveness, and set minReadySeconds and terminationGracePeriodSeconds long enough to allow a full weight load."
+productionGotcha: "Rolling deployments for LLM containers are slow: a new pod may take 2–5 minutes to load weights before it is ready. Without correct readiness probes, the load balancer routes traffic to the new pod before the model is loaded, returning errors to users. Set readiness probes to check actual model responsiveness, not just process liveness, and set minReadySeconds and terminationGracePeriodSeconds long enough to allow a full weight load."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Putting an LLM inference server in a Docker container and deploying it to Kubernetes involves several problems that do not appear in typical web service containerization:
 
-- **GPU passthrough** — the container needs access to the host's NVIDIA GPU, which requires NVIDIA container runtime and specific Kubernetes resource requests.
-- **Model weights** — a 70B model in INT4 is roughly 35GB. Baking that into the Docker image makes the image impractical to distribute. Mounting it from a volume means the pod must download or mount the weights before it can serve traffic.
-- **Slow startup** — a pod that needs 3 minutes to load weights before it is ready will confuse health checks configured for fast-starting services, causing the pod to be killed and restarted in a loop.
-- **Rolling deployments** — replacing pods one by one works fine for stateless web services. For LLM containers, each new pod takes minutes to become ready, meaning the rollout is much slower than expected — and the old pod termination must be delayed until the new one is actually ready.
+- **GPU passthrough**: the container needs access to the host's NVIDIA GPU, which requires NVIDIA container runtime and specific Kubernetes resource requests.
+- **Model weights**: a 70B model in INT4 is roughly 35GB. Baking that into the Docker image makes the image impractical to distribute. Mounting it from a volume means the pod must download or mount the weights before it can serve traffic.
+- **Slow startup**: a pod that needs 3 minutes to load weights before it is ready will confuse health checks configured for fast-starting services, causing the pod to be killed and restarted in a loop.
+- **Rolling deployments**, replacing pods one by one works fine for stateless web services. For LLM containers, each new pod takes minutes to become ready, meaning the rollout is much slower than expected, and the old pod termination must be delayed until the new one is actually ready.
 
 Understanding these differences makes the difference between a deployment that works the first time and one that requires debugging for a day.
 
 ### Why it matters
 
-LLM serving is increasingly Kubernetes-deployed because Kubernetes provides the autoscaling, health checking, and deployment tooling that production requires. But the default assumptions in Kubernetes — fast startup, stateless pods, CPU/memory resource limits — all need adjustment for GPU-accelerated LLM workloads.
+LLM serving is increasingly Kubernetes-deployed because Kubernetes provides the autoscaling, health checking, and deployment tooling that production requires. But the default assumptions in Kubernetes, fast startup, stateless pods, CPU/memory resource limits, all need adjustment for GPU-accelerated LLM workloads.
 
 ### Production Gotcha
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> The trap: readiness probes copied from a web service template check if port 8080 is open. LLM servers open their port almost immediately, then spend 2–4 minutes loading weights into VRAM. During this window, the probe says "ready" but the server returns errors. Use a probe that calls a real inference endpoint — even with a one-token prompt — to verify the model is loaded and responding.
+> The trap: readiness probes copied from a web service template check if port 8080 is open. LLM servers open their port almost immediately, then spend 2–4 minutes loading weights into VRAM. During this window, the probe says "ready" but the server returns errors. Use a probe that calls a real inference endpoint, even with a one-token prompt, to verify the model is loaded and responding.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Multi-stage Docker image
 
@@ -298,17 +298,17 @@ For production Kubernetes deployments, mounting from a pre-provisioned PVC is ge
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### NVIDIA container runtime and device plugin
 
 Two components are required for GPU access in containers:
 
-1. **NVIDIA Container Toolkit** (installed on the node) — intercepts `docker run --gpus` or Kubernetes device requests and makes GPU devices available inside the container with the right drivers. Without this, containers cannot access the GPU.
+1. **NVIDIA Container Toolkit** (installed on the node): intercepts `docker run --gpus` or Kubernetes device requests and makes GPU devices available inside the container with the right drivers. Without this, containers cannot access the GPU.
 
-2. **NVIDIA Device Plugin** (deployed as a DaemonSet in Kubernetes) — advertises GPU resources to the Kubernetes scheduler and manages GPU allocation to pods. This is what makes `nvidia.com/gpu: 1` in resource requests work.
+2. **NVIDIA Device Plugin** (deployed as a DaemonSet in Kubernetes): advertises GPU resources to the Kubernetes scheduler and manages GPU allocation to pods. This is what makes `nvidia.com/gpu: 1` in resource requests work.
 
-Both must be installed and configured before GPU pods can be scheduled. Standard Kubernetes clusters do not have these by default — they must be installed by the cluster operator or selected as an option in managed Kubernetes services (EKS, GKE, AKS all have managed GPU node pool options).
+Both must be installed and configured before GPU pods can be scheduled. Standard Kubernetes clusters do not have these by default: they must be installed by the cluster operator or selected as an option in managed Kubernetes services (EKS, GKE, AKS all have managed GPU node pool options).
 
 ### Rolling deployment timing
 
@@ -343,6 +343,6 @@ Pods in the same tensor parallel group must be scheduled on the same node to use
 
 ### Further reading
 
-- [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) — Official installation and configuration documentation for GPU containers.
-- [Kubernetes — GPU scheduling](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/) — Official documentation for scheduling GPU pods; covers device plugin installation and resource requests.
-- [vLLM — Kubernetes deployment examples](https://docs.vllm.ai/en/latest/serving/deploying-with-k8s.html) — Production Kubernetes configurations for vLLM; concrete examples of the patterns described in this module.
+- [NVIDIA Container Toolkit installation guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html); Official installation and configuration documentation for GPU containers.
+- [Kubernetes, GPU scheduling](https://kubernetes.io/docs/tasks/manage-gpus/scheduling-gpus/), Official documentation for scheduling GPU pods; covers device plugin installation and resource requests.
+- [vLLM, Kubernetes deployment examples](https://docs.vllm.ai/en/latest/serving/deploying-with-k8s.html), Production Kubernetes configurations for vLLM; concrete examples of the patterns described in this module.

@@ -12,23 +12,23 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "VLMs can refuse or give degraded output on images containing certain content (personal photos, certain medical imagery, explicit content) without a clear error signal — the response is a refusal in natural language, not an HTTP error code. Build explicit refusal detection into your output parsing, or low-confidence image tasks will silently return unusable responses."
+productionGotcha: "VLMs can refuse or give degraded output on images containing certain content (personal photos, certain medical imagery, explicit content) without a clear error signal: the response is a refusal in natural language, not an HTTP error code. Build explicit refusal detection into your output parsing, or low-confidence image tasks will silently return unusable responses."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An image pipeline is not just "receive image, send to model, read response." Between receiving an image from a user and parsing the model's output, there are at least five places where things can go wrong silently: the image format may be unsupported, the file may be too large, the resolution may defeat the model's ability to read fine text, the model may refuse to process the content, or the output may be a natural-language error message where you expected structured data.
 
 The pipeline has five stages:
 
-1. **Receive** — accept the image from the user or upstream system.
-2. **Validate** — check format, file size, dimensions, and optionally content type.
-3. **Preprocess** — resize, reformat, and compress as needed for the target model.
-4. **Infer** — send to the model with an appropriate prompt and resolution setting.
-5. **Parse** — extract structured output from the response, detect refusals, handle partial results.
+1. **Receive**: accept the image from the user or upstream system.
+2. **Validate**: check format, file size, dimensions, and optionally content type.
+3. **Preprocess**: resize, reformat, and compress as needed for the target model.
+4. **Infer**: send to the model with an appropriate prompt and resolution setting.
+5. **Parse**: extract structured output from the response, detect refusals, handle partial results.
 
-Document understanding is the most common production use case: OCR (reading printed or handwritten text), table extraction, and form parsing. A VLM can often outperform classical OCR on degraded or complex documents, but it requires more careful output parsing — the model describes what it sees in natural language, and you have to reliably extract structured data from that.
+Document understanding is the most common production use case: OCR (reading printed or handwritten text), table extraction, and form parsing. A VLM can often outperform classical OCR on degraded or complex documents, but it requires more careful output parsing: the model describes what it sees in natural language, and you have to reliably extract structured data from that.
 
 ### Why it matters
 
@@ -38,11 +38,11 @@ Teams that skip the validation and refusal-detection steps discover the omission
 
 > **Common Gotcha:** {frontmatter.productionGotcha}
 >
-> Content refusals are indistinguishable from successful responses at the HTTP layer — both return 200 OK. The model may respond with "I'm not able to describe this image" or a similar phrase when it encounters content its safety filters restrict. If your pipeline only checks for HTTP errors, these refusals propagate silently. A simple refusal pattern check on every response catches this class of failure before it causes downstream corruption.
+> Content refusals are indistinguishable from successful responses at the HTTP layer: both return 200 OK. The model may respond with "I'm not able to describe this image" or a similar phrase when it encounters content its safety filters restrict. If your pipeline only checks for HTTP errors, these refusals propagate silently. A simple refusal pattern check on every response catches this class of failure before it causes downstream corruption.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The full image pipeline
 
@@ -313,7 +313,7 @@ def process_image_batch(
     return results
 ```
 
-### OCR vs VLM — when each wins
+### OCR vs VLM: when each wins
 
 ```python
 def choose_extraction_strategy(
@@ -339,7 +339,7 @@ def choose_extraction_strategy(
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### When VLM beats classical OCR
 
@@ -352,7 +352,7 @@ Classical OCR (Tesseract, Amazon Textract, Google Document AI) works by detectin
 - Table cells where column alignment is implied by layout rather than explicit separators
 - Forms where the label-to-field relationship requires spatial reasoning
 
-VLMs handle all of these better because they understand semantics — they know that the number next to a dollar sign is a price, and that the row below a "Total" header probably contains a sum. They do not need the visual layout to be clean to extract meaning.
+VLMs handle all of these better because they understand semantics: they know that the number next to a dollar sign is a price, and that the row below a "Total" header probably contains a sum. They do not need the visual layout to be clean to extract meaning.
 
 However, VLMs have their own failure modes for document extraction:
 
@@ -367,14 +367,14 @@ However, VLMs have their own failure modes for document extraction:
 
 | Decision | Option A | Option B | Guidance |
 |---|---|---|---|
-| Format conversion | Keep original (e.g., PNG with alpha) | Convert to JPEG RGB | Convert to JPEG — most APIs accept it, reduces size |
-| Resizing strategy | Resize to fixed dimensions | Resize to max-dimension with aspect ratio | Preserve aspect ratio — distortion can hurt extraction |
+| Format conversion | Keep original (e.g., PNG with alpha) | Convert to JPEG RGB | Convert to JPEG: most APIs accept it, reduces size |
+| Resizing strategy | Resize to fixed dimensions | Resize to max-dimension with aspect ratio | Preserve aspect ratio: distortion can hurt extraction |
 | Compression | Highest quality (quality=95) | Moderate compression (quality=85) | 85 is a good default; test with your content type |
-| Colour mode | Keep grayscale | Convert to RGB | Convert to RGB — consistent input for the model |
+| Colour mode | Keep grayscale | Convert to RGB | Convert to RGB: consistent input for the model |
 
 ### Refusal detection strategy
 
-Building a refusal detector that is both sensitive and specific is harder than it looks. The model's refusal phrasing varies by provider and model version. Overly broad patterns produce false positives on responses that happen to contain "I'm not able to" as part of a legitimate answer ("I'm not able to find a date field in this document — the document does not appear to contain a date").
+Building a refusal detector that is both sensitive and specific is harder than it looks. The model's refusal phrasing varies by provider and model version. Overly broad patterns produce false positives on responses that happen to contain "I'm not able to" as part of a legitimate answer ("I'm not able to find a date field in this document: the document does not appear to contain a date").
 
 Better approach: combine pattern matching with a structural check.
 
@@ -400,6 +400,6 @@ def robust_refusal_detection(response_text: str, expected_schema_keys: list[str]
 
 ### Further reading
 
-- [Document Understanding Transformer](https://arxiv.org/abs/2110.00075) — Xu et al., 2021. LayoutLMv3-era document understanding; covers the challenges of joint text and layout modelling that motivate using VLMs for complex documents.
-- [Nougat: Neural Optical Understanding for Academic Documents](https://arxiv.org/abs/2308.13418) — Blecher et al., 2023. A document VLM showing where neural approaches beat classical OCR on scientific PDFs.
-- [Pillow documentation](https://pillow.readthedocs.io/en/stable/) — The Pillow library (Python Imaging Library fork); the practical reference for image preprocessing in Python.
+- [Document Understanding Transformer](https://arxiv.org/abs/2110.00075); Xu et al., 2021. LayoutLMv3-era document understanding; covers the challenges of joint text and layout modelling that motivate using VLMs for complex documents.
+- [Nougat: Neural Optical Understanding for Academic Documents](https://arxiv.org/abs/2308.13418); Blecher et al., 2023. A document VLM showing where neural approaches beat classical OCR on scientific PDFs.
+- [Pillow documentation](https://pillow.readthedocs.io/en/stable/); The Pillow library (Python Imaging Library fork); the practical reference for image preprocessing in Python.

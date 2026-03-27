@@ -19,7 +19,7 @@ const { title, description, track, moduleId, estimatedMinutes, volatility,
         lastReviewed, seoTitle, seoDescription } = mod.data;
 const currentSlug = mod.slug.split('/')[1];
 
-// SEO-resolved values — optional overrides fall back to display values
+// SEO-resolved values: optional overrides fall back to display values
 const metaTitle = seoTitle ?? title;
 const metaDescription = seoDescription ?? description;
 
@@ -55,7 +55,7 @@ const learningResource = {
 };
 
 const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
-  volatile: { label: 'Fast-moving — verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
+  volatile: { label: 'Fast-moving: verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
   emerging: { label: 'Emerging area',  classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
   stable:   { label: '',               classes: '' },
 };

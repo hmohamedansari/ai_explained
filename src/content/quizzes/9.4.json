@@ -1,5 +1,5 @@
 {
-  "title": "Multimodal Agents — Check your understanding",
+  "title": "Multimodal Agents: Check your understanding",
   "moduleId": "9.4",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "A GUI agent is tasked with submitting a form. It successfully identifies and fills the form fields in testing. After a UI redesign that changes button labels and layout, the agent clicks the wrong element and silently submits incomplete data. What architectural pattern would have caught this before it reached production?",
       "options": [
         "Increase the model's resolution setting so it can read smaller UI text more accurately",
-        "Explicit UI state validation at each action step — the agent asserts that the element it is about to interact with matches expected properties (label, position, type) before acting, rather than relying on visual pattern matching alone",
+        "Explicit UI state validation at each action step: the agent asserts that the element it is about to interact with matches expected properties (label, position, type) before acting, rather than relying on visual pattern matching alone",
         "Switch to a larger frontier model with better visual reasoning",
         "Add a retry loop that re-attempts failed actions up to three times"
       ],
       "answer": 1,
-      "explanation": "Larger models and higher resolution improve visual pattern matching but do not prevent silent failures when the UI changes — the agent may confidently identify the wrong element as the right one if the new design is visually similar. Explicit state validation is the architectural fix: before each action, the agent checks that the target element has the expected label, type, and context. This turns a silent failure into a detectable error. Retries without state validation just repeat the wrong action multiple times.",
+      "explanation": "Larger models and higher resolution improve visual pattern matching but do not prevent silent failures when the UI changes: the agent may confidently identify the wrong element as the right one if the new design is visually similar. Explicit state validation is the architectural fix: before each action, the agent checks that the target element has the expected label, type, and context. This turns a silent failure into a detectable error. Retries without state validation just repeat the wrong action multiple times.",
       "personas": ["senior", "sre"]
     },
     {
@@ -21,13 +21,13 @@
       "type": "multiple-choice",
       "question": "An agent uses vision as a tool call: it submits an image to a VLM and receives structured JSON describing the image contents, which feeds into subsequent reasoning steps. The VLM returns a description that includes objects not present in the image. What failure mode is this, and what is the correct mitigation?",
       "options": [
-        "Hallucination from the calling LLM — the orchestrator model is fabricating the tool result",
-        "Visual hallucination from the VLM tool — the model describes objects it did not see; mitigate by treating VLM tool outputs as unverified claims, adding confidence thresholds, and for high-stakes decisions requiring specific objects, include a secondary verification step",
-        "Tool call schema mismatch — the JSON output does not match the expected schema",
-        "Context overflow — the image token count exceeded the model's context window"
+        "Hallucination from the calling LLM: the orchestrator model is fabricating the tool result",
+        "Visual hallucination from the VLM tool: the model describes objects it did not see; mitigate by treating VLM tool outputs as unverified claims, adding confidence thresholds, and for high-stakes decisions requiring specific objects, include a secondary verification step",
+        "Tool call schema mismatch: the JSON output does not match the expected schema",
+        "Context overflow: the image token count exceeded the model's context window"
       ],
       "answer": 1,
-      "explanation": "Visual hallucination is a well-documented VLM failure mode where the model confidently describes objects, text, or relationships that are not present in the image. It is distinct from the orchestrator hallucinating — the tool itself is the source of the false claim. The correct mitigation treats VLM outputs as claims to verify rather than ground truth: use confidence thresholds where the API provides them, cross-reference critical claims against other signals, and for decisions that depend on the presence of a specific object or text, add a targeted verification query rather than relying on a single general description.",
+      "explanation": "Visual hallucination is a well-documented VLM failure mode where the model confidently describes objects, text, or relationships that are not present in the image. It is distinct from the orchestrator hallucinating: the tool itself is the source of the false claim. The correct mitigation treats VLM outputs as claims to verify rather than ground truth: use confidence thresholds where the API provides them, cross-reference critical claims against other signals, and for decisions that depend on the presence of a specific object or text, add a targeted verification query rather than relying on a single general description.",
       "personas": ["senior", "sre"]
     },
     {
@@ -36,12 +36,12 @@
       "question": "A multimodal agent stores image embeddings in a vector store alongside text embeddings for memory retrieval. At query time, it retrieves memories using a text query. What problem does mixed-modality memory retrieval introduce?",
       "options": [
         "Image embeddings are larger than text embeddings and slow down retrieval",
-        "Text queries and image embeddings exist in different embedding spaces unless a shared vision-language encoder was used — retrieval via cosine similarity across modality boundaries is unreliable; use a joint embedding model (e.g. CLIP-style) or store text descriptions of images alongside the image embeddings",
+        "Text queries and image embeddings exist in different embedding spaces unless a shared vision-language encoder was used: retrieval via cosine similarity across modality boundaries is unreliable; use a joint embedding model (e.g. CLIP-style) or store text descriptions of images alongside the image embeddings",
         "Vector stores do not support storing image embeddings alongside text",
         "Image embeddings decay faster than text embeddings and need more frequent refresh"
       ],
       "answer": 1,
-      "explanation": "Text encoders and image encoders produce embeddings in different vector spaces — cosine similarity between a text embedding and an image embedding from separate encoders is not meaningful. Cross-modal retrieval only works when both modalities were encoded with a shared vision-language model trained to align their spaces (like CLIP or similar). The practical fix for most production systems is to store a text description of the image (generated by a VLM at ingestion time) alongside or instead of the raw image embedding, enabling reliable text-to-text retrieval.",
+      "explanation": "Text encoders and image encoders produce embeddings in different vector spaces: cosine similarity between a text embedding and an image embedding from separate encoders is not meaningful. Cross-modal retrieval only works when both modalities were encoded with a shared vision-language model trained to align their spaces (like CLIP or similar). The practical fix for most production systems is to store a text description of the image (generated by a VLM at ingestion time) alongside or instead of the raw image embedding, enabling reliable text-to-text retrieval.",
       "personas": ["senior", "sre"]
     },
     {
@@ -50,12 +50,12 @@
       "question": "A computer-use agent successfully completes a task in a staging environment where the UI is static. In production, dynamic content (loading spinners, async-rendered elements) causes the agent to act on elements that have not fully loaded. What is the correct fix?",
       "options": [
         "Add a fixed sleep(2) before every action to allow elements to render",
-        "Implement explicit wait conditions — the agent checks for element readiness signals (element present and stable, loading indicators absent) before acting, rather than using fixed delays that are both too slow in some cases and insufficient in others",
+        "Implement explicit wait conditions: the agent checks for element readiness signals (element present and stable, loading indicators absent) before acting, rather than using fixed delays that are both too slow in some cases and insufficient in others",
         "Reduce the agent's action frequency by increasing the step interval",
         "Switch to a faster model so actions complete before async rendering begins"
       ],
       "answer": 1,
-      "explanation": "Fixed sleeps are unreliable because render times vary with network conditions and server load — a 2-second sleep may be too long under normal conditions and insufficient during high load. Explicit wait conditions (polling for element stability, checking that loading indicators have disappeared, verifying element properties) are the correct pattern from browser automation engineering applied to GUI agents. They are both faster than fixed delays in the common case and more reliable under variable conditions.",
+      "explanation": "Fixed sleeps are unreliable because render times vary with network conditions and server load: a 2-second sleep may be too long under normal conditions and insufficient during high load. Explicit wait conditions (polling for element stability, checking that loading indicators have disappeared, verifying element properties) are the correct pattern from browser automation engineering applied to GUI agents. They are both faster than fixed delays in the common case and more reliable under variable conditions.",
       "read_more": "https://playwright.dev/docs/actionability",
       "personas": ["senior", "sre"]
     },
@@ -65,12 +65,12 @@
       "question": "What is the key architectural difference between 'vision as a tool call' and 'native multimodal reasoning', and when does the distinction matter?",
       "options": [
         "Vision as a tool call is slower; native multimodal reasoning has lower latency in all cases",
-        "Vision as a tool call extracts structured information from an image via a separate VLM call, then passes it as text to the reasoning model — the reasoning model never sees the raw image; native multimodal sends the image directly to a VLM that reasons over image and text together; the distinction matters when reasoning requires tight integration of visual and textual context that structured extraction would lose",
+        "Vision as a tool call extracts structured information from an image via a separate VLM call, then passes it as text to the reasoning model: the reasoning model never sees the raw image; native multimodal sends the image directly to a VLM that reasons over image and text together; the distinction matters when reasoning requires tight integration of visual and textual context that structured extraction would lose",
         "Native multimodal reasoning is only available for frontier models; tool calls work with any model",
         "Vision as a tool call requires more VRAM because it runs two models simultaneously"
       ],
       "answer": 1,
-      "explanation": "Vision as a tool call decouples perception from reasoning: a VLM extracts structured facts from the image, and those facts are passed as text to the reasoning step. This works well when the visual information can be faithfully represented as text (OCR, object lists, bounding boxes). Native multimodal reasoning sends the raw image to a model that reasons jointly over image and language — required when the task depends on spatial relationships, subtle visual cues, or context that structured extraction would miss. The architectural choice affects both capability (what the model can reason about) and cost (tool calls add a separate API round-trip).",
+      "explanation": "Vision as a tool call decouples perception from reasoning: a VLM extracts structured facts from the image, and those facts are passed as text to the reasoning step. This works well when the visual information can be faithfully represented as text (OCR, object lists, bounding boxes). Native multimodal reasoning sends the raw image to a model that reasons jointly over image and language: required when the task depends on spatial relationships, subtle visual cues, or context that structured extraction would miss. The architectural choice affects both capability (what the model can reason about) and cost (tool calls add a separate API round-trip).",
       "personas": ["senior", "sre"]
     }
   ]

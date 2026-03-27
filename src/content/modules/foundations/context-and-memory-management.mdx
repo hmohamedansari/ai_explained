@@ -1,7 +1,7 @@
 ---
 moduleId: "1.6"
 title: "Context and Memory Management"
-description: "LLMs are stateless — they have no memory between calls. Every form of 'memory' in an AI application is something your code explicitly puts into the context window. Understanding how to manage that window is the core engineering skill behind every reliable AI system."
+description: "LLMs are stateless: they have no memory between calls. Every form of 'memory' in an AI application is something your code explicitly puts into the context window. Understanding how to manage that window is the core engineering skill behind every reliable AI system."
 track: "foundations"
 order: 6
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 7
   layer2: 15
   layer3: 19
-productionGotcha: "Context windows feel large until they aren't. A 200K token window sounds unlimited — until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits."
+productionGotcha: "Context windows feel large until they aren't. A 200K token window sounds unlimited: until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 An LLM has no memory between calls. This was the central point of module 1.1, and it has a direct consequence: **every form of memory in an AI application is context your code explicitly manages**.
 
@@ -30,15 +30,15 @@ There are three ways to give an LLM access to information beyond the current mes
 | **Retrieval** | Search an external store; inject only what's relevant | Large knowledge bases, long documents |
 | **Summarisation** | Compress history into a shorter form; include the summary | Long conversations, recurring sessions |
 
-Most production systems combine all three. The skill is knowing when to use each — and how to avoid running out of context window before the user is done.
+Most production systems combine all three. The skill is knowing when to use each, and how to avoid running out of context window before the user is done.
 
 ### Production Gotcha
 
-> **Common Gotcha:** Context windows feel large until they aren't. A 200K token window sounds unlimited — until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits.
+> **Common Gotcha:** Context windows feel large until they aren't. A 200K token window sounds unlimited: until you add a system prompt, conversation history, retrieved documents, and tool definitions, and discover you've consumed 80% of it before the user types a word. Measure actual token usage per request from day one. Design your context budget before you need to, not after users start hitting limits.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The context budget
 
@@ -183,11 +183,11 @@ def summarise_history(
     return [summary_message] + recent
 ```
 
-Use a fast, cheap model for summarisation — it's a compression task, not a reasoning task. Trigger summarisation at around 70% context usage so you have headroom before it becomes critical.
+Use a fast, cheap model for summarisation: it's a compression task, not a reasoning task. Trigger summarisation at around 70% context usage so you have headroom before it becomes critical.
 
 ### Retrieval-Augmented Generation (RAG) in context
 
-For knowledge that doesn't fit in a window, retrieve only what's relevant to the current query. The context budget for retrieved content is typically 2,000–8,000 tokens — enough for 3–8 substantive document chunks:
+For knowledge that doesn't fit in a window, retrieve only what's relevant to the current query. The context budget for retrieved content is typically 2,000–8,000 tokens: enough for 3–8 substantive document chunks:
 
 ```python
 def build_prompt_with_retrieval(
@@ -221,7 +221,7 @@ The two most important constraints: limit the number of chunks and cap each chun
 
 ### Before vs After
 
-**Unbounded history — hits limits silently:**
+**Unbounded history: hits limits silently:**
 ```python
 # BAD: history grows forever; eventually the API errors or quality degrades
 history = []
@@ -236,7 +236,7 @@ while True:
     history.append({"role": "assistant", "content": response.text})
 ```
 
-**Budget-aware history — controlled and observable:**
+**Budget-aware history: controlled and observable:**
 ```python
 # GOOD: trim history, log token usage, degrade gracefully
 history = []
@@ -249,15 +249,15 @@ while True:
 
 ### Common mistakes
 
-1. **No token monitoring** — Discovering context limits from user complaints rather than from metrics. Instrument `usage.input_tokens` from the first day.
-2. **Sliding window without warning** — Silently dropping early context without telling the model or the user. Early turns may contain critical constraints.
-3. **Summarising at 99%** — Leaving summarisation until the window is almost full means the summarisation call itself may fail. Trigger at 70–80%.
-4. **Including all retrieved chunks regardless of relevance** — Top-k retrieval returns k results even when only 1 is relevant. Score and filter chunks; don't include low-relevance content just because the retriever returned it.
-5. **Forgetting tool definitions in the budget** — Tool definitions are not free. Ten detailed tool schemas can add 3,000–5,000 tokens to every request.
+1. **No token monitoring**: Discovering context limits from user complaints rather than from metrics. Instrument `usage.input_tokens` from the first day.
+2. **Sliding window without warning**: Silently dropping early context without telling the model or the user. Early turns may contain critical constraints.
+3. **Summarising at 99%**: Leaving summarisation until the window is almost full means the summarisation call itself may fail. Trigger at 70–80%.
+4. **Including all retrieved chunks regardless of relevance**: Top-k retrieval returns k results even when only 1 is relevant. Score and filter chunks; don't include low-relevance content just because the retriever returned it.
+5. **Forgetting tool definitions in the budget**: Tool definitions are not free. Ten detailed tool schemas can add 3,000–5,000 tokens to every request.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Lost in the middle
 
@@ -266,7 +266,7 @@ Attention is not uniformly distributed across the context window. Research on lo
 Practical implications:
 - Put the most important instructions at the **start** of the system prompt, not buried after background information
 - In RAG, place the most relevant chunk **first** or **last** in the retrieved context block, not in the middle
-- In long conversation histories, critical constraints stated early in the session may be forgotten — re-state them in the system prompt or periodically remind the model
+- In long conversation histories, critical constraints stated early in the session may be forgotten: re-state them in the system prompt or periodically remind the model
 
 ### Cache-aware prompt ordering
 
@@ -280,7 +280,7 @@ Many providers (including Anthropic) support **prompt caching**: if the beginnin
 4. Current user message (always new)
 ```
 
-Reversing this order (user message first) defeats caching entirely. For applications with expensive system prompts or large shared document sets, cache-friendly ordering can reduce cached-prefix read costs by up to ~90% when hit rates are high — but cache writes carry a ~25% overhead, so realized savings depend on traffic patterns and how often the cached prefix is actually reused.
+Reversing this order (user message first) defeats caching entirely. For applications with expensive system prompts or large shared document sets, cache-friendly ordering can reduce cached-prefix read costs by up to ~90% when hit rates are high, but cache writes carry a ~25% overhead, so realized savings depend on traffic patterns and how often the cached prefix is actually reused.
 
 ### Memory architectures for agents
 
@@ -293,7 +293,7 @@ Long-running agents need more than a sliding window. The four memory types typic
 | **Semantic** | Vector store | Retrieved by similarity | Facts, documents, knowledge base |
 | **Procedural** | Prompt / tool definitions | Always-on | How to do things: tools, instructions |
 
-Most agent frameworks implement some combination of these. The key design question is not "which memory type" but "what is the retrieval trigger" — when does the agent decide to look something up vs keep it in the working context.
+Most agent frameworks implement some combination of these. The key design question is not "which memory type" but "what is the retrieval trigger": when does the agent decide to look something up vs keep it in the working context.
 
 ### Token counting before you send
 
@@ -322,11 +322,11 @@ if token_count > CONTEXT_LIMIT - MAX_OUTPUT_TOKENS:
     history = summarise_history(history)
 ```
 
-`count_tokens` makes an API call but does not run inference — it is fast and cheap. Use it as a pre-flight check in pipelines where a context overflow would require restarting a long workflow. **OpenAI users** can get equivalent counts locally with the [`tiktoken`](https://github.com/openai/tiktoken) library (no API call required). **Google Gemini** exposes token counts in the response metadata after the call.
+`count_tokens` makes an API call but does not run inference: it is fast and cheap. Use it as a pre-flight check in pipelines where a context overflow would require restarting a long workflow. **OpenAI users** can get equivalent counts locally with the [`tiktoken`](https://github.com/openai/tiktoken) library (no API call required). **Google Gemini** exposes token counts in the response metadata after the call.
 
 ### Further reading
 
-- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. Demonstrates the U-shaped attention pattern in long-context models and its implications for document placement.
-- [Prompt caching — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) [Anthropic] — How to structure prompts for cache hits; cost and latency implications. OpenAI and Google have equivalent features under slightly different names.
-- [Token counting — Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/token-counting) [Anthropic] — API reference for pre-flight token counting via Anthropic's API.
-- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560) — Packer et al., 2023. Proposes a virtual context management system that pages memory in and out, analogous to OS virtual memory — useful background for agent memory architectures.
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172); Liu et al., 2023. Demonstrates the U-shaped attention pattern in long-context models and its implications for document placement.
+- [Prompt caching, Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) [Anthropic], How to structure prompts for cache hits; cost and latency implications. OpenAI and Google have equivalent features under slightly different names.
+- [Token counting, Anthropic documentation](https://docs.anthropic.com/en/docs/build-with-claude/token-counting) [Anthropic], API reference for pre-flight token counting via Anthropic's API.
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560), Packer et al., 2023. Proposes a virtual context management system that pages memory in and out, analogous to OS virtual memory, useful background for agent memory architectures.

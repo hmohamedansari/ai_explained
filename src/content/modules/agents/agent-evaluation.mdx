@@ -1,7 +1,7 @@
 ---
 moduleId: "4.8"
 title: "Agent Evaluation"
-description: "Evaluating an agent is fundamentally different from evaluating a model. The question is not just 'was the answer correct?' but 'did the agent take the right path to get there, and would it hold up under different conditions?' This module covers offline trajectory evaluation and online production monitoring — the two distinct disciplines that together keep agent quality measurable."
+description: "Evaluating an agent is fundamentally different from evaluating a model. The question is not just 'was the answer correct?' but 'did the agent take the right path to get there, and would it hold up under different conditions?' This module covers offline trajectory evaluation and online production monitoring: the two distinct disciplines that together keep agent quality measurable."
 track: "agents"
 order: 8
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,27 +12,27 @@ estimatedMinutes:
   layer1: 5
   layer2: 19
   layer3: 14
-productionGotcha: "Task success rate alone is a misleading metric for agents. An agent that reaches the correct answer via an unnecessarily long path (10 steps where 3 would do), wrong intermediate steps, or excessive cost is not 'working' — it is passing the test while failing the real requirements. Measure trajectory quality (step count, tool selection accuracy, cost per task) alongside task success. An agent that regresses on trajectory while holding success rate is silently becoming more expensive and fragile."
+productionGotcha: "Task success rate alone is a misleading metric for agents. An agent that reaches the correct answer via an unnecessarily long path (10 steps where 3 would do), wrong intermediate steps, or excessive cost is not 'working': it is passing the test while failing the real requirements. Measure trajectory quality (step count, tool selection accuracy, cost per task) alongside task success. An agent that regresses on trajectory while holding success rate is silently becoming more expensive and fragile."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Agent evaluation splits into two disciplines with different purposes and methods:
 
-**Offline evaluation** — run before deployment. Uses a fixed dataset of tasks with known expected trajectories and outcomes. Fast, cheap, reproducible. Catches regressions before they reach users.
+**Offline evaluation**: run before deployment. Uses a fixed dataset of tasks with known expected trajectories and outcomes. Fast, cheap, reproducible. Catches regressions before they reach users.
 
-**Online evaluation** — runs in production on real traffic. Measures actual user outcomes, real cost per task, and real failure rates. Catches distribution shifts and long-tail failures that offline datasets don't cover.
+**Online evaluation**: runs in production on real traffic. Measures actual user outcomes, real cost per task, and real failure rates. Catches distribution shifts and long-tail failures that offline datasets don't cover.
 
-Neither is sufficient alone. Offline eval without online monitoring means you don't know how the agent behaves on real queries. Online monitoring without offline eval means you have no regression gate — every change ships to users before quality is verified.
+Neither is sufficient alone. Offline eval without online monitoring means you don't know how the agent behaves on real queries. Online monitoring without offline eval means you have no regression gate: every change ships to users before quality is verified.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Offline: task success rate
 
-The most basic metric — did the agent complete the task correctly?
+The most basic metric: did the agent complete the task correctly?
 
 ```python
 @dataclass
@@ -277,7 +277,7 @@ def compare_versions(records_v1: list, records_v2: list) -> dict:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Eval set construction
 
@@ -303,7 +303,7 @@ EVAL_SET_REQUIREMENTS = {
 }
 ```
 
-Seed the eval set with real production queries within the first week of launch — synthetic cases miss the long tail.
+Seed the eval set with real production queries within the first week of launch: synthetic cases miss the long tail.
 
 ### Red-teaming agents
 
@@ -341,6 +341,6 @@ Run red-team cases before every major release and when adding new tools.
 
 ### Further reading
 
-- [AgentBench: Evaluating LLMs as Agents](https://arxiv.org/abs/2308.03688) — Liu et al., 2023. Multi-environment benchmark for agent task success; useful methodology for constructing eval cases.
-- [Evaluating Language-Model Agents on Realistic Autonomous Tasks](https://arxiv.org/abs/2312.11671) — Kinniment et al., 2023 (ARC Evals / METR). Evaluation methodology for realistic multi-step tasks; focuses on tasks relevant to autonomous replication and adaptation (ARA) risk assessment; useful reference for constructing high-difficulty eval cases.
-- [Holistic Evaluation of Language Models (HELM)](https://crfm.stanford.edu/helm/) — Stanford CRFM. Multi-metric evaluation framework; the multi-dimensional scoring approach is applicable to agent trajectory evaluation.
+- [AgentBench: Evaluating LLMs as Agents](https://arxiv.org/abs/2308.03688); Liu et al., 2023. Multi-environment benchmark for agent task success; useful methodology for constructing eval cases.
+- [Evaluating Language-Model Agents on Realistic Autonomous Tasks](https://arxiv.org/abs/2312.11671); Kinniment et al., 2023 (ARC Evals / METR). Evaluation methodology for realistic multi-step tasks; focuses on tasks relevant to autonomous replication and adaptation (ARA) risk assessment; useful reference for constructing high-difficulty eval cases.
+- [Holistic Evaluation of Language Models (HELM)](https://crfm.stanford.edu/helm/); Stanford CRFM. Multi-metric evaluation framework; the multi-dimensional scoring approach is applicable to agent trajectory evaluation.

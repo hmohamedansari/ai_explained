@@ -1,7 +1,7 @@
 ---
 moduleId: "6.7"
 title: "Production Monitoring & Drift Detection"
-description: "Learn to detect quality regressions, distribution shifts, and cost anomalies in live LLM systems before users report them — using metrics, statistical process control, and a sample-and-judge pipeline."
+description: "Learn to detect quality regressions, distribution shifts, and cost anomalies in live LLM systems before users report them: using metrics, statistical process control, and a sample-and-judge pipeline."
 track: "evaluation"
 order: 7
 personas: ["leader", "junior", "senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "User feedback signals (thumbs up/down) have strong survivorship bias — unhappy users abandon the product rather than leave feedback. Complement explicit feedback with implicit signals: session length, follow-up questions, correction requests. A product with 90% thumbs-up but a 40% session abandonment rate after the first AI response has a problem that explicit feedback is hiding."
+productionGotcha: "User feedback signals (thumbs up/down) have strong survivorship bias: unhappy users abandon the product rather than leave feedback. Complement explicit feedback with implicit signals: session length, follow-up questions, correction requests. A product with 90% thumbs-up but a 40% session abandonment rate after the first AI response has a problem that explicit feedback is hiding."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Passing your eval suite before deployment is necessary but not sufficient. Production traffic is different from your eval set in ways that matter: users ask questions you didn't anticipate, input patterns shift over time, model providers silently update their models, and the data sources feeding your system drift.
 
-Production monitoring is the discipline of continuously measuring your system's behavior on real traffic — not to replace pre-deploy evals, but to catch the failure modes they cannot see.
+Production monitoring is the discipline of continuously measuring your system's behavior on real traffic: not to replace pre-deploy evals, but to catch the failure modes they cannot see.
 
 The core practice is a **sample-and-judge pipeline**: route a fraction of production responses to an LLM judge on an asynchronous path, continuously measuring quality without blocking any user requests. Combine this with operational metrics (error rate, latency, cost) and user signal proxies (session abandonment, retry rate, explicit feedback) to get a complete picture.
 
-The goal is to detect regressions before users report them — or before costs spiral.
+The goal is to detect regressions before users report them, or before costs spiral.
 
 ### Why it matters
 
@@ -38,7 +38,7 @@ Design your monitoring to include implicit signals from user behavior, not just 
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Core operational metrics
 
@@ -217,7 +217,7 @@ async def judge_production_sample(
 
 ### Statistical process control for quality metrics
 
-Use statistical process control (SPC) to detect when quality metrics deviate from expected behavior — not just when they cross a fixed threshold:
+Use statistical process control (SPC) to detect when quality metrics deviate from expected behavior: not just when they cross a fixed threshold:
 
 ```python
 class QualityControlChart:
@@ -336,7 +336,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### The monitoring stack for LLM systems
 
@@ -348,7 +348,7 @@ A complete monitoring setup has three layers working together:
 | Cost | Custom cost aggregator | Tokens, cost per request, cost per feature | Hourly; alert on anomaly |
 | Quality | Sample-and-judge pipeline, user signals | Output quality scores, user satisfaction | Continuous async; alert on SPC deviation |
 
-The key is that these layers are complementary. Infrastructure alerts fire instantly when the system is down. Cost alerts fire within an hour when a model change or prompt change bloats token usage. Quality alerts fire when output quality degrades — even if the system is technically healthy.
+The key is that these layers are complementary. Infrastructure alerts fire instantly when the system is down. Cost alerts fire within an hour when a model change or prompt change bloats token usage. Quality alerts fire when output quality degrades: even if the system is technically healthy.
 
 ### Incident response for quality regressions
 
@@ -395,10 +395,10 @@ CANARY_PROBES = [
 ]
 ```
 
-Pin to specific model versions in production wherever possible, and treat a model version as you would a dependency version — upgrade deliberately, with an eval run before promotion.
+Pin to specific model versions in production wherever possible, and treat a model version as you would a dependency version: upgrade deliberately, with an eval run before promotion.
 
 ### Further reading
 
-- [Towards Observability for Machine Learning Pipelines](https://arxiv.org/abs/2108.13557) — Shankar et al., 2021. Applies software observability principles to ML systems; the monitoring architecture described maps directly to LLM systems.
-- [Statistical Process Control in Software Engineering](https://www.sei.cmu.edu/reports/99tr034.pdf) — SEI/CMU, 1999. The original SPC methods from manufacturing adapt well to metric-based quality monitoring; the EWMA approach in this module is drawn from this literature.
-- [Evidently AI — Open-Source ML Monitoring](https://www.evidentlyai.com/blog/ml-monitoring-drift-detection) — Evidently AI, 2023. Practical drift detection methods including embedding-based distribution shift; useful as a reference implementation.
+- [Towards Observability for Machine Learning Pipelines](https://arxiv.org/abs/2108.13557); Shankar et al., 2021. Applies software observability principles to ML systems; the monitoring architecture described maps directly to LLM systems.
+- [Statistical Process Control in Software Engineering](https://www.sei.cmu.edu/reports/99tr034.pdf); SEI/CMU, 1999. The original SPC methods from manufacturing adapt well to metric-based quality monitoring; the EWMA approach in this module is drawn from this literature.
+- [Evidently AI, Open-Source ML Monitoring](https://www.evidentlyai.com/blog/ml-monitoring-drift-detection), Evidently AI, 2023. Practical drift detection methods including embedding-based distribution shift; useful as a reference implementation.

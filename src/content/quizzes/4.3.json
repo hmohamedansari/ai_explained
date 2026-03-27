@@ -1,29 +1,29 @@
 {
-  "title": "Planning and Decomposition — Check your understanding",
+  "title": "Planning and Decomposition: Check your understanding",
   "moduleId": "4.3",
   "questions": [
     {
       "id": "4.3-q1",
       "type": "multiple-choice",
-      "question": "A task requires searching three data sources and comparing results. The searches are independent — none depends on the output of another. Which planning approach minimises total latency?",
+      "question": "A task requires searching three data sources and comparing results. The searches are independent: none depends on the output of another. Which planning approach minimises total latency?",
       "options": [
-        "ReAct — reason about each search sequentially before executing",
-        "Plan-then-execute with parallel execution — generate the plan upfront, then run all three independent searches concurrently",
-        "Dynamic replanning — start the first search and decide the next steps based on results",
-        "No planning — let the agent decide the order at each step"
+        "ReAct: reason about each search sequentially before executing",
+        "Plan-then-execute with parallel execution: generate the plan upfront, then run all three independent searches concurrently",
+        "Dynamic replanning: start the first search and decide the next steps based on results",
+        "No planning: let the agent decide the order at each step"
       ],
       "answer": 1,
-      "explanation": "When sub-tasks are independent, plan-then-execute with parallel execution is optimal. Generate the full plan in one LLM call (which identifies that the searches are independent), then execute all three concurrently. This reduces total search time to the duration of the slowest search rather than the sum of all three. ReAct's default loop structure is reason→act→observe, processing one observation before the next action — it does not produce a parallelisable plan upfront, so independent branches are typically handled sequentially unless the implementation explicitly adds parallel dispatch. Dynamic replanning adds overhead without benefit when the task structure is already clear.",
+      "explanation": "When sub-tasks are independent, plan-then-execute with parallel execution is optimal. Generate the full plan in one LLM call (which identifies that the searches are independent), then execute all three concurrently. This reduces total search time to the duration of the slowest search rather than the sum of all three. ReAct's default loop structure is reason→act→observe, processing one observation before the next action: it does not produce a parallelisable plan upfront, so independent branches are typically handled sequentially unless the implementation explicitly adds parallel dispatch. Dynamic replanning adds overhead without benefit when the task structure is already clear.",
       "personas": ["junior", "senior", "sre"]
     },
     {
       "id": "4.3-q2",
       "type": "multiple-choice",
-      "question": "An agent is halfway through a 6-step plan when a tool result reveals that step 4 is now impossible — the resource it was supposed to access no longer exists. What should happen?",
+      "question": "An agent is halfway through a 6-step plan when a tool result reveals that step 4 is now impossible: the resource it was supposed to access no longer exists. What should happen?",
       "options": [
-        "Continue executing the original plan — steps 5 and 6 may still succeed",
-        "Abort the entire task — a plan that cannot be fully executed is invalid",
-        "Trigger dynamic replanning — regenerate the remaining steps based on the new information, adapting the path to the changed reality",
+        "Continue executing the original plan: steps 5 and 6 may still succeed",
+        "Abort the entire task: a plan that cannot be fully executed is invalid",
+        "Trigger dynamic replanning: regenerate the remaining steps based on the new information, adapting the path to the changed reality",
         "Retry step 4 with different arguments until it succeeds"
       ],
       "answer": 2,
@@ -41,7 +41,7 @@
         "It causes the model to use a chain-of-thought that is invisible to the user"
       ],
       "answer": 1,
-      "explanation": "The 'Thought:' prefix is a prompt pattern, not an API requirement. Its benefits are twofold: it forces explicit reasoning before each action (which reduces impulsive or poorly-justified tool calls), and it makes the agent's step-by-step decision process visible in the output — invaluable for debugging why the agent took a particular path. Without it, the model acts without articulating reasoning, making failure investigation harder.",
+      "explanation": "The 'Thought:' prefix is a prompt pattern, not an API requirement. Its benefits are twofold: it forces explicit reasoning before each action (which reduces impulsive or poorly-justified tool calls), and it makes the agent's step-by-step decision process visible in the output: invaluable for debugging why the agent took a particular path. Without it, the model acts without articulating reasoning, making failure investigation harder.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -49,27 +49,27 @@
       "type": "multiple-choice",
       "question": "A task is estimated to require 2 tool calls and complete in under 10 seconds. A team member suggests adding a planning step to 'improve output quality.' What does the decision framework say?",
       "options": [
-        "Always add planning — it never hurts and only improves reliability",
-        "Do not add planning — the task is short enough that planning overhead (one extra LLM call) likely exceeds any quality benefit, and the agent's loop handles 2-step tasks without explicit decomposition",
+        "Always add planning: it never hurts and only improves reliability",
+        "Do not add planning: the task is short enough that planning overhead (one extra LLM call) likely exceeds any quality benefit, and the agent's loop handles 2-step tasks without explicit decomposition",
         "Add planning only if the task involves multiple tools",
         "Add planning if the agent has previously made mistakes on similar tasks"
       ],
       "answer": 1,
-      "explanation": "Planning adds at least one full LLM call before any action. For a 2-step task, that planning call may cost as much as the task itself and adds latency without improving outcomes — the ReAct loop handles 2-step tasks natively. Planning delivers value when the task has genuinely unknown structure or enough steps that decomposition reduces error. The rule: if you can enumerate the steps yourself, write a chain; add planning only when the path is genuinely uncertain.",
+      "explanation": "Planning adds at least one full LLM call before any action. For a 2-step task, that planning call may cost as much as the task itself and adds latency without improving outcomes: the ReAct loop handles 2-step tasks natively. Planning delivers value when the task has genuinely unknown structure or enough steps that decomposition reduces error. The rule: if you can enumerate the steps yourself, write a chain; add planning only when the path is genuinely uncertain.",
       "personas": ["junior", "senior", "sre"]
     },
     {
       "id": "4.3-q5",
       "type": "multiple-choice",
-      "question": "A planning step generates a 6-step plan. After evaluating it, you find that step 3 is too coarse — it tries to do three distinct things in one step. What problem does this cause during execution?",
+      "question": "A planning step generates a 6-step plan. After evaluating it, you find that step 3 is too coarse: it tries to do three distinct things in one step. What problem does this cause during execution?",
       "options": [
-        "No problem — coarse steps are more efficient because they reduce the number of tool calls",
+        "No problem: coarse steps are more efficient because they reduce the number of tool calls",
         "The executing agent must break step 3 into sub-steps without a clear boundary, which can cause confused tool selection, missed sub-goals, or conflation of distinct operations into a single ambiguous action",
         "The model will automatically split coarse steps into finer ones during execution",
         "Coarse steps only cause problems when they involve irreversible actions"
       ],
       "answer": 1,
-      "explanation": "Atomicity is a key quality dimension of a plan: each step should be independently executable. A coarse step that combines multiple operations creates ambiguity about which tool to call, what constitutes completion, and how to handle partial success. The executing agent either treats it as a single action (missing sub-goals) or improvises sub-steps without structure (increasing error risk). Good plans should be reviewed for atomicity — if you can describe a step with 'and then', split it.",
+      "explanation": "Atomicity is a key quality dimension of a plan: each step should be independently executable. A coarse step that combines multiple operations creates ambiguity about which tool to call, what constitutes completion, and how to handle partial success. The executing agent either treats it as a single action (missing sub-goals) or improvises sub-steps without structure (increasing error risk). Good plans should be reviewed for atomicity: if you can describe a step with 'and then', split it.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

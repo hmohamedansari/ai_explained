@@ -1,7 +1,7 @@
 ---
 moduleId: "1.3"
 title: "Models and Model Selection"
-description: "Not every task needs the most capable model. Understanding the capability-cost-latency tradeoff lets you pick the right model for each job — and avoid paying frontier prices for work a smaller model handles just as well."
+description: "Not every task needs the most capable model. Understanding the capability-cost-latency tradeoff lets you pick the right model for each job, and avoid paying frontier prices for work a smaller model handles just as well."
 track: "foundations"
 order: 3
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 6
   layer2: 13
   layer3: 17
-productionGotcha: "Model aliases move when providers ship improvements — your output distribution can shift with no action on your part. For example, 'claude-opus-4-6', 'gpt-4o', and 'gemini-1.5-pro' are all aliases that can update silently. Snapshot-dated IDs (e.g. 'claude-haiku-4-5-20251001') are stable. Always use pinned, versioned IDs in production and CI; check your provider's models page for current IDs."
+productionGotcha: "Model aliases move when providers ship improvements: your output distribution can shift with no action on your part. For example, 'claude-opus-4-6', 'gpt-4o', and 'gemini-1.5-pro' are all aliases that can update silently. Snapshot-dated IDs (e.g. 'claude-haiku-4-5-20251001') are stable. Always use pinned, versioned IDs in production and CI; check your provider's models page for current IDs."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Models are not interchangeable. Every model sits somewhere on three axes: **capability**, **cost**, and **latency**. Picking the right model is one of the highest-leverage decisions in an AI system — not because cheaper is always better, but because over-capability is real: using a frontier model for a task a smaller one handles just as well is both slower and more expensive.
+Models are not interchangeable. Every model sits somewhere on three axes: **capability**, **cost**, and **latency**. Picking the right model is one of the highest-leverage decisions in an AI system: not because cheaper is always better, but because over-capability is real: using a frontier model for a task a smaller one handles just as well is both slower and more expensive.
 
 The rough hierarchy all the major providers offer:
 
@@ -32,11 +32,11 @@ A practical starting point: **prototype with the frontier model**, then work dow
 
 ### Production Gotcha
 
-> **Common Gotcha:** Model aliases move when providers ship improvements. `gpt-4o`, `claude-sonnet-4-6`, and similar names are convenient but unpredictable in production — a silent update can change your output distribution overnight. Pin versioned model IDs in production and CI; discover changes on your schedule, not when a user reports degraded output.
+> **Common Gotcha:** Model aliases move when providers ship improvements. `gpt-4o`, `claude-sonnet-4-6`, and similar names are convenient but unpredictable in production: a silent update can change your output distribution overnight. Pin versioned model IDs in production and CI; discover changes on your schedule, not when a user reports degraded output.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The three axes
 
@@ -74,7 +74,7 @@ def answer(user_message: str) -> str:
     return response.text
 ```
 
-**In practice — Anthropic SDK:**
+**In practice: Anthropic SDK:**
 
 ```python
 import anthropic
@@ -112,7 +112,7 @@ The classifier call itself costs almost nothing; the savings on routing simple r
 
 ### Evaluating model suitability
 
-Don't guess — measure. Build a small evaluation set (50–200 representative inputs with expected outputs) and score each model tier against it. The right questions are:
+Don't guess: measure. Build a small evaluation set (50–200 representative inputs with expected outputs) and score each model tier against it. The right questions are:
 
 1. Does the output meet the quality bar at this tier?
 2. What is the cost per 1,000 requests at this tier?
@@ -122,7 +122,7 @@ A model that achieves 95% of the quality at 15% of the cost is almost always the
 
 ### Before vs After
 
-**Over-capability — using frontier for simple routing:**
+**Over-capability: using frontier for simple routing:**
 ```python
 # BAD: Paying frontier prices to classify support tickets into 5 buckets
 response = llm.chat(
@@ -133,7 +133,7 @@ response = llm.chat(
 )
 ```
 
-**Right-sized — fast model for classification:**
+**Right-sized: fast model for classification:**
 ```python
 # GOOD: Same task, 10–20x cheaper, faster response
 response = llm.chat(
@@ -146,48 +146,48 @@ response = llm.chat(
 
 ### Common mistakes
 
-1. **Using frontier for everything** — Simplest to start with, but costly and slow at scale. Graduate tasks to smaller models once you have an eval.
-2. **Using floating model aliases in production** — Aliases like `gpt-4o` or `claude-sonnet-4-6` can update silently. Pin versioned IDs.
-3. **Comparing models without an eval set** — Vibes-based model selection. Build even a simple eval before committing to a model for a production feature.
-4. **Ignoring output token costs** — Smaller models are cheaper on input; the ratio differs on output. Check both.
-5. **One model for all tasks in an application** — Most non-trivial applications have multiple task types with different quality requirements. A single model choice is usually a compromise in the wrong direction for at least one task.
+1. **Using frontier for everything**: Simplest to start with, but costly and slow at scale. Graduate tasks to smaller models once you have an eval.
+2. **Using floating model aliases in production**: Aliases like `gpt-4o` or `claude-sonnet-4-6` can update silently. Pin versioned IDs.
+3. **Comparing models without an eval set**: Vibes-based model selection. Build even a simple eval before committing to a model for a production feature.
+4. **Ignoring output token costs**: Smaller models are cheaper on input; the ratio differs on output. Check both.
+5. **One model for all tasks in an application**: Most non-trivial applications have multiple task types with different quality requirements. A single model choice is usually a compromise in the wrong direction for at least one task.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### How capability differences manifest
 
 Frontier models outperform smaller models most visibly on:
 
-- **Instruction-following on complex, multi-constraint prompts** — When the system prompt has many rules and the request has unusual edge cases, smaller models drop constraints more often.
-- **Long-context coherence** — Over long documents (100K+ tokens), frontier models maintain more consistent reasoning and miss fewer details.
-- **Novel task generalisation** — For tasks outside the common distribution of training data, frontier models hallucinate less and request clarification more reliably.
-- **Code generation on complex tasks** — Multi-file refactors, algorithmic problems, language interop. Smaller models produce more plausible-but-wrong code.
+- **Instruction-following on complex, multi-constraint prompts**: When the system prompt has many rules and the request has unusual edge cases, smaller models drop constraints more often.
+- **Long-context coherence**: Over long documents (100K+ tokens), frontier models maintain more consistent reasoning and miss fewer details.
+- **Novel task generalisation**: For tasks outside the common distribution of training data, frontier models hallucinate less and request clarification more reliably.
+- **Code generation on complex tasks**: Multi-file refactors, algorithmic problems, language interop. Smaller models produce more plausible-but-wrong code.
 
-For well-defined, high-volume tasks with clear templates — classification, extraction, summarisation from a fixed schema — quality gaps narrow substantially.
+For well-defined, high-volume tasks with clear templates, classification, extraction, summarisation from a fixed schema, quality gaps narrow substantially.
 
 ### Context window differences
 
-Different models within the same provider family may have different context windows. Always check current documentation — context limits change with model updates. For tasks requiring very long context (full codebase analysis, long document Q&A), verify the target model's limit before committing to an architecture.
+Different models within the same provider family may have different context windows. Always check current documentation: context limits change with model updates. For tasks requiring very long context (full codebase analysis, long document Q&A), verify the target model's limit before committing to an architecture.
 
 ### Versioning and stability
 
 Model providers use two naming conventions:
 
-- **Alias** (e.g. `claude-opus-4-6`, `gpt-4o`, `gemini-1.5-pro`) — Always points to the current recommended version. Updates when the provider ships improvements. Simple to use; unpredictable in production.
-- **Pinned version** (e.g. `claude-haiku-4-5-20251001`, `gpt-4o-2024-11-20`) — Fixed to a specific release. Output distribution only changes when you change it. Required for production. Check your provider's models page for the current versioned IDs.
+- **Alias** (e.g. `claude-opus-4-6`, `gpt-4o`, `gemini-1.5-pro`); Always points to the current recommended version. Updates when the provider ships improvements. Simple to use; unpredictable in production.
+- **Pinned version** (e.g. `claude-haiku-4-5-20251001`, `gpt-4o-2024-11-20`); Fixed to a specific release. Output distribution only changes when you change it. Required for production. Check your provider's models page for the current versioned IDs.
 
 A robust model management strategy:
 
 1. Use pinned versions in production and CI
 2. Subscribe to your provider's changelog and model deprecation notices
 3. When a new version ships, run your eval set against it before promoting
-4. Treat model upgrades as software deployments — tested, staged, rollback-capable
+4. Treat model upgrades as software deployments: tested, staged, rollback-capable
 
 ### The cost of capability at scale
 
-To make the economics concrete, here's a rough comparison using Anthropic's March 2026 pricing — other providers are in a similar range, and the *ratio* between tiers matters more than the absolute numbers:
+To make the economics concrete, here's a rough comparison using Anthropic's March 2026 pricing: other providers are in a similar range, and the *ratio* between tiers matters more than the absolute numbers:
 
 | Model tier | Input cost (Anthropic, March 2026) | 1M requests × 500 tokens |
 |---|---|---|
@@ -195,9 +195,9 @@ To make the economics concrete, here's a rough comparison using Anthropic's Marc
 | Balanced | $3 / MTok | ~$1,500 |
 | Fast | $1 / MTok | ~$500 |
 
-*Always verify pricing directly with your provider — rates change. The key takeaway is the 5× gap between frontier and fast tiers, which applies across most providers.*
+*Always verify pricing directly with your provider: rates change. The key takeaway is the 5× gap between frontier and fast tiers, which applies across most providers.*
 
-At 1M requests per day (a moderate consumer product), the difference between fast and frontier for a classification task is ~$730K annually. Model selection is an engineering decision with real P&L impact — whatever provider you use.
+At 1M requests per day (a moderate consumer product), the difference between fast and frontier for a classification task is ~$730K annually. Model selection is an engineering decision with real P&L impact: whatever provider you use.
 
 ### Fine-tuning vs prompt engineering vs model selection
 
@@ -205,7 +205,7 @@ When a model underperforms on your task, there are three levers:
 
 | Lever | When to reach for it | Cost and complexity |
 |---|---|---|
-| **Better prompt** | Almost always — try this first | Cheapest; often sufficient |
+| **Better prompt** | Almost always: try this first | Cheapest; often sufficient |
 | **Different model tier** | When the task is genuinely hard or genuinely simple | Medium; requires eval |
 | **Fine-tuning** | When you have hundreds of curated examples and need consistent style or domain knowledge the base model lacks | Highest; significant data and ops investment |
 
@@ -213,6 +213,6 @@ Fine-tuning is often reached for too early. A well-constructed prompt with few-s
 
 ### Further reading
 
-- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361) — Kaplan et al., 2020. The foundational paper on how capability scales with model size, data, and compute.
-- [Chinchilla: Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556) — Hoffmann et al., 2022. Revised the scaling laws and influenced how modern models are trained.
-- Model overviews — each provider maintains a current list of models, versioned IDs, and context windows: [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models/overview) · [OpenAI](https://platform.openai.com/docs/models) · [Google](https://ai.google.dev/gemini-api/docs/models/gemini).
+- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361); Kaplan et al., 2020. The foundational paper on how capability scales with model size, data, and compute.
+- [Chinchilla: Training Compute-Optimal Large Language Models](https://arxiv.org/abs/2203.15556); Hoffmann et al., 2022. Revised the scaling laws and influenced how modern models are trained.
+- Model overviews: each provider maintains a current list of models, versioned IDs, and context windows: [Anthropic](https://docs.anthropic.com/en/docs/about-claude/models/overview) · [OpenAI](https://platform.openai.com/docs/models) · [Google](https://ai.google.dev/gemini-api/docs/models/gemini).

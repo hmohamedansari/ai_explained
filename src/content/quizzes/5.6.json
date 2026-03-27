@@ -1,5 +1,5 @@
 {
-  "title": "Hardware Selection — Check your understanding",
+  "title": "Hardware Selection: Check your understanding",
   "moduleId": "5.6",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A team needs to run a 13B parameter model in INT8 precision for production serving. They are choosing between an A10G (24GB VRAM) and an L4 (24GB VRAM). The model weights require approximately 13GB. At their target batch size of 15 concurrent requests with 2K token contexts, which decision variable matters most for this choice?",
       "options": [
-        "The number of CUDA cores — more cores means faster processing per token",
-        "Memory bandwidth — the decode phase is memory-bandwidth-bound; the A10G's approximately 600 GB/s vs the L4's approximately 300 GB/s means the A10G delivers roughly 2x higher decode throughput for the same VRAM and batch size",
-        "VRAM capacity — both have 24GB so they are equivalent",
+        "The number of CUDA cores: more cores means faster processing per token",
+        "Memory bandwidth: the decode phase is memory-bandwidth-bound; the A10G's approximately 600 GB/s vs the L4's approximately 300 GB/s means the A10G delivers roughly 2x higher decode throughput for the same VRAM and batch size",
+        "VRAM capacity: both have 24GB so they are equivalent",
         "The L4 is newer and therefore faster for all workloads"
       ],
       "answer": 1,
-      "explanation": "Both GPUs have the same VRAM (24GB), so memory capacity is not the differentiating factor for this decision. The dominant bottleneck in the decode phase is memory bandwidth — reading model weights from VRAM to process each decode step. The A10G has approximately 600 GB/s of memory bandwidth while the L4 has approximately 300 GB/s. Since decode throughput is roughly proportional to memory bandwidth (each step requires reading similar amounts of VRAM), the A10G delivers approximately 2x the decode throughput. The L4 is cost-optimized and appropriate for latency-insensitive workloads; for throughput-sensitive serving, the A10G is the better choice.",
+      "explanation": "Both GPUs have the same VRAM (24GB), so memory capacity is not the differentiating factor for this decision. The dominant bottleneck in the decode phase is memory bandwidth: reading model weights from VRAM to process each decode step. The A10G has approximately 600 GB/s of memory bandwidth while the L4 has approximately 300 GB/s. Since decode throughput is roughly proportional to memory bandwidth (each step requires reading similar amounts of VRAM), the A10G delivers approximately 2x the decode throughput. The L4 is cost-optimized and appropriate for latency-insensitive workloads; for throughput-sensitive serving, the A10G is the better choice.",
       "personas": ["senior", "sre"]
     },
     {
@@ -21,13 +21,13 @@
       "type": "multiple-choice",
       "question": "A model card states that a 70B model requires 35GB VRAM for INT4 inference. A team provisions a single A100 80GB and deploys. Under production load of 30 concurrent users with 3K token contexts, the server OOMs. What did the team fail to account for?",
       "options": [
-        "The model card underestimates the weight size — 70B INT4 actually requires more than 35GB",
-        "Model card VRAM figures assume empty context — KV cache for 30 concurrent requests at 3K tokens each adds substantial VRAM on top of the 35GB weight requirement; total VRAM under load can exceed 80GB even though single-request serving worked fine",
+        "The model card underestimates the weight size: 70B INT4 actually requires more than 35GB",
+        "Model card VRAM figures assume empty context; KV cache for 30 concurrent requests at 3K tokens each adds substantial VRAM on top of the 35GB weight requirement; total VRAM under load can exceed 80GB even though single-request serving worked fine",
         "A100 80GB is not large enough for 70B models regardless of quantization",
         "INT4 models require double the listed VRAM due to dequantization overhead"
       ],
       "answer": 1,
-      "explanation": "Model card VRAM estimates report the weight size only — the VRAM required to hold model parameters in memory. They do not include KV cache, which scales with batch size and context length. At 30 concurrent requests with 3K token contexts, the KV cache can add 20–50% or more of the weight VRAM. For a 70B model, even with GQA (fewer KV heads), 30 concurrent requests at 3K tokens can require 15–30+ GB of additional KV cache VRAM, pushing total consumption over 80GB. The production rule is to add 30–50% headroom to weight estimates before provisioning, then load-test at realistic concurrency.",
+      "explanation": "Model card VRAM estimates report the weight size only: the VRAM required to hold model parameters in memory. They do not include KV cache, which scales with batch size and context length. At 30 concurrent requests with 3K token contexts, the KV cache can add 20–50% or more of the weight VRAM. For a 70B model, even with GQA (fewer KV heads), 30 concurrent requests at 3K tokens can require 15–30+ GB of additional KV cache VRAM, pushing total consumption over 80GB. The production rule is to add 30–50% headroom to weight estimates before provisioning, then load-test at realistic concurrency.",
       "personas": ["senior", "sre"]
     },
     {
@@ -35,28 +35,28 @@
       "type": "multiple-choice",
       "question": "A 70B model does not fit on a single 80GB GPU in FP16. A team decides to use two GPUs. They have two options: tensor parallelism (split each matrix operation across both GPUs) or pipeline parallelism (assign layers 0–39 to GPU 0 and layers 40–79 to GPU 1). Both GPUs are on the same server with NVLink. Which is preferred for minimizing per-request latency?",
       "options": [
-        "Pipeline parallelism — each GPU focuses on its own layers with no inter-GPU communication during forward pass",
-        "Tensor parallelism with NVLink — both GPUs participate in every layer, requiring an all-reduce after each layer but keeping both GPUs active throughout the forward pass; on NVLink this communication is fast enough that the all-reduce overhead is outweighed by the benefit of both GPUs contributing to every token",
+        "Pipeline parallelism: each GPU focuses on its own layers with no inter-GPU communication during forward pass",
+        "Tensor parallelism with NVLink: both GPUs participate in every layer, requiring an all-reduce after each layer but keeping both GPUs active throughout the forward pass; on NVLink this communication is fast enough that the all-reduce overhead is outweighed by the benefit of both GPUs contributing to every token",
         "Both are equivalent for latency when on the same server",
         "Pipeline parallelism is faster because there is no synchronization needed between GPUs"
       ],
       "answer": 1,
-      "explanation": "For minimizing latency on the same server with NVLink, tensor parallelism is generally preferred. In pipeline parallelism, each GPU processes different layers sequentially — GPU 0 finishes its layers, then sends activations to GPU 1, which processes its layers. Each GPU is idle while the other works, and the per-stage communication introduces bubble overhead. In tensor parallelism, both GPUs participate in every layer simultaneously and synchronize via all-reduce. With NVLink bandwidth (900 GB/s on modern hardware), the all-reduce communication is fast and both GPUs contribute to each decode step, halving the compute time per step. Pipeline parallelism is more appropriate for cross-node deployments where NVLink is not available.",
+      "explanation": "For minimizing latency on the same server with NVLink, tensor parallelism is generally preferred. In pipeline parallelism, each GPU processes different layers sequentially; GPU 0 finishes its layers, then sends activations to GPU 1, which processes its layers. Each GPU is idle while the other works, and the per-stage communication introduces bubble overhead. In tensor parallelism, both GPUs participate in every layer simultaneously and synchronize via all-reduce. With NVLink bandwidth (900 GB/s on modern hardware), the all-reduce communication is fast and both GPUs contribute to each decode step, halving the compute time per step. Pipeline parallelism is more appropriate for cross-node deployments where NVLink is not available.",
       "read_more": "https://docs.vllm.ai/en/latest/",
       "personas": ["senior", "sre"]
     },
     {
       "id": "5.6-q4",
       "type": "multiple-choice",
-      "question": "A team runs a high-volume nightly batch inference job that processes 1 million documents. Job duration is flexible — completing within 8 hours is acceptable. They are choosing between on-demand GPU instances and spot instances. What is the correct choice?",
+      "question": "A team runs a high-volume nightly batch inference job that processes 1 million documents. Job duration is flexible: completing within 8 hours is acceptable. They are choosing between on-demand GPU instances and spot instances. What is the correct choice?",
       "options": [
-        "On-demand — spot interruptions could cause the job to fail and restart, taking longer overall",
-        "Spot instances — the job is latency-insensitive and can be designed to checkpoint progress; spot discounts of 60–80% significantly reduce cost; interruptions cause partial restarts but checkpointing limits re-processing; for batch jobs with acceptable completion windows, spot instances are the cost-efficient choice",
-        "On-demand — the reliability premium is worth it for jobs of this scale",
+        "On-demand: spot interruptions could cause the job to fail and restart, taking longer overall",
+        "Spot instances: the job is latency-insensitive and can be designed to checkpoint progress; spot discounts of 60–80% significantly reduce cost; interruptions cause partial restarts but checkpointing limits re-processing; for batch jobs with acceptable completion windows, spot instances are the cost-efficient choice",
+        "On-demand: the reliability premium is worth it for jobs of this scale",
         "Spot instances only if the job takes under 1 hour; longer jobs should always use on-demand"
       ],
       "answer": 1,
-      "explanation": "Spot instances are well-suited for latency-insensitive batch workloads. The 60–80% discount over on-demand is substantial — on a $3/hr H100, spot might cost $0.60–1.20/hr. For a 1 million document job requiring multiple GPU-hours, the savings are significant. The key design requirement is checkpointing: the job must periodically save progress so that a spot interruption only requires reprocessing since the last checkpoint, not from the beginning. A batch job with 8 hours of acceptable completion time has ample room to handle interruptions. On-demand is the correct choice for real-time serving where interruptions cause immediate user-facing failures.",
+      "explanation": "Spot instances are well-suited for latency-insensitive batch workloads. The 60–80% discount over on-demand is substantial: on a $3/hr H100, spot might cost $0.60–1.20/hr. For a 1 million document job requiring multiple GPU-hours, the savings are significant. The key design requirement is checkpointing: the job must periodically save progress so that a spot interruption only requires reprocessing since the last checkpoint, not from the beginning. A batch job with 8 hours of acceptable completion time has ample room to handle interruptions. On-demand is the correct choice for real-time serving where interruptions cause immediate user-facing failures.",
       "personas": ["senior", "sre"]
     },
     {
@@ -64,13 +64,13 @@
       "type": "multiple-choice",
       "question": "A developer wants to run a 7B FP16 model locally for testing. Their MacBook Pro has an M2 Pro chip with 32GB of unified memory. Their colleague says unified memory means the GPU can use the same pool as the CPU. Can this work, and what should they expect for throughput?",
       "options": [
-        "No — Apple Silicon does not support LLM inference; they need an NVIDIA GPU",
-        "Yes — Apple Silicon's unified memory means the 7B FP16 model (~14GB) fits comfortably in the 32GB pool; llama.cpp with Metal backend can run inference on Apple Silicon at roughly 20–40 tokens/sec for FP16 or faster with quantization; this is suitable for development and single-user testing",
-        "Yes, but the model must be quantized to INT4 first — FP16 is not supported on Apple Silicon",
+        "No; Apple Silicon does not support LLM inference; they need an NVIDIA GPU",
+        "Yes; Apple Silicon's unified memory means the 7B FP16 model (~14GB) fits comfortably in the 32GB pool; llama.cpp with Metal backend can run inference on Apple Silicon at roughly 20–40 tokens/sec for FP16 or faster with quantization; this is suitable for development and single-user testing",
+        "Yes, but the model must be quantized to INT4 first; FP16 is not supported on Apple Silicon",
         "Yes, but throughput will be under 5 tokens/sec, making it impractical for any use"
       ],
       "answer": 1,
-      "explanation": "Apple Silicon's unified memory architecture means the GPU and CPU share the same physical memory pool. A 7B FP16 model requires approximately 14GB, which fits comfortably within 32GB unified memory. llama.cpp's Metal backend enables GPU-accelerated inference on Apple Silicon, achieving roughly 20–40 tokens/second for 7B FP16 (and faster with INT4 quantization). This is practical for development, testing, and single-user applications. It is not suitable for high-concurrency production serving, but for a developer testing locally, Apple Silicon is an excellent option — far better than CPU-only inference on x86 hardware.",
+      "explanation": "Apple Silicon's unified memory architecture means the GPU and CPU share the same physical memory pool. A 7B FP16 model requires approximately 14GB, which fits comfortably within 32GB unified memory. llama.cpp's Metal backend enables GPU-accelerated inference on Apple Silicon, achieving roughly 20–40 tokens/second for 7B FP16 (and faster with INT4 quantization). This is practical for development, testing, and single-user applications. It is not suitable for high-concurrency production serving, but for a developer testing locally, Apple Silicon is an excellent option: far better than CPU-only inference on x86 hardware.",
       "personas": ["senior", "sre"]
     }
   ]

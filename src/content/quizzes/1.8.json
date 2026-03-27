@@ -1,5 +1,5 @@
 {
-  "title": "Safety and Guardrails — Check your understanding",
+  "title": "Safety and Guardrails: Check your understanding",
   "moduleId": "1.8",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "Your customer service bot is built on a frontier model with strong built-in safety. A user finds a way to make it generate off-topic content unrelated to your product. Who is responsible for preventing this?",
       "options": [
-        "The model provider — built-in safety should cover all misuse",
-        "Neither — some misuse is inevitable and acceptable",
-        "You — application-specific misuse is an architectural concern, not a model training concern",
-        "The user — terms of service violations are the user's responsibility"
+        "The model provider: built-in safety should cover all misuse",
+        "Neither: some misuse is inevitable and acceptable",
+        "You: application-specific misuse is an architectural concern, not a model training concern",
+        "The user: terms of service violations are the user's responsibility"
       ],
       "answer": 2,
-      "explanation": "Model safety handles general harms (weapons, CSAM, etc.). Application-specific misuse — using your customer service bot to generate off-topic content — is your responsibility. The model provider cannot anticipate every deployment context. Input guardrails, a scoped system prompt, and output validation are the application-level defences you build.",
+      "explanation": "Model safety handles general harms (weapons, CSAM, etc.). Application-specific misuse, using your customer service bot to generate off-topic content, is your responsibility. The model provider cannot anticipate every deployment context. Input guardrails, a scoped system prompt, and output validation are the application-level defences you build.",
       "personas": ["curious", "leader", "junior", "senior", "sre"]
     },
     {
@@ -27,7 +27,7 @@
         "System prompts over 1,000 tokens are automatically logged by the provider"
       ],
       "answer": 1,
-      "explanation": "System prompts are not a security boundary. Users can probe them by asking the model to repeat, translate, or summarise its instructions. Credentials and sensitive business logic extracted this way can be used to access your systems or reverse-engineer your product. Keep secrets out of system prompts entirely — use environment variables and server-side logic.",
+      "explanation": "System prompts are not a security boundary. Users can probe them by asking the model to repeat, translate, or summarise its instructions. Credentials and sensitive business logic extracted this way can be used to access your systems or reverse-engineer your product. Keep secrets out of system prompts entirely: use environment variables and server-side logic.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -41,7 +41,7 @@
         "Model poisoning; use a different model for processing untrusted data"
       ],
       "answer": 1,
-      "explanation": "Prompt injection embeds instructions in user-supplied data to redirect model behaviour. The primary defence is architectural: delimit untrusted content (e.g. wrap in <document> tags with explicit instructions to treat it as data), and where possible, avoid mixing untrusted content with privileged instructions in the same call. No defence is complete — output validation is the backstop.",
+      "explanation": "Prompt injection embeds instructions in user-supplied data to redirect model behaviour. The primary defence is architectural: delimit untrusted content (e.g. wrap in <document> tags with explicit instructions to treat it as data), and where possible, avoid mixing untrusted content with privileged instructions in the same call. No defence is complete: output validation is the backstop.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -51,11 +51,11 @@
       "options": [
         "Input keyword filtering is fundamentally insecure and should be removed",
         "The keyword list needs to be expanded to cover all possible bypass techniques",
-        "Keyword filtering is one layer, not a complete defence — the system needs output validation and model-level constraints as additional layers",
+        "Keyword filtering is one layer, not a complete defence: the system needs output validation and model-level constraints as additional layers",
         "The model provider should handle this bypass at the model level"
       ],
       "answer": 2,
-      "explanation": "Keyword filters are easily bypassed by determined attackers. Their value is blocking cheap automated attacks, not sophisticated adversaries. A bypass doesn't mean the filter should be removed — it means you need additional layers: output validation, a scoped system prompt, and monitoring. Defence in depth means no single bypass is sufficient to reach the user.",
+      "explanation": "Keyword filters are easily bypassed by determined attackers. Their value is blocking cheap automated attacks, not sophisticated adversaries. A bypass doesn't mean the filter should be removed: it means you need additional layers: output validation, a scoped system prompt, and monitoring. Defence in depth means no single bypass is sufficient to reach the user.",
       "personas": ["senior", "sre"]
     },
     {
@@ -66,10 +66,10 @@
         "Re-read the original model's safety documentation to confirm nothing changed",
         "Run your safety-specific test cases against the new model version before promoting the upgrade",
         "Contact the model provider to confirm the new version has identical safety properties",
-        "Nothing — safety properties are guaranteed to be identical across model versions from the same provider"
+        "Nothing: safety properties are guaranteed to be identical across model versions from the same provider"
       ],
       "answer": 1,
-      "explanation": "Model providers update safety behaviour with new versions — what a model refused in one version it may handle differently in another, and vice versa. Always run safety-specific test cases (edge cases, adversarial inputs, in-scope/out-of-scope boundary tests) against the new version before promoting it. Treat model upgrades like software deployments: tested and verified before rollout.",
+      "explanation": "Model providers update safety behaviour with new versions: what a model refused in one version it may handle differently in another, and vice versa. Always run safety-specific test cases (edge cases, adversarial inputs, in-scope/out-of-scope boundary tests) against the new version before promoting it. Treat model upgrades like software deployments: tested and verified before rollout.",
       "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     }

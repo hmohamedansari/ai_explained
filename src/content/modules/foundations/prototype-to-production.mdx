@@ -1,7 +1,7 @@
 ---
 moduleId: "1.9"
 title: "Prototype to Production Checklist"
-description: "A prototype that works in a demo is not a production system. This capstone synthesises every Foundations concept into a practical checklist — the gaps teams consistently miss when shipping their first AI feature."
+description: "A prototype that works in a demo is not a production system. This capstone synthesises every Foundations concept into a practical checklist: the gaps teams consistently miss when shipping their first AI feature."
 track: "foundations"
 order: 9
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 8
   layer2: 18
   layer3: 15
-productionGotcha: "The most expensive production incidents in AI systems come not from the model failing, but from the application failing to handle what the model does correctly — valid JSON the application doesn't parse, a refusal the UI doesn't handle gracefully, a context limit the system never monitored. Build for the model behaving correctly AND for it doing something unexpected."
+productionGotcha: "The most expensive production incidents in AI systems come not from the model failing, but from the application failing to handle what the model does correctly: valid JSON the application doesn't parse, a refusal the UI doesn't handle gracefully, a context limit the system never monitored. Build for the model behaving correctly AND for it doing something unexpected."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-The gap between a working prototype and a production-ready system is not a gap in model capability — it is a gap in everything around the model.
+The gap between a working prototype and a production-ready system is not a gap in model capability: it is a gap in everything around the model.
 
-A prototype proves the concept: given the right input, the model produces the right output. A production system has to handle the wrong input, the unexpected output, the growing conversation, the model upgrade, the cost spike, and the user who tries to break it — reliably, at scale, over months.
+A prototype proves the concept: given the right input, the model produces the right output. A production system has to handle the wrong input, the unexpected output, the growing conversation, the model upgrade, the cost spike, and the user who tries to break it: reliably, at scale, over months.
 
 Every section of this checklist maps to a module in the Foundations track. Think of it as the audit you run before you ship, and again after every significant change.
 
@@ -39,11 +39,11 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 ### Production Gotcha
 
-> **Common Gotcha:** The most expensive production incidents come not from the model failing, but from the application failing to handle what the model does correctly — valid JSON the app doesn't parse, a refusal the UI doesn't handle gracefully, a context limit never monitored. Build for the model behaving correctly AND for it doing something unexpected.
+> **Common Gotcha:** The most expensive production incidents come not from the model failing, but from the application failing to handle what the model does correctly: valid JSON the app doesn't parse, a refusal the UI doesn't handle gracefully, a context limit never monitored. Build for the model behaving correctly AND for it doing something unexpected.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### 1. Reliability
 
@@ -56,12 +56,12 @@ No production AI system graduates from all six on day one. Use the checklist to 
 **Hallucination mitigations** *(module 1.4)*
 - [ ] Factual questions answered from retrieved context (RAG), not model recall
 - [ ] System prompt includes an explicit "if you don't know, say so" instruction
-- [ ] Structured outputs validated beyond schema — factual spot-checks for high-stakes fields
+- [ ] Structured outputs validated beyond schema: factual spot-checks for high-stakes fields
 - [ ] No raw model output written directly to a database or sent in automated emails
 
 **Error handling**
-- [ ] Application handles model refusals gracefully (`stop_reason: "refusal"` or empty/canned response text — both patterns occur depending on provider and request type)
-- [ ] JSON parse failures caught and handled — never crash on bad model output
+- [ ] Application handles model refusals gracefully (`stop_reason: "refusal"` or empty/canned response text: both patterns occur depending on provider and request type)
+- [ ] JSON parse failures caught and handled: never crash on bad model output
 - [ ] API errors (rate limits, timeouts) handled with retry logic and backoff
 - [ ] Tool loops have a maximum turn limit; infinite loops cannot reach the user
 
@@ -75,19 +75,19 @@ No production AI system graduates from all six on day one. Use the checklist to 
 - [ ] Floating model aliases replaced with pinned versioned IDs in production
 
 **Prompt efficiency** *(module 1.2)*
-- [ ] System prompt reviewed for redundancy — every sentence earns its tokens
+- [ ] System prompt reviewed for redundancy: every sentence earns its tokens
 - [ ] Few-shot examples trimmed to the minimum needed (3–5 usually sufficient)
-- [ ] `max_tokens` set appropriately per task — not a single global default
+- [ ] `max_tokens` set appropriately per task: not a single global default
 
 **Caching** *(module 1.6)*
 - [ ] Stable content (system prompt, shared documents) placed first in the request for cache-prefix eligibility
 - [ ] Prompt caching enabled if the provider supports it and your traffic patterns support high hit rates
-- [ ] Cache write overhead accounted for in cost model — not just read savings
+- [ ] Cache write overhead accounted for in cost model: not just read savings
 
 **Async and batching**
-- [ ] Non-real-time workloads (document processing, report generation) run asynchronously — don't block a user request on a 10-second LLM call
-- [ ] Batch/async API considered for high-volume offline tasks (many providers offer ~50% cost reduction at the expense of latency — check your provider's docs)
-- [ ] Streaming used for interactive responses >3 seconds — reduces perceived latency significantly
+- [ ] Non-real-time workloads (document processing, report generation) run asynchronously: don't block a user request on a 10-second LLM call
+- [ ] Batch/async API considered for high-volume offline tasks (many providers offer ~50% cost reduction at the expense of latency: check your provider's docs)
+- [ ] Streaming used for interactive responses >3 seconds: reduces perceived latency significantly
 
 ---
 
@@ -100,7 +100,7 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 **Output guardrails** *(module 1.8)*
 - [ ] Output checked for out-of-scope content before returning to user
-- [ ] Refusal case handled gracefully — user gets a useful message, not a blank screen
+- [ ] Refusal case handled gracefully: user gets a useful message, not a blank screen
 - [ ] High-risk outputs (those that trigger external actions) require explicit confirmation or human review
 
 **Scope and system prompt** *(modules 1.2, 1.8)*
@@ -124,7 +124,7 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 **Errors and guardrails**
 - [ ] API error rate logged and alerted
-- [ ] Guardrail trigger rate logged — a spike may indicate an attack or a misconfigured filter
+- [ ] Guardrail trigger rate logged: a spike may indicate an attack or a misconfigured filter
 - [ ] All model inputs and outputs logged (with appropriate data retention and PII handling)
 
 ---
@@ -136,12 +136,12 @@ No production AI system graduates from all six on day one. Use the checklist to 
 - [ ] Token count checked before sending long requests (use `count_tokens` for pipelines where overflow is critical)
 
 **History strategy**
-- [ ] Multi-turn applications use summarisation or sliding window — unbounded history is not acceptable
+- [ ] Multi-turn applications use summarisation or sliding window: unbounded history is not acceptable
 - [ ] Summarisation triggered at 70–80% context usage, not at 99%
 - [ ] Critical constraints (from early turns) re-stated in the system prompt, not relied on from history
 
 **Retrieval** *(module 1.4)*
-- [ ] Retrieved chunk count and size capped — retrieval cannot consume the entire context budget
+- [ ] Retrieved chunk count and size capped: retrieval cannot consume the entire context budget
 - [ ] Retrieval relevance scored; low-relevance chunks excluded rather than included
 - [ ] Most relevant chunk placed first or last in retrieved context block (lost-in-the-middle mitigation)
 
@@ -156,7 +156,7 @@ No production AI system graduates from all six on day one. Use the checklist to 
 
 **Prompt versioning** *(module 1.7)*
 - [ ] System prompts stored in version control alongside the code that uses them
-- [ ] Prompt changes reviewed like code changes — not edited in a dashboard and forgotten
+- [ ] Prompt changes reviewed like code changes: not edited in a dashboard and forgotten
 - [ ] Eval baseline re-run and documented after any prompt change
 
 ---
@@ -201,11 +201,11 @@ def ask(question: str, history: list[dict]) -> str:
     return text
 ```
 
-Seven lines became thirty — but those thirty lines handle the cases that cause production incidents.
+Seven lines became thirty, but those thirty lines handle the cases that cause production incidents.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Prioritisation: what to do first
 
@@ -236,24 +236,24 @@ Not everything on the checklist is equally urgent. A practical sequence for a fi
 
 ### The failure modes that kill AI features
 
-**Silent quality degradation** — Model output quality drifts after a provider update or as input distribution shifts. No error, no alert. Detected weeks later from user complaints. Fix: eval in CI + shadow scoring in production.
+**Silent quality degradation**: Model output quality drifts after a provider update or as input distribution shifts. No error, no alert. Detected weeks later from user complaints. Fix: eval in CI + shadow scoring in production.
 
-**Context cliff** — A long-running session or large document suddenly exceeds the context limit. The API errors, or early context is silently truncated and the model starts contradicting itself. Fix: token monitoring + history management.
+**Context cliff**: A long-running session or large document suddenly exceeds the context limit. The API errors, or early context is silently truncated and the model starts contradicting itself. Fix: token monitoring + history management.
 
-**Cost spike** — A new user pattern (long documents, high-volume usage, tool-heavy workflows) drives token usage far above baseline. P&L impact discovered at end of month. Fix: per-request cost logging + spend alert.
+**Cost spike**: A new user pattern (long documents, high-volume usage, tool-heavy workflows) drives token usage far above baseline. P&L impact discovered at end of month. Fix: per-request cost logging + spend alert.
 
-**Safety bypass in production** — A jailbreak circulates on social media; your bot is used to generate harmful content at scale. Fix: output guardrail + guardrail trigger rate alert + kill switch.
+**Safety bypass in production**: A jailbreak circulates on social media; your bot is used to generate harmful content at scale. Fix: output guardrail + guardrail trigger rate alert + kill switch.
 
-**Prompt regression after 'minor' change** — Someone edits the system prompt to fix one issue and breaks three others. No eval, no one noticed until users reported it. Fix: eval in CI, prompt in version control.
+**Prompt regression after 'minor' change**: Someone edits the system prompt to fix one issue and breaks three others. No eval, no one noticed until users reported it. Fix: eval in CI, prompt in version control.
 
 ### The compounding value of the checklist
 
 Each item on the checklist is cheap in isolation. Together they compound: observability catches the cost spike before it matters; the eval catches the prompt regression before it ships; the history strategy prevents the context cliff; the output guardrail catches the safety bypass the model missed.
 
-A production AI system is not a model — it is a model plus the architecture you wrap it in. The model is the smallest part of what you own.
+A production AI system is not a model: it is a model plus the architecture you wrap it in. The model is the smallest part of what you own.
 
 ### Further reading
 
-- [Building effective agents — Anthropic](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Practical guide to production agent architecture; most principles apply to non-agent AI features too.
-- [ML Engineering for Production (MLOps) Specialization — Coursera](https://www.coursera.org/specializations/machine-learning-engineering-for-production-mlops) — Andrew Ng's MLOps course; the LLM-specific details are dated but the observability and deployment principles are evergreen.
-- [LLM Powered Autonomous Agents — Lilian Weng](https://lilianweng.github.io/posts/2023-06-23-agent/) — Comprehensive overview of agent architecture components; useful context for understanding where the Foundations checklist items fit in more complex systems.
+- [Building effective agents, Anthropic](https://www.anthropic.com/research/building-effective-agents) [Anthropic], Practical guide to production agent architecture; most principles apply to non-agent AI features too.
+- [ML Engineering for Production (MLOps) Specialization, Coursera](https://www.coursera.org/specializations/machine-learning-engineering-for-production-mlops), Andrew Ng's MLOps course; the LLM-specific details are dated but the observability and deployment principles are evergreen.
+- [LLM Powered Autonomous Agents, Lilian Weng](https://lilianweng.github.io/posts/2023-06-23-agent/), Comprehensive overview of agent architecture components; useful context for understanding where the Foundations checklist items fit in more complex systems.

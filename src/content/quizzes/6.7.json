@@ -1,5 +1,5 @@
 {
-  "title": "Production Monitoring & Drift Detection — Check your understanding",
+  "title": "Production Monitoring & Drift Detection: Check your understanding",
   "moduleId": "6.7",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A product manager reports that their LLM chatbot's thumbs-up rate is consistently 88% over the past month, suggesting users are highly satisfied. However, session length data shows that 45% of sessions end after the first AI response with no follow-up. What do these signals together suggest?",
       "options": [
-        "The product is working well — high explicit ratings combined with short sessions means users get answers quickly",
-        "The high thumbs-up rate is likely affected by survivorship bias — only engaged users provide feedback; the 45% single-response abandonment rate suggests many users are finding the response unhelpful and leaving without rating; the true satisfaction rate among all users is likely much lower than 88%",
+        "The product is working well: high explicit ratings combined with short sessions means users get answers quickly",
+        "The high thumbs-up rate is likely affected by survivorship bias: only engaged users provide feedback; the 45% single-response abandonment rate suggests many users are finding the response unhelpful and leaving without rating; the true satisfaction rate among all users is likely much lower than 88%",
         "Short sessions indicate a technical issue that is disconnecting users before they can rate",
         "The product should be redesigned to encourage longer sessions rather than quick answers"
       ],
       "answer": 1,
-      "explanation": "This is the production gotcha for this module. Explicit feedback (thumbs up/down) suffers from survivorship bias: unhappy users typically abandon the product rather than engage enough to leave feedback. A 45% abandonment rate after the first response is a strong implicit signal of dissatisfaction — users who found the response useful are more likely to continue the conversation. The 88% thumbs-up rate reflects only the 55% who stayed, not the full user population. Complement explicit ratings with implicit signals like session length, abandonment rate, and correction requests to get an accurate picture.",
+      "explanation": "This is the production gotcha for this module. Explicit feedback (thumbs up/down) suffers from survivorship bias: unhappy users typically abandon the product rather than engage enough to leave feedback. A 45% abandonment rate after the first response is a strong implicit signal of dissatisfaction: users who found the response useful are more likely to continue the conversation. The 88% thumbs-up rate reflects only the 55% who stayed, not the full user population. Complement explicit ratings with implicit signals like session length, abandonment rate, and correction requests to get an accurate picture.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "A team sets a static alert threshold: 'alert if error rate exceeds 5%'. Their error rate has been gradually climbing from 0.5% to 4.8% over two months. No alert fires. Then it jumps to 5.1% and the alert fires. What monitoring approach would have detected the gradual drift earlier?",
       "options": [
         "Lower the static threshold to 3% so alerts fire earlier",
-        "Statistical process control with an EWMA control chart — by tracking the exponentially weighted moving average and alerting when the value deviates by more than a set number of standard deviations from the EWMA, gradual drift would have triggered an alert long before the error rate reached 4.8%, because the deviation from the running average would have grown progressively",
+        "Statistical process control with an EWMA control chart: by tracking the exponentially weighted moving average and alerting when the value deviates by more than a set number of standard deviations from the EWMA, gradual drift would have triggered an alert long before the error rate reached 4.8%, because the deviation from the running average would have grown progressively",
         "Reduce the alert evaluation window from hourly to per-minute",
         "Add a second static threshold at 2% as an early warning"
       ],
       "answer": 1,
-      "explanation": "Static thresholds only detect when a value exceeds a fixed absolute level — they are blind to gradual trends. Statistical process control (SPC) using EWMA tracks deviations from a running baseline, which means it detects both sudden spikes and gradual drift. As error rate climbs from 0.5% to 4.8% over two months, the EWMA-based control chart would have flagged the progressive deviation from the historical norm weeks before reaching 4.8%. Static thresholds require you to know the 'right' threshold in advance; EWMA control charts adapt to the system's normal operating range and alert on anomalous deviation from it.",
+      "explanation": "Static thresholds only detect when a value exceeds a fixed absolute level: they are blind to gradual trends. Statistical process control (SPC) using EWMA tracks deviations from a running baseline, which means it detects both sudden spikes and gradual drift. As error rate climbs from 0.5% to 4.8% over two months, the EWMA-based control chart would have flagged the progressive deviation from the historical norm weeks before reaching 4.8%. Static thresholds require you to know the 'right' threshold in advance; EWMA control charts adapt to the system's normal operating range and alert on anomalous deviation from it.",
       "read_more": "https://opentelemetry.io/docs/",
       "personas": ["junior", "senior", "sre"]
     },
@@ -36,13 +36,13 @@
       "type": "multiple-choice",
       "question": "A team deploys a new version of their product to a new geographic market. Over the next two weeks, quality scores decline significantly even though no system changes were made. The team investigates and finds that the new market's users send queries in different languages and cultural contexts than the original market. What monitoring mechanism would have detected this earliest?",
       "options": [
-        "Error rate monitoring — language issues would cause parsing errors that show up in error logs",
-        "Input distribution monitoring using embedding-based drift detection — embedding queries and tracking the centroid of the distribution would reveal that new market queries occupy a different region of the embedding space than the original baseline, signaling distribution shift before quality metrics degrade",
-        "Output length monitoring — responses in a different language would be shorter or longer",
-        "Latency monitoring — different query types would produce different model latencies"
+        "Error rate monitoring: language issues would cause parsing errors that show up in error logs",
+        "Input distribution monitoring using embedding-based drift detection: embedding queries and tracking the centroid of the distribution would reveal that new market queries occupy a different region of the embedding space than the original baseline, signaling distribution shift before quality metrics degrade",
+        "Output length monitoring: responses in a different language would be shorter or longer",
+        "Latency monitoring: different query types would produce different model latencies"
       ],
       "answer": 1,
-      "explanation": "Embedding-based distribution monitoring detects shifts in the semantic distribution of incoming queries without requiring quality labels. When new market users send queries in different languages and cultural contexts, those queries embed into a different region of the semantic space than the original training distribution. The centroid of the new market's queries will diverge from the established baseline centroid, triggering a distribution shift alert. This detection happens in real time as queries arrive — before the quality score decline accumulates enough data to be statistically visible. Error rates and latency would not change for grammatically valid but out-of-distribution queries.",
+      "explanation": "Embedding-based distribution monitoring detects shifts in the semantic distribution of incoming queries without requiring quality labels. When new market users send queries in different languages and cultural contexts, those queries embed into a different region of the semantic space than the original training distribution. The centroid of the new market's queries will diverge from the established baseline centroid, triggering a distribution shift alert. This detection happens in real time as queries arrive: before the quality score decline accumulates enough data to be statistically visible. Error rates and latency would not change for grammatically valid but out-of-distribution queries.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -51,12 +51,12 @@
       "question": "A team routes 5% of production responses to an LLM judge for continuous quality monitoring. The judge pipeline runs asynchronously and typically completes within 30 seconds of the user response. An engineer proposes reducing the sample rate to 0.5% to save costs on the judge model. What is the tradeoff?",
       "options": [
         "Lower sample rate is always better because it reduces cost with minimal quality loss",
-        "Reducing from 5% to 0.5% reduces judge cost by 10x but also reduces statistical power — with 0.5% sampling, detecting a 5-point quality regression may require 10x longer data collection before the signal is statistically distinguishable from noise; the optimal sample rate depends on the volume of traffic and the sensitivity required for regression detection",
+        "Reducing from 5% to 0.5% reduces judge cost by 10x but also reduces statistical power: with 0.5% sampling, detecting a 5-point quality regression may require 10x longer data collection before the signal is statistically distinguishable from noise; the optimal sample rate depends on the volume of traffic and the sensitivity required for regression detection",
         "The sample rate should be increased to 20% for better statistical confidence",
         "At 0.5%, rare failure modes will never be sampled and regressions will go undetected"
       ],
       "answer": 1,
-      "explanation": "Sample rate is a direct tradeoff between monitoring cost and statistical sensitivity. At 5%, a system handling 10,000 requests per hour produces 500 judged samples per hour — enough to detect a 5-point regression within an hour. At 0.5%, only 50 samples per hour are collected, and detecting the same regression requires 10x longer before the deviation is statistically significant. The right sample rate depends on: traffic volume (low-traffic systems may need higher sample rates to get enough data quickly), required detection latency (how fast you need to know about regressions), and acceptable judge cost. There is no universally correct rate.",
+      "explanation": "Sample rate is a direct tradeoff between monitoring cost and statistical sensitivity. At 5%, a system handling 10,000 requests per hour produces 500 judged samples per hour: enough to detect a 5-point regression within an hour. At 0.5%, only 50 samples per hour are collected, and detecting the same regression requires 10x longer before the deviation is statistically significant. The right sample rate depends on: traffic volume (low-traffic systems may need higher sample rates to get enough data quickly), required detection latency (how fast you need to know about regressions), and acceptable judge cost. There is no universally correct rate.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -65,12 +65,12 @@
       "question": "A team's LLM provider silently updates the underlying model behind a stable version alias. The team's quality metrics degrade over two weeks before they notice. What monitoring practices would have detected the provider-side change earlier?",
       "options": [
         "Pin to a specific model version so provider updates cannot affect the production system",
-        "Run periodic canary probes against known inputs with well-defined expected outputs — if the probe responses change, this signals that model behavior has shifted even when no team-side changes were made; this is complementary to pinning model versions, which prevents accidental upgrades but does not help when you intentionally use an alias that tracks provider updates",
-        "Monitor model latency — provider-side model changes typically affect latency significantly",
+        "Run periodic canary probes against known inputs with well-defined expected outputs: if the probe responses change, this signals that model behavior has shifted even when no team-side changes were made; this is complementary to pinning model versions, which prevents accidental upgrades but does not help when you intentionally use an alias that tracks provider updates",
+        "Monitor model latency: provider-side model changes typically affect latency significantly",
         "Subscribe to the provider's changelog and manually review updates weekly"
       ],
       "answer": 1,
-      "explanation": "Model aliases (like a version name without a date) can point to different underlying models over time as providers update their infrastructure. Periodic canary probes — running a fixed set of known inputs and comparing outputs to expected behavior — detect behavioral drift regardless of whether it came from team-side changes or provider-side updates. When a probe response changes, it signals a behavioral shift. This is complementary to version pinning: pinning prevents unintentional model changes for teams using dated versions, but teams intentionally using aliases (to get automatic updates) need canary probes to detect when those updates affect their use cases.",
+      "explanation": "Model aliases (like a version name without a date) can point to different underlying models over time as providers update their infrastructure. Periodic canary probes, running a fixed set of known inputs and comparing outputs to expected behavior, detect behavioral drift regardless of whether it came from team-side changes or provider-side updates. When a probe response changes, it signals a behavioral shift. This is complementary to version pinning: pinning prevents unintentional model changes for teams using dated versions, but teams intentionally using aliases (to get automatic updates) need canary probes to detect when those updates affect their use cases.",
       "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     }

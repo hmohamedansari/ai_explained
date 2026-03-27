@@ -16,19 +16,19 @@ productionGotcha: "Instruction placement matters more than most people expect. '
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Retrieval finds the right chunks. The prompt tells the model what to do with them.
 
-Without explicit instructions, the model will blend the retrieved content with whatever it knows from training — producing answers that sound grounded but quietly mix sources. Three instructions make the difference:
+Without explicit instructions, the model will blend the retrieved content with whatever it knows from training: producing answers that sound grounded but quietly mix sources. Three instructions make the difference:
 
-**Grounding** — "Answer using only the provided documents." Without this, the model treats context as a hint, not a constraint.
+**Grounding**: "Answer using only the provided documents." Without this, the model treats context as a hint, not a constraint.
 
-**No-answer path** — "If the answer is not in the documents, say so." Without this, the model fills gaps with hallucinations rather than admitting uncertainty.
+**No-answer path**: "If the answer is not in the documents, say so." Without this, the model fills gaps with hallucinations rather than admitting uncertainty.
 
-**Citation** — "Cite the source number for each claim." Without this, users can't verify answers and you can't debug retrievals.
+**Citation**: "Cite the source number for each claim." Without this, users can't verify answers and you can't debug retrievals.
 
-These aren't optional polish — they determine whether your RAG system is reliable or just mostly reliable.
+These aren't optional polish: they determine whether your RAG system is reliable or just mostly reliable.
 
 ### Production Gotcha
 
@@ -36,7 +36,7 @@ These aren't optional polish — they determine whether your RAG system is relia
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The grounding instruction
 
@@ -52,7 +52,7 @@ SYSTEM_PROMPT = (
 )
 ```
 
-Why the explicit "do not use knowledge from outside" matters: without it, models naturally fill gaps with training knowledge. The answer sounds grounded but isn't. This is the failure mode that's hardest to detect — it produces confident, plausible output from the wrong source.
+Why the explicit "do not use knowledge from outside" matters: without it, models naturally fill gaps with training knowledge. The answer sounds grounded but isn't. This is the failure mode that's hardest to detect: it produces confident, plausible output from the wrong source.
 
 ### Formatting context for the model
 
@@ -75,7 +75,7 @@ Key decisions:
 - **Number each chunk** (`[1]`, `[2]`, ...) so citations are unambiguous
 - **Include the source** so the model can relay it and you can verify
 - **Separate chunks clearly** (`---`) so the model doesn't blend adjacent chunks
-- **Most relevant chunk first** — the primacy effect means content at the start of context is attended to more reliably
+- **Most relevant chunk first**: the primacy effect means content at the start of context is attended to more reliably
 
 ### The full RAG prompt template
 
@@ -138,9 +138,9 @@ def rag_answer(query: str, chunks: list[dict]) -> str:
 
 The no-answer path is as important as the happy path. Two situations need explicit handling:
 
-**No chunks retrieved** — your search returned nothing relevant. Don't send an empty context to the model; return a useful message directly.
+**No chunks retrieved**: your search returned nothing relevant. Don't send an empty context to the model; return a useful message directly.
 
-**Chunks retrieved but answer not present** — the model needs explicit permission to say "I don't know" rather than fabricating. The exact phrasing in the system prompt matters: models trained to be helpful tend to answer rather than admit uncertainty, so the instruction needs to be direct.
+**Chunks retrieved but answer not present**: the model needs explicit permission to say "I don't know" rather than fabricating. The exact phrasing in the system prompt matters: models trained to be helpful tend to answer rather than admit uncertainty, so the instruction needs to be direct.
 
 ```python
 def rag_answer_with_fallback(query: str) -> str:
@@ -169,11 +169,11 @@ system = (
 )
 ```
 
-Without this instruction, the model silently picks one source — usually whichever appears earlier in the context.
+Without this instruction, the model silently picks one source: usually whichever appears earlier in the context.
 
 ### Before vs After
 
-**No grounding instructions — blended output:**
+**No grounding instructions: blended output:**
 ```python
 # BAD: model uses documents as hints, not constraints
 system = "You are a helpful assistant."
@@ -182,7 +182,7 @@ user = f"Here is some context:\n{context}\n\nQuestion: {query}"
 # Output sounds grounded but may include invented details
 ```
 
-**Grounded with citation — verifiable output:**
+**Grounded with citation: verifiable output:**
 ```python
 # GOOD: model constrained to retrieved content, output is auditable
 system = (
@@ -197,34 +197,34 @@ user = f"Documents:\n\n{context}\n\nQuestion: {query}"
 
 ### Common mistakes
 
-1. **Grounding instruction in the user message, not system prompt** — In long prompts, instructions at the start of the system prompt are followed more reliably than those buried at the end of user content.
-2. **No no-answer instruction** — The model will fabricate an answer rather than admit uncertainty. Always specify the exact fallback phrase.
-3. **Unlabelled context blocks** — Context passed as a wall of text gives the model no way to cite specific sources. Number every chunk and include its source.
-4. **Including low-relevance chunks** — Passing 10 chunks when only 2 are relevant dilutes the signal. Apply a score threshold before including chunks in the prompt.
-5. **Max tokens too low** — If the model is cut off mid-citation or mid-sentence, the answer is unusable. Set `max_tokens` based on the expected answer length plus citation overhead, not a global default.
+1. **Grounding instruction in the user message, not system prompt**: In long prompts, instructions at the start of the system prompt are followed more reliably than those buried at the end of user content.
+2. **No no-answer instruction**: The model will fabricate an answer rather than admit uncertainty. Always specify the exact fallback phrase.
+3. **Unlabelled context blocks**: Context passed as a wall of text gives the model no way to cite specific sources. Number every chunk and include its source.
+4. **Including low-relevance chunks**: Passing 10 chunks when only 2 are relevant dilutes the signal. Apply a score threshold before including chunks in the prompt.
+5. **Max tokens too low**: If the model is cut off mid-citation or mid-sentence, the answer is unusable. Set `max_tokens` based on the expected answer length plus citation overhead, not a global default.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Instruction position and the primacy effect
 
 Research on long-context language models consistently shows that information at the beginning and end of a long context is attended to more reliably than information in the middle (the "lost in the middle" effect covered in module 1.6). The same applies to instructions.
 
 Practical implications for RAG prompts:
-- **System prompt**: grounding instruction, citation rule, no-answer instruction — all before the documents
+- **System prompt**: grounding instruction, citation rule, no-answer instruction: all before the documents
 - **Context block**: most relevant chunk first, least relevant last
-- **User message**: the question at the very end — it's the most recent content and the model attends to it strongly
+- **User message**: the question at the very end: it's the most recent content and the model attends to it strongly
 
-Placing the question *before* the context (a common pattern) can reduce faithfulness — the model starts generating before fully reading the retrieved documents.
+Placing the question *before* the context (a common pattern) can reduce faithfulness: the model starts generating before fully reading the retrieved documents.
 
 ### Faithfulness vs completeness
 
 There is a fundamental tension in RAG prompting:
 
-**High faithfulness** — the model answers only from retrieved documents. Answers are accurate but may be incomplete if retrieval missed relevant content.
+**High faithfulness**: the model answers only from retrieved documents. Answers are accurate but may be incomplete if retrieval missed relevant content.
 
-**High completeness** — the model supplements retrieved content with training knowledge to give a full answer. Answers are more complete but less auditable.
+**High completeness**: the model supplements retrieved content with training knowledge to give a full answer. Answers are more complete but less auditable.
 
 For most production RAG systems, favour faithfulness. An answer that says "I don't have enough information" is better than one that mixes verified and hallucinated content without marking the boundary. Completeness is improved by fixing retrieval, not by relaxing the grounding constraint.
 
@@ -271,6 +271,6 @@ def aggregate_across_docs(query: str, chunks: list[dict]) -> str:
 
 ### Further reading
 
-- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172) — Liu et al., 2023. The foundational paper on attention degradation across long contexts; directly relevant to instruction and context placement in RAG prompts.
-- [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476) — Saad-Falcon et al., 2023. Automated RAG evaluation including faithfulness scoring; useful complement to the RAGAS approach covered in module 2.6.
-- [Seven Failure Points When Engineering a Retrieval Augmented Generation System](https://arxiv.org/abs/2401.05856) — Barnett et al., 2024. Practitioner analysis of where RAG fails in production; the prompting failures in this module are derived from their taxonomy.
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172); Liu et al., 2023. The foundational paper on attention degradation across long contexts; directly relevant to instruction and context placement in RAG prompts.
+- [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476); Saad-Falcon et al., 2023. Automated RAG evaluation including faithfulness scoring; useful complement to the RAGAS approach covered in module 2.6.
+- [Seven Failure Points When Engineering a Retrieval Augmented Generation System](https://arxiv.org/abs/2401.05856); Barnett et al., 2024. Practitioner analysis of where RAG fails in production; the prompting failures in this module are derived from their taxonomy.

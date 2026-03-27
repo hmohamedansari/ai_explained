@@ -1,5 +1,5 @@
 {
-  "title": "Communicating AI to Stakeholders — Check your understanding",
+  "title": "Communicating AI to Stakeholders: Check your understanding",
   "moduleId": "8.6",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "An engineering team presents an AI feature to the executive team with the headline: 'The model achieves 96% accuracy.' An executive approves the feature, assuming it will be wrong only 4% of the time on routine cases. After launch, users report frequent failures on their most common query type. What went wrong in the communication?",
       "options": [
         "The accuracy number was fabricated",
-        "The 96% accuracy figure was presented without context — no mention of which dataset it was measured on, no description of where the 4% errors are concentrated, and no information about whether the most common production query type is in the high-accuracy or high-error segment",
+        "The 96% accuracy figure was presented without context: no mention of which dataset it was measured on, no description of where the 4% errors are concentrated, and no information about whether the most common production query type is in the high-accuracy or high-error segment",
         "The executive should have asked for more detail before approving",
         "Accuracy is the wrong metric; F1 score should have been reported"
       ],
       "answer": 1,
-      "explanation": "Accuracy numbers without failure distribution context are routinely misleading. A 96% average accuracy number is compatible with 60% failure on the most common query type if the distribution is skewed. The executive reasonably assumed uniform failure distribution — which is a natural but incorrect assumption. The engineer's responsibility is to accompany any accuracy figure with: what it was measured on, where the errors are concentrated, and what that means for the use cases stakeholders care most about.",
+      "explanation": "Accuracy numbers without failure distribution context are routinely misleading. A 96% average accuracy number is compatible with 60% failure on the most common query type if the distribution is skewed. The executive reasonably assumed uniform failure distribution: which is a natural but incorrect assumption. The engineer's responsibility is to accompany any accuracy figure with: what it was measured on, where the errors are concentrated, and what that means for the use cases stakeholders care most about.",
       "personas": ["curious", "leader"]
     },
     {
@@ -35,13 +35,13 @@
       "type": "multiple-choice",
       "question": "A product manager tells the executive team that 'the AI will learn and improve over time as more users interact with it.' What is wrong with this statement?",
       "options": [
-        "Nothing — all AI systems improve with use",
-        "It implies automatic, passive improvement without explaining the operational mechanism — in reality, production LLM systems do not self-improve without deliberate human actions: capturing feedback, labelling data, retraining, and evaluating. If this mechanism is not built, the system does not improve.",
+        "Nothing: all AI systems improve with use",
+        "It implies automatic, passive improvement without explaining the operational mechanism: in reality, production LLM systems do not self-improve without deliberate human actions: capturing feedback, labelling data, retraining, and evaluating. If this mechanism is not built, the system does not improve.",
         "It overstates the rate of improvement, which will be slower than implied",
         "It is technically accurate but may raise user privacy concerns"
       ],
       "answer": 1,
-      "explanation": "Saying 'the AI learns over time' creates a false expectation of automatic improvement. Foundation model APIs do not update themselves based on your users' interactions. Improvement requires deliberate work: capturing interaction data, labelling it, fine-tuning or updating retrieval, and evaluating whether quality improved. If this mechanism is not explicitly built and resourced, the system quality is static — or it degrades as the world changes and the model's training data becomes stale. Any claim of improvement over time should be accompanied by the specific mechanism: 'We will collect user feedback, review it monthly, and retrain the model quarterly.'",
+      "explanation": "Saying 'the AI learns over time' creates a false expectation of automatic improvement. Foundation model APIs do not update themselves based on your users' interactions. Improvement requires deliberate work: capturing interaction data, labelling it, fine-tuning or updating retrieval, and evaluating whether quality improved. If this mechanism is not explicitly built and resourced, the system quality is static, or it degrades as the world changes and the model's training data becomes stale. Any claim of improvement over time should be accompanied by the specific mechanism: 'We will collect user feedback, review it monthly, and retrain the model quarterly.'",
       "personas": ["curious", "leader"]
     },
     {
@@ -49,8 +49,8 @@
       "type": "multiple-choice",
       "question": "A leader asks: 'How long will it take to build this AI feature?' The engineering estimate is 6 weeks. The feature is customer-facing. What is the most accurate response to give?",
       "options": [
-        "6 weeks — the engineering estimate is reliable",
-        "Approximately 10 weeks — the engineering estimate covers building the feature, but customer-facing AI requires additional time for evaluation, safety testing, and production readiness work that is systematically underestimated in initial estimates",
+        "6 weeks: the engineering estimate is reliable",
+        "Approximately 10 weeks: the engineering estimate covers building the feature, but customer-facing AI requires additional time for evaluation, safety testing, and production readiness work that is systematically underestimated in initial estimates",
         "3–12 months, depending on unknowns",
         "6 weeks for the demo; longer for production, but no estimate is possible at this stage"
       ],
@@ -65,7 +65,7 @@
       "question": "You need to communicate the AI system's capabilities and limitations to front-line users who will rely on it daily. Which framing is most appropriate for this audience?",
       "options": [
         "Technical accuracy: describe the model architecture, training data, and accuracy metrics",
-        "Practical trust calibration: explain what the system does well (where to rely on it), what it does poorly (where to verify), and what to do when something looks wrong — so users develop accurate intuitions about when to trust the output",
+        "Practical trust calibration: explain what the system does well (where to rely on it), what it does poorly (where to verify), and what to do when something looks wrong: so users develop accurate intuitions about when to trust the output",
         "Motivational framing: emphasise the benefits and efficiency gains to encourage adoption",
         "Minimal communication: let users discover the system's capabilities through use"
       ],

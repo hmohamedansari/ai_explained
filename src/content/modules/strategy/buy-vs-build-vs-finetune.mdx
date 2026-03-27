@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Teams choose fine-tuning when the real problem is prompt quality or retrieval quality — fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning."
+productionGotcha: "Teams choose fine-tuning when the real problem is prompt quality or retrieval quality: fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 Every time your organisation wants an AI capability, you face the same decision: buy a product that includes it, build on top of a foundation model using prompt engineering and retrieval, or fine-tune a model to specialise it for your use case. Each path has a different cost profile, a different risk profile, and a different ceiling.
 
@@ -34,13 +34,13 @@ Choosing the wrong path wastes money and time. Fine-tuning when the problem is p
 
 ### Production Gotcha
 
-> **Common Gotcha:** Teams choose fine-tuning when the real problem is prompt quality or retrieval quality — fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning.
+> **Common Gotcha:** Teams choose fine-tuning when the real problem is prompt quality or retrieval quality: fine-tuning a model on bad examples makes the bad behaviour more consistent, not better. Exhaust prompt engineering and RAG before committing to the data labelling and maintenance overhead of fine-tuning.
 >
 > The assumption that trips teams: "The model doesn't behave the way we want, so we need to train it." Often the model is fine. The prompts are the problem.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Decision framework
 
@@ -79,7 +79,7 @@ Each path has costs that are easy to underestimate:
 
 This is the most important concept for avoiding premature fine-tuning.
 
-A **knowledge gap** is when the model doesn't know facts specific to your domain: your internal processes, your product catalogue, your historical records. The fix is retrieval — give the model the relevant documents at query time. Fine-tuning on facts is expensive and fragile: facts change, and you cannot retrain the model every time they do.
+A **knowledge gap** is when the model doesn't know facts specific to your domain: your internal processes, your product catalogue, your historical records. The fix is retrieval: give the model the relevant documents at query time. Fine-tuning on facts is expensive and fragile: facts change, and you cannot retrain the model every time they do.
 
 A **behaviour gap** is when the model knows enough but responds in the wrong way: wrong tone, wrong format, wrong level of detail, inconsistent persona, or wrong decision patterns for your use case. A behaviour gap is what fine-tuning actually addresses.
 
@@ -111,7 +111,7 @@ RAG and fine-tuning are not mutually exclusive. The strongest setups for domain-
 - **Fine-tune for behaviour**: Train the model on examples of how it should respond in your context (tone, format, decision patterns).
 - **RAG for knowledge**: Retrieve current, specific facts at query time so the model doesn't need to memorise them.
 
-This combination gives you a model that behaves correctly for your domain while having access to up-to-date knowledge — without needing to retrain every time facts change.
+This combination gives you a model that behaves correctly for your domain while having access to up-to-date knowledge: without needing to retrain every time facts change.
 
 ### Exit planning and lock-in
 
@@ -125,7 +125,7 @@ Every path creates some lock-in. Plan your exit before you commit:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Why the build-vs-buy calculus is shifting
 
@@ -137,7 +137,7 @@ Conversely, the "buy" option is expanding: many SaaS products now have AI featur
 
 ### Fine-tuning economics
 
-Fine-tuning costs have fallen significantly — training a small model on thousands of examples is now measurable in tens to hundreds of dollars of compute. But the full cost of a fine-tuning programme is dominated by data, not compute:
+Fine-tuning costs have fallen significantly: training a small model on thousands of examples is now measurable in tens to hundreds of dollars of compute. But the full cost of a fine-tuning programme is dominated by data, not compute:
 
 - Data collection and labelling: typically the largest cost
 - Quality control: labelled data needs to be reviewed; poor labels make behaviour worse
@@ -159,6 +159,6 @@ Mitigation: treat AI vendors like any critical infrastructure dependency. Requir
 
 ### Further reading
 
-- [Fine-tuning documentation — Anthropic](https://docs.anthropic.com/en/docs/build-with-claude/fine-tuning) — Anthropic's current fine-tuning guidance including when it helps and when it doesn't; check for updates as capabilities evolve.
-- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401) — Lewis et al., 2020. The original RAG paper; foundational reading for understanding the knowledge gap vs behaviour gap distinction.
-- [The Total Economic Impact of AI Models — Forrester](https://www.forrester.com/report/the-total-economic-impact-of-ai-models) — Framework for total cost of ownership across AI deployment approaches; useful for structuring vendor evaluations.
+- [Fine-tuning documentation, Anthropic](https://docs.anthropic.com/en/docs/build-with-claude/fine-tuning), Anthropic's current fine-tuning guidance including when it helps and when it doesn't; check for updates as capabilities evolve.
+- [Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks](https://arxiv.org/abs/2005.11401); Lewis et al., 2020. The original RAG paper; foundational reading for understanding the knowledge gap vs behaviour gap distinction.
+- [The Total Economic Impact of AI Models, Forrester](https://www.forrester.com/report/the-total-economic-impact-of-ai-models), Framework for total cost of ownership across AI deployment approaches; useful for structuring vendor evaluations.

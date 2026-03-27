@@ -1,5 +1,5 @@
 {
-  "title": "Retrieval Quality: Dense, Sparse, and Hybrid — Check your understanding",
+  "title": "Retrieval Quality: Dense, Sparse, and Hybrid: Check your understanding",
   "moduleId": "2.4",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "A user queries your technical support RAG system with 'ERR-4021 authentication failure'. Your dense-only retrieval returns general articles about authentication errors but misses the specific ERR-4021 troubleshooting page. What is the most likely cause?",
       "options": [
         "The embedding model has too few dimensions to capture specific error codes",
-        "Dense retrieval finds semantic similarity but may miss exact term matches — 'ERR-4021' has no semantic meaning the model can generalise from, so sparse (keyword) retrieval is needed to catch it",
+        "Dense retrieval finds semantic similarity but may miss exact term matches: 'ERR-4021' has no semantic meaning the model can generalise from, so sparse (keyword) retrieval is needed to catch it",
         "The error code document was not included in the index",
         "The query is too short for dense retrieval to work effectively"
       ],
       "answer": 1,
-      "explanation": "Dense retrieval searches by meaning, not by exact words. 'ERR-4021' is an opaque identifier — it has no semantic relationship to other error codes, so an embedding model produces a poor representation for it. BM25 (sparse retrieval) catches it through exact term matching: the term 'ERR-4021' in the query scores directly against the same term in documents using term frequency and IDF, with no dependence on training data. Hybrid search combines both: the exact match from BM25 and semantic matches from dense retrieval.",
+      "explanation": "Dense retrieval searches by meaning, not by exact words. 'ERR-4021' is an opaque identifier: it has no semantic relationship to other error codes, so an embedding model produces a poor representation for it. BM25 (sparse retrieval) catches it through exact term matching: the term 'ERR-4021' in the query scores directly against the same term in documents using term frequency and IDF, with no dependence on training data. Hybrid search combines both: the exact match from BM25 and semantic matches from dense retrieval.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -22,12 +22,12 @@
       "question": "You want to combine dense and sparse retrieval scores into a single ranked list. Why is Reciprocal Rank Fusion (RRF) preferred over directly summing the two scores?",
       "options": [
         "RRF is faster to compute than score addition",
-        "Dense scores (cosine similarity, 0–1) and sparse scores (BM25, unbounded) are not on the same scale — RRF operates on ranks instead, requiring no normalisation",
+        "Dense scores (cosine similarity, 0–1) and sparse scores (BM25, unbounded) are not on the same scale; RRF operates on ranks instead, requiring no normalisation",
         "RRF gives more weight to sparse results, which are generally more accurate",
         "Score addition requires both retrieval systems to return the same number of results"
       ],
       "answer": 1,
-      "explanation": "BM25 scores are unbounded (a document can score 14.3 or 0.7 depending on corpus statistics) while cosine similarity is bounded between -1 and 1. Directly summing them gives BM25 an arbitrary weight advantage. RRF sidesteps this entirely by using only the rank position, not the score — the contribution of each result is 1/(k + rank), which is comparable across any retrieval method regardless of score scale.",
+      "explanation": "BM25 scores are unbounded (a document can score 14.3 or 0.7 depending on corpus statistics) while cosine similarity is bounded between -1 and 1. Directly summing them gives BM25 an arbitrary weight advantage. RRF sidesteps this entirely by using only the rank position, not the score: the contribution of each result is 1/(k + rank), which is comparable across any retrieval method regardless of score scale.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -36,7 +36,7 @@
       "question": "You add a cross-encoder re-ranker to your pipeline and retrieve top-5 results before re-ranking. Users still get poor answers. What is the most likely problem?",
       "options": [
         "Cross-encoders are less accurate than bi-encoders for re-ranking tasks",
-        "Re-ranking can only reorder the candidates it receives — if the correct document is not in the top-5 before re-ranking, no re-ranker can surface it",
+        "Re-ranking can only reorder the candidates it receives: if the correct document is not in the top-5 before re-ranking, no re-ranker can surface it",
         "The cross-encoder model needs to be fine-tuned on your domain to work correctly",
         "Re-ranking only works when dense and sparse retrieval are both used"
       ],
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "Which retrieval metric most directly answers the question 'does my system find the right document within the results I pass to the model?'",
       "options": [
-        "BLEU score — measures overlap between the retrieved text and the expected answer",
-        "Recall@k — the fraction of queries where the correct document appears in the top-k retrieved results",
-        "Latency p95 — measures whether retrieval is fast enough for production",
-        "Cosine similarity score — the average similarity between query and retrieved documents"
+        "BLEU score: measures overlap between the retrieved text and the expected answer",
+        "Recall@k: the fraction of queries where the correct document appears in the top-k retrieved results",
+        "Latency p95: measures whether retrieval is fast enough for production",
+        "Cosine similarity score: the average similarity between query and retrieved documents"
       ],
       "answer": 1,
-      "explanation": "Recall@k directly answers the retrieval question: for k results passed to the model, what fraction of the time does the correct document appear in those k results? If recall@5 is 0.60, 40% of the time the model never sees the right document — no amount of prompt engineering can fix that. BLEU measures generation quality, latency measures speed, and average cosine similarity is a weak proxy that doesn't tell you whether the right document was retrieved.",
+      "explanation": "Recall@k directly answers the retrieval question: for k results passed to the model, what fraction of the time does the correct document appear in those k results? If recall@5 is 0.60, 40% of the time the model never sees the right document: no amount of prompt engineering can fix that. BLEU measures generation quality, latency measures speed, and average cosine similarity is a weak proxy that doesn't tell you whether the right document was retrieved.",
       "read_more": "https://docs.ragas.io/",
       "personas": ["junior", "senior", "sre"]
     },
@@ -67,10 +67,10 @@
         "Switch to a higher-quality embedding model to improve the ranking of the correct document",
         "Increase top-k to 20 and pass all 20 chunks to the model",
         "Add a re-ranker: retrieve top-20 candidates (good recall) then re-score them to surface the correct document into the top-5 (better precision)",
-        "The problem is in the chunking strategy — the correct chunk is too large to rank highly"
+        "The problem is in the chunking strategy: the correct chunk is too large to rank highly"
       ],
       "answer": 2,
-      "explanation": "High recall@20 with low recall@5 is the textbook case for a re-ranker. The right document is being retrieved — it's in the top-20 91% of the time — but the ranking order is wrong. A cross-encoder re-ranker, which scores (query, document) pairs jointly, is significantly more accurate at ordering than the bi-encoder used for initial retrieval. Passing all 20 chunks to the model wastes context window and dilutes the signal; switching embedding models wouldn't fix an ordering problem.",
+      "explanation": "High recall@20 with low recall@5 is the textbook case for a re-ranker. The right document is being retrieved, it's in the top-20 91% of the time, but the ranking order is wrong. A cross-encoder re-ranker, which scores (query, document) pairs jointly, is significantly more accurate at ordering than the bi-encoder used for initial retrieval. Passing all 20 chunks to the model wastes context window and dilutes the signal; switching embedding models wouldn't fix an ordering problem.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

@@ -1,7 +1,7 @@
 ---
 moduleId: "2.6"
 title: "Evaluating RAG Systems"
-description: "A fluent, well-formatted answer based on the wrong chunk is a failure — but it reads like a success. RAG evaluation requires two independent measurement tracks: retrieval quality and generation quality. Conflating them hides the real failure mode."
+description: "A fluent, well-formatted answer based on the wrong chunk is a failure, but it reads like a success. RAG evaluation requires two independent measurement tracks: retrieval quality and generation quality. Conflating them hides the real failure mode."
 track: "rag"
 order: 6
 personas: ["junior", "senior", "sre"]
@@ -16,13 +16,13 @@ productionGotcha: "Evaluating RAG by reading answers is not evaluation. A model 
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 RAG evaluation has two completely separate concerns:
 
-**Retrieval quality** — Did the retrieval step return the chunks that contain the answer? This is measurable without the model. You compare retrieved chunk IDs against a ground-truth set of relevant chunks.
+**Retrieval quality**: Did the retrieval step return the chunks that contain the answer? This is measurable without the model. You compare retrieved chunk IDs against a ground-truth set of relevant chunks.
 
-**Generation quality** — Given the retrieved chunks, did the model produce a faithful, relevant answer? This requires inspecting the relationship between the chunks and the model's output.
+**Generation quality**: Given the retrieved chunks, did the model produce a faithful, relevant answer? This requires inspecting the relationship between the chunks and the model's output.
 
 A system can fail on either axis independently:
 
@@ -41,7 +41,7 @@ The dangerous case is **bad retrieval + good generation**: the model faithfully 
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Building a ground-truth evaluation set
 
@@ -73,7 +73,7 @@ RAG_EVAL_SET = [
 ]
 ```
 
-Building the set: start with 30–50 queries drawn from real or expected user traffic. For each, manually identify which chunks (by ID) contain the answer — this is the labelling step that cannot be automated away. Include at least 10% no-answer queries to test the fallback path.
+Building the set: start with 30–50 queries drawn from real or expected user traffic. For each, manually identify which chunks (by ID) contain the answer: this is the labelling step that cannot be automated away. Include at least 10% no-answer queries to test the fallback path.
 
 ### Measuring retrieval quality
 
@@ -110,15 +110,15 @@ def evaluate_retrieval(
     }
 ```
 
-Retrieval evaluation runs without any model calls — it's fast, cheap, and can run in CI on every indexing pipeline change.
+Retrieval evaluation runs without any model calls: it's fast, cheap, and can run in CI on every indexing pipeline change.
 
 ### Measuring generation quality
 
 With retrieval validated, evaluate what the model does with the chunks it receives. Two core metrics:
 
-**Faithfulness** — does the answer contain only claims supported by the retrieved context? An unfaithful answer adds facts not in the chunks.
+**Faithfulness**: does the answer contain only claims supported by the retrieved context? An unfaithful answer adds facts not in the chunks.
 
-**Answer relevance** — does the answer actually address the question asked? A faithful but off-topic answer is still a failure.
+**Answer relevance**: does the answer actually address the question asked? A faithful but off-topic answer is still a failure.
 
 Using a judge model to score these:
 
@@ -195,27 +195,27 @@ print(scores)
 # Output: {'faithfulness': 0.87, 'answer_relevancy': 0.91, 'context_precision': 0.76, 'context_recall': 0.83}
 ```
 
-RAGAS requires a judge LLM to score each sample — configure it with any provider. The metrics it returns:
+RAGAS requires a judge LLM to score each sample: configure it with any provider. The metrics it returns:
 
 | Metric | What it measures |
 |---|---|
 | **Faithfulness** | Fraction of answer claims supported by the retrieved context |
 | **Answer relevancy** | How directly the answer addresses the original question |
-| **Context precision** | Of the retrieved chunks, what fraction are relevant to the question (LLM-judged) — measures over-retrieval of noise |
+| **Context precision** | Of the retrieved chunks, what fraction are relevant to the question (LLM-judged): measures over-retrieval of noise |
 | **Context recall** | Of the claims in the ground-truth answer, what fraction appear in the retrieved context |
 
-Context precision is particularly useful for identifying over-retrieval: if you're retrieving 10 chunks but only 3 are judged relevant to the question, precision is 0.3 — a signal to reduce top-k, raise your relevance threshold, or improve retrieval quality. Note that this is an LLM-judged relevance score, not a trace of what the model internally attended to.
+Context precision is particularly useful for identifying over-retrieval: if you're retrieving 10 chunks but only 3 are judged relevant to the question, precision is 0.3: a signal to reduce top-k, raise your relevance threshold, or improve retrieval quality. Note that this is an LLM-judged relevance score, not a trace of what the model internally attended to.
 
 ### Before vs After
 
-**No eval — regressions are invisible:**
+**No eval: regressions are invisible:**
 ```python
 # BAD: change chunk size from 500 to 1500, re-deploy, no measure
 # Users report worse answers two weeks later
 # You have no data on when quality degraded or which change caused it
 ```
 
-**Eval in CI — regressions caught immediately:**
+**Eval in CI: regressions caught immediately:**
 ```python
 # GOOD: eval runs on every indexing pipeline change
 # Recall@5:           0.84 → 0.71  ← fails threshold, blocks deploy
@@ -226,15 +226,15 @@ Context precision is particularly useful for identifying over-retrieval: if you'
 
 ### Common mistakes
 
-1. **Evaluating end-to-end only** — Testing only the final answer quality means you can't tell whether a regression came from retrieval or generation. Measure both independently.
-2. **Happy-path-only eval set** — If every query has a clear answer in the corpus, you never test the no-answer path. Include ~10–15% unanswerable queries.
-3. **Using the same model to generate and judge** — A model judging its own outputs has self-preference bias. Use a different or stronger model as the judge.
-4. **Static eval set** — An eval set built from day-one queries misses failure modes that emerge from real traffic. Seed with at least 10 real queries per sprint.
-5. **Conflating context recall and answer accuracy** — Context recall measures whether the retrieved context contains the right information; answer accuracy measures whether the model extracted it correctly. High context recall with low answer accuracy points to a prompting or generation problem, not a retrieval problem.
+1. **Evaluating end-to-end only**: Testing only the final answer quality means you can't tell whether a regression came from retrieval or generation. Measure both independently.
+2. **Happy-path-only eval set**: If every query has a clear answer in the corpus, you never test the no-answer path. Include ~10–15% unanswerable queries.
+3. **Using the same model to generate and judge**: A model judging its own outputs has self-preference bias. Use a different or stronger model as the judge.
+4. **Static eval set**: An eval set built from day-one queries misses failure modes that emerge from real traffic. Seed with at least 10 real queries per sprint.
+5. **Conflating context recall and answer accuracy**: Context recall measures whether the retrieved context contains the right information; answer accuracy measures whether the model extracted it correctly. High context recall with low answer accuracy points to a prompting or generation problem, not a retrieval problem.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### RAGAS metrics: how faithfulness is computed
 
@@ -243,7 +243,7 @@ RAGAS faithfulness works in two steps:
 1. **Claim extraction**: a judge LLM reads the answer and extracts a list of atomic factual claims ("Enterprise customers receive a 60-day guarantee", "This applies to annual plans only").
 2. **Claim verification**: for each claim, the judge checks whether the claim can be inferred from the retrieved context. The faithfulness score is `supported_claims / total_claims`.
 
-This is more reliable than asking "is this answer faithful?" as a single question — decomposing into claims catches partial faithfulness (answers that are mostly faithful but include one hallucinated detail).
+This is more reliable than asking "is this answer faithful?" as a single question: decomposing into claims catches partial faithfulness (answers that are mostly faithful but include one hallucinated detail).
 
 ### Production monitoring vs offline evaluation
 
@@ -282,16 +282,16 @@ def rag_with_telemetry(query: str) -> str:
 
 ### Avoiding eval set contamination
 
-If you use real traffic to build eval sets (recommended), there's a contamination risk: if you also used that same traffic to tune your prompt or chunk size, the eval set is no longer a held-out test — you've optimised for it.
+If you use real traffic to build eval sets (recommended), there's a contamination risk: if you also used that same traffic to tune your prompt or chunk size, the eval set is no longer a held-out test: you've optimised for it.
 
 Maintain a strict split:
 - **Development set** (50%): used to tune prompts, chunk size, retrieval parameters
 - **Test set** (50%): held out, only used to report final metrics before deployment
 
-Once a query goes into the test set, treat it as immutable. Never use test set failures as direct prompting examples — add them to the development set instead.
+Once a query goes into the test set, treat it as immutable. Never use test set failures as direct prompting examples: add them to the development set instead.
 
 ### Further reading
 
-- [RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217) — Es et al., 2023. The RAGAS paper defining faithfulness, answer relevancy, context precision, and context recall as RAG-specific metrics.
-- [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476) — Saad-Falcon et al., 2023. Alternative RAG evaluation approach using few-shot classifiers; useful comparison to RAGAS.
-- [Benchmarking Large Language Models in Retrieval-Augmented Generation](https://arxiv.org/abs/2309.01431) — Chen et al., 2023. Systematic evaluation of how well LLMs use retrieved context, broken down by noise robustness, negative rejection, and counterfactual robustness.
+- [RAGAS: Automated Evaluation of Retrieval Augmented Generation](https://arxiv.org/abs/2309.15217); Es et al., 2023. The RAGAS paper defining faithfulness, answer relevancy, context precision, and context recall as RAG-specific metrics.
+- [ARES: An Automated Evaluation Framework for Retrieval-Augmented Generation Systems](https://arxiv.org/abs/2311.09476); Saad-Falcon et al., 2023. Alternative RAG evaluation approach using few-shot classifiers; useful comparison to RAGAS.
+- [Benchmarking Large Language Models in Retrieval-Augmented Generation](https://arxiv.org/abs/2309.01431); Chen et al., 2023. Systematic evaluation of how well LLMs use retrieved context, broken down by noise robustness, negative rejection, and counterfactual robustness.

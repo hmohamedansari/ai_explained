@@ -1,7 +1,7 @@
 ---
 moduleId: "6.6"
 title: "CI/CD Eval Gates"
-description: "Learn to build automated eval gates that block deployments when prompt changes, model upgrades, or RAG index updates regress quality — before they reach users."
+description: "Learn to build automated eval gates that block deployments when prompt changes, model upgrades, or RAG index updates regress quality: before they reach users."
 track: "evaluation"
 order: 6
 personas: ["junior", "senior", "sre"]
@@ -12,21 +12,21 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "Relative regression thresholds ('no more than 2% drop') let baselines drift downward over time if each PR shaves a little off — the baseline updates to the new lower value. Anchor a subset of the eval suite to an absolute threshold that never degrades, and use relative thresholds only for secondary metrics. Without an absolute floor, a system that degrades 2% per quarter for a year is considered acceptable at every step."
+productionGotcha: "Relative regression thresholds ('no more than 2% drop') let baselines drift downward over time if each PR shaves a little off: the baseline updates to the new lower value. Anchor a subset of the eval suite to an absolute threshold that never degrades, and use relative thresholds only for secondary metrics. Without an absolute floor, a system that degrades 2% per quarter for a year is considered acceptable at every step."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 A prompt is code. A model version is a dependency. A RAG index is a data artifact. All three can change, and any of them can silently break your system's output quality without triggering a unit test failure or a syntax error.
 
 CI/CD eval gates are the mechanism that prevents quality regressions from reaching production. Before a merge is allowed, the eval suite runs against the changed system and compares results to a baseline. If the system has regressed, the merge is blocked.
 
-This sounds simple but requires careful design. The gate must complete in minutes, not hours — or engineers will disable it. The thresholds must be well-calibrated — too strict and every PR fails on noise; too loose and regressions slip through. The baseline management must prevent silent drift — if the baseline is always updated to match the current system, thresholds protect nothing.
+This sounds simple but requires careful design. The gate must complete in minutes, not hours, or engineers will disable it. The thresholds must be well-calibrated, too strict and every PR fails on noise; too loose and regressions slip through. The baseline management must prevent silent drift: if the baseline is always updated to match the current system, thresholds protect nothing.
 
 ### Why it matters
 
-Without eval gates, every system change ships to users before quality is verified. The only feedback loop is user complaints — which is slow, indirect, and leaves failures visible to users before you know about them.
+Without eval gates, every system change ships to users before quality is verified. The only feedback loop is user complaints: which is slow, indirect, and leaves failures visible to users before you know about them.
 
 ### Production Gotcha
 
@@ -36,7 +36,7 @@ Maintain a set of "golden cases" with absolute thresholds that are never updated
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The gate pipeline
 
@@ -359,7 +359,7 @@ def main(threshold_file: str, changed_files: list[str]) -> int:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Anatomy of a golden suite
 
@@ -374,7 +374,7 @@ Golden cases should represent:
 | Safety boundaries | Inputs that must be refused | Safety must not regress under any circumstances |
 | Structured output contracts | Cases where output format is required by downstream systems | Format regressions break integrations |
 
-A golden case should never be removed from the golden suite. If a system change causes a golden case to fail, the change is wrong — the case is not.
+A golden case should never be removed from the golden suite. If a system change causes a golden case to fail, the change is wrong: the case is not.
 
 ### Threshold calibration
 
@@ -425,6 +425,6 @@ This mindset shift is organizational as much as technical. Teams that treat prom
 
 ### Further reading
 
-- [Continuous Delivery — Jez Humble, David Farley](https://continuousdelivery.com/) — Humble & Farley, 2010. The foundational text on deployment pipelines; the gate and threshold concepts here are a direct application of CD principles to LLM systems.
-- [Evals — OpenAI](https://github.com/openai/evals) — OpenAI, 2023. Open-source eval framework; the runner and dataset format are a good reference for implementing the CI eval pipeline.
-- [Weights & Biases — Evaluations](https://docs.wandb.ai/guides/evaluate/) — Weights & Biases, 2024. A commercial implementation of the eval gate pattern; useful as a reference for what a mature eval infrastructure looks like.
+- [Continuous Delivery, Jez Humble, David Farley](https://continuousdelivery.com/), Humble & Farley, 2010. The foundational text on deployment pipelines; the gate and threshold concepts here are a direct application of CD principles to LLM systems.
+- [Evals, OpenAI](https://github.com/openai/evals), OpenAI, 2023. Open-source eval framework; the runner and dataset format are a good reference for implementing the CI eval pipeline.
+- [Weights & Biases, Evaluations](https://docs.wandb.ai/guides/evaluate/), Weights & Biases, 2024. A commercial implementation of the eval gate pattern; useful as a reference for what a mature eval infrastructure looks like.

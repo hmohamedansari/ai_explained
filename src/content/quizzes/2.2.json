@@ -1,5 +1,5 @@
 {
-  "title": "Embeddings and Vector Search — Check your understanding",
+  "title": "Embeddings and Vector Search: Check your understanding",
   "moduleId": "2.2",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "You index your documents using OpenAI's text-embedding-3-small model. Three months later you switch to Google's gemini-embedding-001 to reduce costs. Users report that search results are suddenly irrelevant. What happened?",
       "options": [
         "Google's embedding model has lower quality than OpenAI's for this use case",
-        "The new embeddings live in a different vector space — queries embedded with model B cannot meaningfully compare to documents indexed with model A",
+        "The new embeddings live in a different vector space: queries embedded with model B cannot meaningfully compare to documents indexed with model A",
         "The vector database needs to be restarted after changing embedding models",
         "gemini-embedding-001 produces different dimensions, which reduces similarity accuracy"
       ],
       "answer": 1,
-      "explanation": "Each embedding model defines its own vector space. Similarity scores between vectors only have meaning when both vectors come from the same model. Mixing models — old documents embedded with model A, new queries embedded with model B — produces meaningless scores. The fix is to re-embed and re-index all documents with the new model before switching queries to it.",
+      "explanation": "Each embedding model defines its own vector space. Similarity scores between vectors only have meaning when both vectors come from the same model. Mixing models, old documents embedded with model A, new queries embedded with model B, produces meaningless scores. The fix is to re-embed and re-index all documents with the new model before switching queries to it.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -21,13 +21,13 @@
       "type": "multiple-choice",
       "question": "You want to add semantic search to a RAG system that uses Claude as the generation model. Which embedding provider should you use?",
       "options": [
-        "Anthropic's embedding API — it's designed to work best with Claude",
-        "Any embedding provider — OpenAI, Google, Cohere, or an open-source model; Anthropic does not offer an embedding model",
+        "Anthropic's embedding API: it's designed to work best with Claude",
+        "Any embedding provider; OpenAI, Google, Cohere, or an open-source model; Anthropic does not offer an embedding model",
         "You must use the same provider for embeddings and generation for the vectors to be compatible",
-        "OpenAI only — other providers' embeddings are not compatible with most vector databases"
+        "OpenAI only: other providers' embeddings are not compatible with most vector databases"
       ],
       "answer": 1,
-      "explanation": "Anthropic does not offer an embedding model. For RAG systems that generate with Claude, you pick an embedding model from another provider (OpenAI text-embedding-3-small, Google gemini-embedding-001, Cohere embed-english-v3.0, or open-source models like all-MiniLM-L6-v2). The generation model and embedding model are completely independent — you can mix any combination.",
+      "explanation": "Anthropic does not offer an embedding model. For RAG systems that generate with Claude, you pick an embedding model from another provider (OpenAI text-embedding-3-small, Google gemini-embedding-001, Cohere embed-english-v3.0, or open-source models like all-MiniLM-L6-v2). The generation model and embedding model are completely independent: you can mix any combination.",
       "read_more": "https://docs.anthropic.com/",
       "personas": ["junior", "senior", "sre"]
     },
@@ -56,7 +56,7 @@
         "They cache the top-100 results for common queries and skip search for those"
       ],
       "answer": 2,
-      "explanation": "Exact nearest-neighbour search is O(n) — it compares the query to every stored vector, which doesn't scale to millions of documents at interactive latency. ANN algorithms like HNSW build a graph or cluster structure over the vectors and navigate it to find approximate nearest neighbours, checking a fraction of the corpus per query. The accuracy loss (some true neighbours may be missed) is small and usually acceptable for retrieval tasks.",
+      "explanation": "Exact nearest-neighbour search is O(n): it compares the query to every stored vector, which doesn't scale to millions of documents at interactive latency. ANN algorithms like HNSW build a graph or cluster structure over the vectors and navigate it to find approximate nearest neighbours, checking a fraction of the corpus per query. The accuracy loss (some true neighbours may be missed) is small and usually acceptable for retrieval tasks.",
       "personas": ["senior", "sre"]
     },
     {
@@ -65,12 +65,12 @@
       "question": "You are indexing 10,000 documents. What is wrong with this approach: `for doc in documents: embed(doc)` with a single API call per document?",
       "options": [
         "Embedding APIs don't support indexing more than 1,000 documents",
-        "It is significantly slower and more expensive than batch embedding — all major embedding APIs accept a list of texts and return a list of vectors in one call",
+        "It is significantly slower and more expensive than batch embedding: all major embedding APIs accept a list of texts and return a list of vectors in one call",
         "Individual embedding calls produce lower-quality vectors than batch calls",
         "The vector database cannot accept embeddings from individual API calls"
       ],
       "answer": 1,
-      "explanation": "All major embedding APIs support batch input: pass a list of texts, get a list of vectors back. Embedding one document at a time means 10,000 individual HTTP requests — each with network latency, rate limit exposure, and per-call overhead. Batching reduces this to tens or hundreds of requests. For 10,000 documents, the difference can be minutes vs seconds of indexing time and meaningfully lower API costs.",
+      "explanation": "All major embedding APIs support batch input: pass a list of texts, get a list of vectors back. Embedding one document at a time means 10,000 individual HTTP requests: each with network latency, rate limit exposure, and per-call overhead. Batching reduces this to tens or hundreds of requests. For 10,000 documents, the difference can be minutes vs seconds of indexing time and meaningfully lower API costs.",
       "personas": ["junior", "senior", "sre"]
     }
   ]

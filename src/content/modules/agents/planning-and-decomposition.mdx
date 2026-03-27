@@ -1,7 +1,7 @@
 ---
 moduleId: "4.3"
 title: "Planning and Decomposition"
-description: "Complex tasks fail when handed to an agent as a single goal. Planning is the process of decomposing a goal into executable steps — deciding what to do, in what order, and when to revise the plan based on what actually happens."
+description: "Complex tasks fail when handed to an agent as a single goal. Planning is the process of decomposing a goal into executable steps: deciding what to do, in what order, and when to revise the plan based on what actually happens."
 track: "agents"
 order: 3
 personas: ["junior", "senior", "sre"]
@@ -12,13 +12,13 @@ estimatedMinutes:
   layer1: 5
   layer2: 17
   layer3: 13
-productionGotcha: "Planning has a cost. A planning step adds one full LLM call before any action is taken, and replanning adds another. For tasks that take 2–3 steps, the planning overhead can exceed the cost of the task itself. Benchmark: if the agent reliably completes the task correctly without a planning step, don't add one. Planning is not a quality booster — it is a structure tool for tasks whose path genuinely cannot be determined from the goal alone."
+productionGotcha: "Planning has a cost. A planning step adds one full LLM call before any action is taken, and replanning adds another. For tasks that take 2–3 steps, the planning overhead can exceed the cost of the task itself. Benchmark: if the agent reliably completes the task correctly without a planning step, don't add one. Planning is not a quality booster: it is a structure tool for tasks whose path genuinely cannot be determined from the goal alone."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Given the goal "research competitors and draft a comparison report," an agent without planning will attempt to do everything in one loop — often calling tools in a confused order, losing track of sub-goals, and producing incomplete output.
+Given the goal "research competitors and draft a comparison report," an agent without planning will attempt to do everything in one loop: often calling tools in a confused order, losing track of sub-goals, and producing incomplete output.
 
 **Planning** breaks the goal into a sequenced task graph before acting. The agent answers "what needs to happen?" before asking "how do I do the next thing?"
 
@@ -26,17 +26,17 @@ Three planning patterns, from simplest to most structured:
 
 | Pattern | How it works | Use when |
 |---|---|---|
-| **ReAct** | Interleave reasoning with action — think, then act, then observe | Tasks where each step informs the next |
+| **ReAct** | Interleave reasoning with action: think, then act, then observe | Tasks where each step informs the next |
 | **Plan-then-execute** | Generate a full plan upfront, then execute each step | Tasks with known structure and stable sub-goals |
 | **Dynamic replanning** | Execute with a plan, revise the plan when observations contradict it | Long tasks where reality diverges from the plan |
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
-### ReAct — reason, act, observe
+### ReAct: reason, act, observe
 
-ReAct is not a library — it is a prompt pattern. Before each action, the model explicitly states its current reasoning:
+ReAct is not a library: it is a prompt pattern. Before each action, the model explicitly states its current reasoning:
 
 ```python
 REACT_SYSTEM = """You are a research agent. For each step, follow this format exactly:
@@ -176,7 +176,7 @@ def dynamic_plan_execute(goal: str, tools: list[dict]) -> str:
     return synthesise(goal, results)
 ```
 
-Replanning is expensive — one extra LLM call per step. Use it only when the task is long and the risk of executing an invalidated plan is high.
+Replanning is expensive: one extra LLM call per step. Use it only when the task is long and the risk of executing an invalidated plan is high.
 
 ### When not to plan
 
@@ -199,7 +199,7 @@ def needs_planning(task: dict) -> bool:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Task decomposition quality
 
@@ -251,6 +251,6 @@ The high-level plan stays stable; individual sub-plans can be regenerated if the
 
 ### Further reading
 
-- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629) — Yao et al., 2022. Original ReAct paper; the reason-act-observe loop and its evaluation on multi-hop QA and decision tasks.
-- [Plan-and-Solve Prompting](https://arxiv.org/abs/2305.04091) — Wang et al., 2023. Systematic comparison of plan-first vs react-style execution; useful data on when planning improves vs degrades performance.
-- [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601) — Yao et al., 2023. Extension of planning to tree-structured exploration; relevant when a task has branching solution paths.
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629); Yao et al., 2022. Original ReAct paper; the reason-act-observe loop and its evaluation on multi-hop QA and decision tasks.
+- [Plan-and-Solve Prompting](https://arxiv.org/abs/2305.04091); Wang et al., 2023. Systematic comparison of plan-first vs react-style execution; useful data on when planning improves vs degrades performance.
+- [Tree of Thoughts: Deliberate Problem Solving with Large Language Models](https://arxiv.org/abs/2305.10601); Yao et al., 2023. Extension of planning to tree-structured exploration; relevant when a task has branching solution paths.

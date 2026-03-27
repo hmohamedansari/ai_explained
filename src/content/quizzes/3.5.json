@@ -1,5 +1,5 @@
 {
-  "title": "Streaming and Async Tool Workflows — Check your understanding",
+  "title": "Streaming and Async Tool Workflows: Check your understanding",
   "moduleId": "3.5",
   "questions": [
     {
@@ -9,11 +9,11 @@
       "options": [
         "Execute the tool immediately using the partial tool_use data received so far",
         "Pause text streaming to the user, wait for the complete tool_use block, then execute",
-        "Buffer the complete tool_use block before executing — tool calls cannot be executed on partial input, as the arguments may be incomplete",
+        "Buffer the complete tool_use block before executing: tool calls cannot be executed on partial input, as the arguments may be incomplete",
         "Cancel the stream and restart without streaming enabled"
       ],
       "answer": 2,
-      "explanation": "Tool arguments arrive as partial JSON in input_json_delta events during streaming. A partial argument object is not valid JSON and cannot be executed. You must buffer all input_json_delta events for a given tool call until the content_block_stop event arrives, then parse and execute the complete arguments. Text deltas from earlier in the stream can be shown to the user immediately — only the tool_use block needs to be buffered.",
+      "explanation": "Tool arguments arrive as partial JSON in input_json_delta events during streaming. A partial argument object is not valid JSON and cannot be executed. You must buffer all input_json_delta events for a given tool call until the content_block_stop event arrives, then parse and execute the complete arguments. Text deltas from earlier in the stream can be shown to the user immediately: only the tool_use block needs to be buffered.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -23,11 +23,11 @@
       "options": [
         "The tool should block for up to 5 minutes and return when complete",
         "The model receives the job_id as a tool result, then calls a check_job_status tool in subsequent loop iterations to poll for completion",
-        "The model cannot handle async tools — all tools must complete synchronously",
+        "The model cannot handle async tools: all tools must complete synchronously",
         "The frontend must poll directly; the model is not involved after triggering the job"
       ],
       "answer": 1,
-      "explanation": "Blocking for minutes in a tool call would exceed HTTP timeouts, block other sessions, and provide no feedback to the user. The correct pattern is: the tool returns immediately with a job_id, and a separate check_job_status tool allows the model to poll in subsequent iterations. The agentic loop naturally handles this — each check_job_status call is a new iteration. The model description in the tool schema ('Returns job_id immediately. Use check_job_status to poll for completion.') tells the model exactly how to proceed.",
+      "explanation": "Blocking for minutes in a tool call would exceed HTTP timeouts, block other sessions, and provide no feedback to the user. The correct pattern is: the tool returns immediately with a job_id, and a separate check_job_status tool allows the model to poll in subsequent iterations. The agentic loop naturally handles this: each check_job_status call is a new iteration. The model description in the tool schema ('Returns job_id immediately. Use check_job_status to poll for completion.') tells the model exactly how to proceed.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -35,10 +35,10 @@
       "type": "multiple-choice",
       "question": "You are building a web interface that streams the agent's response to the browser. Which protocol is standard for server-to-browser one-way streaming?",
       "options": [
-        "WebSocket — required for any real-time browser communication",
-        "Long polling — the browser repeatedly requests updates",
-        "Server-sent events (SSE) — a standard HTTP mechanism for pushing a stream of text events from server to browser",
-        "gRPC — the most efficient streaming protocol available"
+        "WebSocket: required for any real-time browser communication",
+        "Long polling: the browser repeatedly requests updates",
+        "Server-sent events (SSE): a standard HTTP mechanism for pushing a stream of text events from server to browser",
+        "gRPC: the most efficient streaming protocol available"
       ],
       "answer": 2,
       "explanation": "Server-sent events (SSE) are the standard protocol for this use case: the browser opens a single HTTP connection and the server pushes `data:` events as they become available. SSE is supported natively in all modern browsers via the EventSource API, works through most proxies and CDNs, and requires no special server infrastructure. WebSocket provides bidirectional streaming (not needed here) and is more complex to deploy. Long polling adds unnecessary overhead.",
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "An async job is started by the model but the user navigates away. The job continues running on the remote service, consuming its resources. What pattern prevents orphaned jobs?",
       "options": [
-        "Set a server-side timeout on the job — jobs that exceed it are cancelled automatically",
+        "Set a server-side timeout on the job: jobs that exceed it are cancelled automatically",
         "Implement cancellation: when the user session ends, call the job's cancel endpoint and confirm cancellation before releasing session resources",
-        "Orphaned jobs are unavoidable — remote services are responsible for their own cleanup",
+        "Orphaned jobs are unavoidable: remote services are responsible for their own cleanup",
         "Use synchronous tools only to avoid the problem"
       ],
       "answer": 1,
-      "explanation": "Explicit cancellation is the correct primary pattern: when the user session ends, call the job's cancel endpoint so the downstream service stops consuming resources and stops billing for work that will never be used. Server-side timeouts (option A) are a useful safety net for when cancellation fails or is not implemented, but they are not a substitute — a 5-minute timeout still wastes 5 minutes of resources per orphaned job. Relying on timeouts as the primary mechanism is reactive; explicit cancellation is proactive.",
+      "explanation": "Explicit cancellation is the correct primary pattern: when the user session ends, call the job's cancel endpoint so the downstream service stops consuming resources and stops billing for work that will never be used. Server-side timeouts (option A) are a useful safety net for when cancellation fails or is not implemented, but they are not a substitute: a 5-minute timeout still wastes 5 minutes of resources per orphaned job. Relying on timeouts as the primary mechanism is reactive; explicit cancellation is proactive.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -64,7 +64,7 @@
       "question": "A streaming response has been running for 25 seconds and the user's connection drops mid-stream. On reconnect, the user wants to resume where they left off. What is the limitation of SSE in this scenario?",
       "options": [
         "SSE does not support reconnection at all",
-        "SSE supports reconnection via the Last-Event-ID header, but only if the server implements event IDs and buffers recent events — without this, the stream restarts from the beginning",
+        "SSE supports reconnection via the Last-Event-ID header, but only if the server implements event IDs and buffers recent events: without this, the stream restarts from the beginning",
         "SSE automatically buffers the full stream on the server for reconnection",
         "SSE reconnection is handled by the browser without any server support needed"
       ],

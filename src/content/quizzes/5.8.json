@@ -1,5 +1,5 @@
 {
-  "title": "Scaling & Cost Management — Check your understanding",
+  "title": "Scaling & Cost Management: Check your understanding",
   "moduleId": "5.8",
   "questions": [
     {
@@ -7,13 +7,13 @@
       "type": "multiple-choice",
       "question": "A team configures their Kubernetes HPA to scale on CPU utilization, targeting 70%. Under high load, users report degraded latency, but the HPA does not scale up. CPU utilization is 30%. What is wrong?",
       "options": [
-        "The HPA threshold of 70% is too high — it should be set to 50%",
+        "The HPA threshold of 70% is too high: it should be set to 50%",
         "CPU utilization is the wrong metric for GPU-bound LLM serving; the serving process may peg one CPU core for request handling while the GPU is saturated; the HPA sees low CPU and does not scale; the correct metrics are GPU utilization (via DCGM exporter) or request queue depth",
-        "The HPA is not configured correctly — it needs to use memory instead of CPU",
+        "The HPA is not configured correctly: it needs to use memory instead of CPU",
         "The inference server is not exposing metrics to the HPA"
       ],
       "answer": 1,
-      "explanation": "LLM inference is GPU-bound, not CPU-bound. The serving process uses the CPU primarily for request handling and scheduling — lightweight tasks that may consume only one or two CPU cores. Under full GPU saturation (100% GPU utilization), CPU utilization might be 20–30%, well below the HPA threshold. The HPA sees no need to scale, but users experience degraded latency because the GPU is the actual bottleneck. The correct signals are GPU utilization (measured via NVIDIA DCGM exporter and exposed to Prometheus) or request queue depth — which directly measures unmet demand. Tools like KEDA can trigger autoscaling on these custom metrics.",
+      "explanation": "LLM inference is GPU-bound, not CPU-bound. The serving process uses the CPU primarily for request handling and scheduling, lightweight tasks that may consume only one or two CPU cores. Under full GPU saturation (100% GPU utilization), CPU utilization might be 20–30%, well below the HPA threshold. The HPA sees no need to scale, but users experience degraded latency because the GPU is the actual bottleneck. The correct signals are GPU utilization (measured via NVIDIA DCGM exporter and exposed to Prometheus) or request queue depth, which directly measures unmet demand. Tools like KEDA can trigger autoscaling on these custom metrics.",
       "read_more": "https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/",
       "personas": ["senior", "sre"]
     },
@@ -22,13 +22,13 @@
       "type": "multiple-choice",
       "question": "A team sets minimum replicas to 0 (scale-to-zero) for their customer chat product to reduce costs. After a weekend, users report that Monday morning requests take 3–5 minutes before they get a response. What should the team do?",
       "options": [
-        "Pre-warm the cluster on a schedule — scale to 1 replica at 8am every weekday",
+        "Pre-warm the cluster on a schedule: scale to 1 replica at 8am every weekday",
         "Keep a minimum of 1 replica running at all times for interactive workloads; the cost of one idle GPU is justified by guaranteeing sub-second response times; scale-to-zero is appropriate for batch workloads and scheduled jobs, not for interactive user-facing products",
         "Increase the number of GPUs so weight loading completes faster",
-        "Move to API inference — it does not have cold-start latency"
+        "Move to API inference: it does not have cold-start latency"
       ],
       "answer": 1,
-      "explanation": "Scale-to-zero saves idle compute costs but creates cold-start latency when the first request arrives after an idle period. For a 70B model, cold start (pod scheduling + weight loading) takes 2–5 minutes — an unacceptable delay for a customer chat product. The correct policy for interactive workloads is a minimum of 1 replica running continuously. For an A10G at approximately $0.80/hr, keeping 1 replica running 24/7 costs roughly $576/month — typically far less than the product risk and user experience cost of multi-minute cold starts. Pre-warming on a schedule (option A) is a partial solution but misses irregular traffic patterns.",
+      "explanation": "Scale-to-zero saves idle compute costs but creates cold-start latency when the first request arrives after an idle period. For a 70B model, cold start (pod scheduling + weight loading) takes 2–5 minutes, an unacceptable delay for a customer chat product. The correct policy for interactive workloads is a minimum of 1 replica running continuously. For an A10G at approximately $0.80/hr, keeping 1 replica running 24/7 costs roughly $576/month, typically far less than the product risk and user experience cost of multi-minute cold starts. Pre-warming on a schedule (option A) is a partial solution but misses irregular traffic patterns.",
       "personas": ["senior", "sre"]
     },
     {
@@ -42,7 +42,7 @@
         "Use a single balanced 30B model for all requests as a compromise"
       ],
       "answer": 1,
-      "explanation": "Model cascading (routing requests to the appropriate model tier) is the highest-leverage cost optimization after you have identified that model size is being wasted on simple tasks. If 60% of requests are simple classifications that a 7B model handles at 95% accuracy — and the 5% error on those specific tasks is acceptable — then routing them to the 7B model at, say, $0.30/M tokens vs $15/M tokens reduces cost for that 60% by 50x. The composite cost per request drops dramatically. Option D (single balanced model) reduces cost but less aggressively than routing — a 30B model might cost $3–5/M tokens, still significantly more than a 7B for the tasks it can handle.",
+      "explanation": "Model cascading (routing requests to the appropriate model tier) is the highest-leverage cost optimization after you have identified that model size is being wasted on simple tasks. If 60% of requests are simple classifications that a 7B model handles at 95% accuracy, and the 5% error on those specific tasks is acceptable, then routing them to the 7B model at, say, $0.30/M tokens vs $15/M tokens reduces cost for that 60% by 50x. The composite cost per request drops dramatically. Option D (single balanced model) reduces cost but less aggressively than routing: a 30B model might cost $3–5/M tokens, still significantly more than a 7B for the tasks it can handle.",
       "personas": ["senior", "sre"]
     },
     {
@@ -51,12 +51,12 @@
       "question": "A team's monthly GPU bill comes in at 3x their expected budget. After investigation, they find all cost is attributed to 'AI infrastructure' with no breakdown by feature or product area. Two engineers each point to the other team's feature as the likely culprit. What practice would have prevented this situation?",
       "options": [
         "Set a monthly budget alert at 150% of expected spend",
-        "Implement per-feature cost attribution — track input and output tokens (or GPU-hours) per feature, compute cost per request per feature, and report weekly; this makes cost responsibility explicit and enables prioritizing optimization work toward the features consuming disproportionate cost",
+        "Implement per-feature cost attribution: track input and output tokens (or GPU-hours) per feature, compute cost per request per feature, and report weekly; this makes cost responsibility explicit and enables prioritizing optimization work toward the features consuming disproportionate cost",
         "Use separate cloud accounts for each team to provide billing isolation",
         "Switch to API inference where costs are itemized per request automatically"
       ],
       "answer": 1,
-      "explanation": "Without per-feature cost attribution, GPU costs are an opaque aggregate — impossible to assign responsibility or prioritize optimization. Per-feature tracking (recording which feature initiated each request, how many tokens it used, and the resulting cost) reveals which features are expensive to serve and whether that cost is proportional to the value they deliver. A feature consuming 40% of GPU cost but serving 5% of users is a clear optimization target. Budget alerts (option A) tell you the bill is high; they don't tell you why or what to do about it. Per-feature attribution is the prerequisite for all downstream cost management work.",
+      "explanation": "Without per-feature cost attribution, GPU costs are an opaque aggregate: impossible to assign responsibility or prioritize optimization. Per-feature tracking (recording which feature initiated each request, how many tokens it used, and the resulting cost) reveals which features are expensive to serve and whether that cost is proportional to the value they deliver. A feature consuming 40% of GPU cost but serving 5% of users is a clear optimization target. Budget alerts (option A) tell you the bill is high; they don't tell you why or what to do about it. Per-feature attribution is the prerequisite for all downstream cost management work.",
       "personas": ["senior", "sre"]
     },
     {
@@ -64,13 +64,13 @@
       "type": "multiple-choice",
       "question": "A team runs a self-hosted 7B model on a single A10G. Monthly GPU cost is $576. Their daily request volume is 8,000 requests with 600 average output tokens. A competing API offers $0.60/M output tokens. Should they switch to API inference?",
       "options": [
-        "Yes — API inference is almost always cheaper for moderate volumes",
-        "Yes — at 8,000 requests/day × 600 output tokens × 30 days = 144M output tokens/month, and 144 × $0.60 = $86.40/month via API vs $576/month self-hosted; the API is significantly cheaper at this volume; self-hosted only becomes cost-competitive at much higher volume",
-        "No — self-hosted avoids per-token pricing and provides unlimited throughput",
+        "Yes; API inference is almost always cheaper for moderate volumes",
+        "Yes: at 8,000 requests/day × 600 output tokens × 30 days = 144M output tokens/month, and 144 × $0.60 = $86.40/month via API vs $576/month self-hosted; the API is significantly cheaper at this volume; self-hosted only becomes cost-competitive at much higher volume",
+        "No: self-hosted avoids per-token pricing and provides unlimited throughput",
         "It depends on latency requirements, not cost"
       ],
       "answer": 1,
-      "explanation": "The math is straightforward: 8,000 requests/day × 600 output tokens = 4.8M output tokens/day × 30 = 144M output tokens/month. At $0.60/M, that is $86.40/month via API. Self-hosted costs $576/month in GPU-hours alone, plus storage and operational overhead. The API is approximately 6–7x cheaper at this volume. Self-hosted becomes cost-competitive only when monthly token volume is high enough that the API cost exceeds GPU-hour costs — at $0.60/M, that crossover is roughly $576 / $0.60 = 960M output tokens/month (~32K requests/day at 1,000 output tokens). At 8K requests/day, the team should use API inference and revisit self-hosted if volume grows significantly.",
+      "explanation": "The math is straightforward: 8,000 requests/day × 600 output tokens = 4.8M output tokens/day × 30 = 144M output tokens/month. At $0.60/M, that is $86.40/month via API. Self-hosted costs $576/month in GPU-hours alone, plus storage and operational overhead. The API is approximately 6–7x cheaper at this volume. Self-hosted becomes cost-competitive only when monthly token volume is high enough that the API cost exceeds GPU-hour costs: at $0.60/M, that crossover is roughly $576 / $0.60 = 960M output tokens/month (~32K requests/day at 1,000 output tokens). At 8K requests/day, the team should use API inference and revisit self-hosted if volume grows significantly.",
       "personas": ["senior", "sre"]
     }
   ]

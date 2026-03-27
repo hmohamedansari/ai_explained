@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 5
   layer2: 20
   layer3: 15
-productionGotcha: "\"The model is X% accurate\" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed — in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution."
+productionGotcha: "\"The model is X% accurate\" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed: in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
-Engineers think in models, tokens, and evaluation scores. Executives think in outcomes, risk, and cost. The translation between these two languages is one of the most undervalued skills in AI product development — and when it breaks down, projects lose funding, lose trust, or get shut down after a preventable public failure.
+Engineers think in models, tokens, and evaluation scores. Executives think in outcomes, risk, and cost. The translation between these two languages is one of the most undervalued skills in AI product development, and when it breaks down, projects lose funding, lose trust, or get shut down after a preventable public failure.
 
 The core translation problem: technical accuracy does not equal business clarity.
 
-- "The model achieves 94% accuracy on our classification benchmark" — what does this mean for operations?
-- "We use RAG with a 512-token chunk size" — why should a stakeholder care?
-- "The system hallucinated 2% of the time in testing" — how bad is that, and how is it managed?
+- "The model achieves 94% accuracy on our classification benchmark": what does this mean for operations?
+- "We use RAG with a 512-token chunk size": why should a stakeholder care?
+- "The system hallucinated 2% of the time in testing": how bad is that, and how is it managed?
 
 Stakeholders are not asking for less information. They are asking for different information, framed differently. What they need:
 
@@ -36,17 +36,17 @@ Everything else is an implementation detail that matters internally but not in s
 
 ### Why it matters
 
-Stakeholders who do not understand AI systems make poor decisions about them — they fund the wrong projects, cut the right ones, underestimate risks, or over-promise to users. Clear communication is not a soft skill; it is a governance requirement.
+Stakeholders who do not understand AI systems make poor decisions about them: they fund the wrong projects, cut the right ones, underestimate risks, or over-promise to users. Clear communication is not a soft skill; it is a governance requirement.
 
 ### Production Gotcha
 
-> **Common Gotcha:** "The model is X% accurate" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed — in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution.
+> **Common Gotcha:** "The model is X% accurate" is meaningless without specifying accurate on what, measured how, and on which data. When stakeholders hear 95% accuracy, they assume 5% failure is random and uniformly distributed: in reality it may be clustered on a specific query type that matters most to users. Always accompany accuracy numbers with a description of the failure distribution.
 >
 > The assumption: "95% is a high number, so this system is reliable." The reality: if the 5% failure rate is concentrated on the most common or highest-stakes query type, it may be functionally unacceptable.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The three framing lenses
 
@@ -66,7 +66,7 @@ Every AI communication to stakeholders should answer three questions:
 - Build cost: engineering time, data work, design
 - Run cost: API costs, infrastructure, per-transaction cost at scale
 - Maintenance cost: ongoing prompt tuning, model upgrades, data refresh
-- Avoid presenting only the build cost — run and maintenance costs often exceed it over a 3-year horizon
+- Avoid presenting only the build cost: run and maintenance costs often exceed it over a 3-year horizon
 
 ### What not to say
 
@@ -76,7 +76,7 @@ Some phrasings create false impressions that will damage trust when reality diff
 |---|---|---|
 | "The AI will learn over time" | Implies automatic improvement without explaining what learning means operationally | "We will capture user feedback and use it to improve the system on a quarterly retraining cycle" |
 | "The model is X% accurate" (bare number) | Obscures the failure distribution and measurement context | "The model correctly classifies X% of our standard cases; error rates are higher for [specific edge cases], which are handled by [control]" |
-| "It's just a tool — humans are still in control" | Understates AI influence on decisions that are effectively automated | "Human review is required before any [specific action] is taken based on AI output" |
+| "It's just a tool: humans are still in control" | Understates AI influence on decisions that are effectively automated | "Human review is required before any [specific action] is taken based on AI output" |
 | "The AI doesn't have biases" | No AI system is bias-free | "We have tested for [specific bias types] on [specific populations]; our findings are [findings]; monitoring continues" |
 | "It's similar to what [well-known AI company] does" | Creates capability expectations you may not meet | Describe your system's actual capabilities and limitations |
 
@@ -87,7 +87,7 @@ When an AI system fails publicly or causes a significant incident, stakeholders 
 1. **What happened**: A factual, non-technical description of the failure. What did the system do? What was the impact?
 2. **Why it happened**: The root cause, at a level of detail that explains without obscuring. "The model produced a confidently incorrect answer because it was asked a question outside the scope it was designed for" is better than "the model hallucinated" (jargon) or a 10-paragraph technical post-mortem.
 3. **What was done**: The immediate response. Was the feature disabled? Were affected users notified? Was the damage bounded?
-4. **What prevents recurrence**: The specific change — a new guardrail, a new eval test, a new human review step — that reduces the probability of this failure mode recurring. Not "we will be more careful" — a specific, verifiable change.
+4. **What prevents recurrence**: The specific change, a new guardrail, a new eval test, a new human review step, that reduces the probability of this failure mode recurring. Not "we will be more careful": a specific, verifiable change.
 
 ### Managing timeline expectations
 
@@ -108,9 +108,9 @@ def realistic_timeline(engineering_estimate_weeks: int, use_case_risk: str) -> i
     return int(engineering_estimate_weeks * multipliers.get(use_case_risk, 1.5))
 ```
 
-Communicate this to stakeholders before the project starts: "The engineering estimate is X weeks. We are adding Y weeks for evaluation, safety testing, and production readiness work. This is not optional — it is what separates a demo from a production system."
+Communicate this to stakeholders before the project starts: "The engineering estimate is X weeks. We are adding Y weeks for evaluation, safety testing, and production readiness work. This is not optional: it is what separates a demo from a production system."
 
-### Accuracy numbers — the right way to present them
+### Accuracy numbers: the right way to present them
 
 When you must share an accuracy metric, include:
 
@@ -122,13 +122,13 @@ When you must share an accuracy metric, include:
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Why accuracy percentages mislead
 
-A 95% accuracy number is reassuring until you examine the distribution. Consider a system that classifies medical images as normal or abnormal. A 95% accuracy rate on a dataset where 90% of images are normal can be achieved by classifying everything as normal — a system that misses every actual abnormality.
+A 95% accuracy number is reassuring until you examine the distribution. Consider a system that classifies medical images as normal or abnormal. A 95% accuracy rate on a dataset where 90% of images are normal can be achieved by classifying everything as normal: a system that misses every actual abnormality.
 
-Even in less extreme cases, the failure distribution matters more than the average. If a customer service AI has 95% accuracy overall but fails 40% of the time on billing queries — the highest-value and most frustrating failure category for customers — the average number is misleading to the point of being dangerous.
+Even in less extreme cases, the failure distribution matters more than the average. If a customer service AI has 95% accuracy overall but fails 40% of the time on billing queries, the highest-value and most frustrating failure category for customers, the average number is misleading to the point of being dangerous.
 
 Always ask: where does the system fail? How often? What is the cost of those failures? A system with 93% accuracy and evenly distributed failures may be far preferable to a system with 97% accuracy and failures concentrated on high-stakes cases.
 
@@ -156,6 +156,6 @@ Tailor communications to what each group needs to make their specific decisions.
 
 ### Further reading
 
-- [Communicating Uncertainty in AI Systems — Partnership on AI](https://partnershiponai.org/) — Practical guidance on communicating AI limitations to non-technical audiences; relevant frameworks for describing failure modes.
-- [AI Explainability 360 — IBM Research](https://aix360.res.ibm.com/) — Open-source toolkit with examples of different explanation approaches for different audiences; useful for understanding the range of options.
-- [On the Dangers of Stochastic Parrots — Bender et al., 2021](https://dl.acm.org/doi/10.1145/3442188.3445922) — Critical analysis of large language model risks; useful background for understanding the failure mode landscape that informs stakeholder communication.
+- [Communicating Uncertainty in AI Systems, Partnership on AI](https://partnershiponai.org/), Practical guidance on communicating AI limitations to non-technical audiences; relevant frameworks for describing failure modes.
+- [AI Explainability 360, IBM Research](https://aix360.res.ibm.com/), Open-source toolkit with examples of different explanation approaches for different audiences; useful for understanding the range of options.
+- [On the Dangers of Stochastic Parrots, Bender et al., 2021](https://dl.acm.org/doi/10.1145/3442188.3445922), Critical analysis of large language model risks; useful background for understanding the failure mode landscape that informs stakeholder communication.

@@ -1,7 +1,7 @@
 ---
 moduleId: "1.8"
 title: "Safety and Guardrails"
-description: "Safety in AI systems is not a single feature — it is a layered architecture. Understanding what the model handles automatically, what you must build, and where the gaps are is essential before shipping anything user-facing."
+description: "Safety in AI systems is not a single feature: it is a layered architecture. Understanding what the model handles automatically, what you must build, and where the gaps are is essential before shipping anything user-facing."
 track: "foundations"
 order: 8
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,19 +12,19 @@ estimatedMinutes:
   layer1: 7
   layer2: 15
   layer3: 19
-productionGotcha: "Built-in model safety is not a substitute for application-level guardrails. Model providers update safety behaviour with model versions — what a model refused last month it may handle differently today, and vice versa. Treat the model's safety layer as one component of a defence-in-depth architecture, not the sole mechanism. Test safety-critical paths after every model upgrade."
+productionGotcha: "Built-in model safety is not a substitute for application-level guardrails. Model providers update safety behaviour with model versions: what a model refused last month it may handle differently today, and vice versa. Treat the model's safety layer as one component of a defence-in-depth architecture, not the sole mechanism. Test safety-critical paths after every model upgrade."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 AI safety concerns fall into two categories that require different responses:
 
-**Model behaviour risks** — the model produces harmful, inaccurate, or policy-violating output. Examples: hallucinated facts presented as certain, instructions for dangerous activities, biased or offensive content.
+**Model behaviour risks**: the model produces harmful, inaccurate, or policy-violating output. Examples: hallucinated facts presented as certain, instructions for dangerous activities, biased or offensive content.
 
-**System misuse risks** — legitimate model capabilities are exploited by users to do things the system was not designed for. Examples: prompt injection, jailbreaks, using a customer service bot to generate malware.
+**System misuse risks**: legitimate model capabilities are exploited by users to do things the system was not designed for. Examples: prompt injection, jailbreaks, using a customer service bot to generate malware.
 
-Frontier model providers address the first category at training time (RLHF, Constitutional AI, safety fine-tuning). They cannot address the second — that is architectural, and it is your responsibility.
+Frontier model providers address the first category at training time (RLHF, Constitutional AI, safety fine-tuning). They cannot address the second: that is architectural, and it is your responsibility.
 
 The practical implication: every user-facing AI feature needs at least three layers:
 
@@ -40,7 +40,7 @@ The practical implication: every user-facing AI feature needs at least three lay
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### What model safety covers
 
@@ -74,7 +74,7 @@ redirect to what you can help with.
 """
 ```
 
-This does not make the system prompt a security boundary (see module 1.2 — system prompts can be probed). It does meaningfully reduce out-of-scope responses and gives the model clear guidance when edge cases arise.
+This does not make the system prompt a security boundary (see module 1.2: system prompts can be probed). It does meaningfully reduce out-of-scope responses and gives the model clear guidance when edge cases arise.
 
 ### Input guardrails
 
@@ -219,19 +219,19 @@ def process_document(doc_text: str, user_question: str) -> str:
     return response.text
 ```
 
-This is not a complete defence against injection — it raises the bar, it does not build a wall. Architecturally, the strongest protection is to not mix untrusted content with trusted instructions in the same call at all, when your design allows for it.
+This is not a complete defence against injection: it raises the bar, it does not build a wall. Architecturally, the strongest protection is to not mix untrusted content with trusted instructions in the same call at all, when your design allows for it.
 
 ### Common mistakes
 
-1. **Relying solely on model safety** — Provider safety handles general harms; application-specific misuse is your problem.
-2. **System prompt as security boundary** — System prompts can be probed and extracted. Do not put secrets in them or treat them as access control.
-3. **No output validation** — Checking inputs but not outputs means a bypassed input filter leads directly to unsafe output reaching the user.
-4. **Binary allow/deny with no graceful degradation** — A guardrail that silently drops messages with no user feedback frustrates legitimate users. Always explain why a request was declined and what the user can do instead.
-5. **Safety testing only at launch** — Model provider updates change safety behaviour. Run safety-specific test cases after every model upgrade or prompt change.
+1. **Relying solely on model safety**: Provider safety handles general harms; application-specific misuse is your problem.
+2. **System prompt as security boundary**: System prompts can be probed and extracted. Do not put secrets in them or treat them as access control.
+3. **No output validation**: Checking inputs but not outputs means a bypassed input filter leads directly to unsafe output reaching the user.
+4. **Binary allow/deny with no graceful degradation**: A guardrail that silently drops messages with no user feedback frustrates legitimate users. Always explain why a request was declined and what the user can do instead.
+5. **Safety testing only at launch**: Model provider updates change safety behaviour. Run safety-specific test cases after every model upgrade or prompt change.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### Defence in depth
 
@@ -287,18 +287,18 @@ Run red-team exercises before launch and after major changes (new model version,
 
 Safety is an ongoing operational concern, not a launch-time checkbox:
 
-- **Log everything** — User inputs, model outputs, guardrail decisions. Logs are your only evidence when an incident occurs.
-- **Alert on guardrail trigger rates** — A sudden spike in blocked requests may indicate a coordinated attack or a new jailbreak circulating on social media.
-- **Maintain a kill switch** — Be able to disable the AI feature or revert to a safe fallback within minutes. Incidents move fast.
-- **Incident playbook** — Document in advance: who gets paged, what the rollback procedure is, when to notify users, when to notify the model provider.
+- **Log everything**: User inputs, model outputs, guardrail decisions. Logs are your only evidence when an incident occurs.
+- **Alert on guardrail trigger rates**: A sudden spike in blocked requests may indicate a coordinated attack or a new jailbreak circulating on social media.
+- **Maintain a kill switch**: Be able to disable the AI feature or revert to a safe fallback within minutes. Incidents move fast.
+- **Incident playbook**: Document in advance: who gets paged, what the rollback procedure is, when to notify users, when to notify the model provider.
 
 ### Provider-level safety
 
-Every major provider publishes documentation on how their model's safety properties are intended to work, what the model will and won't do, and how to configure system prompts for different use cases. Reading your provider's usage policies and model card for the version you deploy is a minimum due diligence step — it tells you what they've addressed at the model level so you can scope your application-level guardrails to cover the gaps they haven't.
+Every major provider publishes documentation on how their model's safety properties are intended to work, what the model will and won't do, and how to configure system prompts for different use cases. Reading your provider's usage policies and model card for the version you deploy is a minimum due diligence step: it tells you what they've addressed at the model level so you can scope your application-level guardrails to cover the gaps they haven't.
 
 ### Further reading
 
-- Usage policies — each provider publishes what their model is and isn't permitted to do; this is the safety baseline your application builds on: [Anthropic](https://www.anthropic.com/legal/usage-policy) · [OpenAI](https://openai.com/policies/usage-policies) · [Google](https://ai.google.dev/gemini-api/terms).
-- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073) — Bai et al., 2022. Foundational paper on training safety properties via AI feedback; the technique behind Anthropic's approach and influential across the field.
-- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043) — Zou et al., 2023. Analysis of automated jailbreak generation; useful for understanding the threat model.
-- [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/) — Community-maintained list of the most critical security risks in LLM-powered systems, including prompt injection, insecure output handling, and model denial of service.
+- Usage policies: each provider publishes what their model is and isn't permitted to do; this is the safety baseline your application builds on: [Anthropic](https://www.anthropic.com/legal/usage-policy) · [OpenAI](https://openai.com/policies/usage-policies) · [Google](https://ai.google.dev/gemini-api/terms).
+- [Constitutional AI: Harmlessness from AI Feedback](https://arxiv.org/abs/2212.08073); Bai et al., 2022. Foundational paper on training safety properties via AI feedback; the technique behind Anthropic's approach and influential across the field.
+- [Universal and Transferable Adversarial Attacks on Aligned Language Models](https://arxiv.org/abs/2307.15043); Zou et al., 2023. Analysis of automated jailbreak generation; useful for understanding the threat model.
+- [OWASP Top 10 for LLM Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/); Community-maintained list of the most critical security risks in LLM-powered systems, including prompt injection, insecure output handling, and model denial of service.

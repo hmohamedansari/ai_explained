@@ -12,11 +12,11 @@ estimatedMinutes:
   layer1: 6
   layer2: 18
   layer3: 14
-productionGotcha: "Without a max_iterations guard, a confused model can enter a tool call loop — calling the same tool repeatedly with slight variations, never reaching a final answer. This is not a model bug; it is a missing guardrail in your code. Always cap the number of tool call rounds at a small number (5–10 for most tasks) and fail gracefully when the cap is hit."
+productionGotcha: "Without a max_iterations guard, a confused model can enter a tool call loop: calling the same tool repeatedly with slight variations, never reaching a final answer. This is not a model bug; it is a missing guardrail in your code. Always cap the number of tool call rounds at a small number (5–10 for most tasks) and fail gracefully when the cap is hit."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 When a model has access to tools, the conversation becomes a loop: model calls a tool, your code executes it, the result goes back to the model, the model decides what to do next. This is the *agentic loop*.
 
@@ -33,13 +33,13 @@ User message
 
 Three questions drive how you implement this loop:
 
-1. **Sequential or parallel?** — Do the tool calls depend on each other, or can they run at the same time?
-2. **How much state to carry?** — What does the model need to remember across multiple tool rounds?
-3. **When to stop?** — How do you detect a finished conversation vs a runaway loop?
+1. **Sequential or parallel?**: Do the tool calls depend on each other, or can they run at the same time?
+2. **How much state to carry?**: What does the model need to remember across multiple tool rounds?
+3. **When to stop?**: How do you detect a finished conversation vs a runaway loop?
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### The basic agentic loop
 
@@ -77,13 +77,13 @@ def run_tool_loop(user_message: str, tools: list[dict], max_iterations: int = 8)
 ```
 
 Key points:
-- The model's response (including the `tool_use` blocks) must be added to `messages` before the results — the model needs to see its own call to interpret the result
+- The model's response (including the `tool_use` blocks) must be added to `messages` before the results: the model needs to see its own call to interpret the result
 - All tool results for a single round go into one `"user"` message
 - The loop cap is a hard safety limit, not just a performance concern
 
 ### Sequential vs parallel
 
-**Sequential** — each call depends on the result of the previous one:
+**Sequential**: each call depends on the result of the previous one:
 
 ```python
 # Example: search → read → summarise
@@ -97,9 +97,9 @@ content = read_document(doc_id=results[0]["id"])
 summary = summarise(text=content)
 ```
 
-The model handles sequential calls naturally — it waits for each result before deciding the next call.
+The model handles sequential calls naturally: it waits for each result before deciding the next call.
 
-**Parallel** — calls are independent and can run simultaneously:
+**Parallel**: calls are independent and can run simultaneously:
 
 ```python
 import asyncio
@@ -114,13 +114,13 @@ async def run_parallel_tools(tool_calls: list) -> list:
     ]
 ```
 
-The model can request multiple tool calls in a single response. Run them in parallel when the calls are independent — this cuts latency proportionally.
+The model can request multiple tool calls in a single response. Run them in parallel when the calls are independent: this cuts latency proportionally.
 
 **How to detect parallelism:** if the model returns multiple tool calls in a single response, they are intended to run in parallel. Execute them concurrently. If they arrive one at a time across multiple rounds, they are sequential.
 
 ### State accumulation
 
-For multi-step tasks, the model accumulates state through the message history — it can read its previous tool results to inform the next call. But for long chains, you may want to maintain explicit state:
+For multi-step tasks, the model accumulates state through the message history: it can read its previous tool results to inform the next call. But for long chains, you may want to maintain explicit state:
 
 ```python
 def run_research_task(question: str) -> str:
@@ -165,7 +165,7 @@ def detect_repeated_calls(call_history: list[dict], window: int = 3) -> bool:
     return any(count >= 2 for count in Counter(signatures).values())
 ```
 
-When a repeated call is detected, either inject a corrective message ("You already called this tool with these arguments — the result was X. Please proceed to the next step.") or terminate the loop.
+When a repeated call is detected, either inject a corrective message ("You already called this tool with these arguments: the result was X. Please proceed to the next step.") or terminate the loop.
 
 ### Error handling
 
@@ -192,7 +192,7 @@ Return useful error messages, not stack traces. Stack traces add noise to the co
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### DAG-based execution
 
@@ -271,5 +271,5 @@ Always expose the cap as a configurable parameter, not a hard constant. Differen
 
 ### Further reading
 
-- [Anthropic — Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic] — Practical patterns for agentic loops including when to use orchestrators vs subagents; the sections on tool use apply to any provider.
-- [LangGraph documentation](https://langchain-ai.github.io/langgraph/) — Graph-based agent execution framework; useful for seeing how state and conditional edges work in production agentic systems.
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents) [Anthropic], Practical patterns for agentic loops including when to use orchestrators vs subagents; the sections on tool use apply to any provider.
+- [LangGraph documentation](https://langchain-ai.github.io/langgraph/); Graph-based agent execution framework; useful for seeing how state and conditional edges work in production agentic systems.

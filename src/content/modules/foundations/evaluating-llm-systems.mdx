@@ -1,7 +1,7 @@
 ---
 moduleId: "1.7"
 title: "Evaluating LLM Systems"
-description: "LLM outputs are probabilistic and hard to unit-test. Building a systematic evaluation practice — before you ship, and continuously in production — is what separates AI features that stay reliable from ones that silently degrade."
+description: "LLM outputs are probabilistic and hard to unit-test. Building a systematic evaluation practice, before you ship, and continuously in production, is what separates AI features that stay reliable from ones that silently degrade."
 track: "foundations"
 order: 7
 personas: ["curious", "leader", "junior", "senior", "sre"]
@@ -12,15 +12,15 @@ estimatedMinutes:
   layer1: 7
   layer2: 15
   layer3: 20
-productionGotcha: "An eval set built from your development inputs will miss the cases that actually break in production. Seed your eval set with real traffic from day one — even a small sample of live inputs reveals failure modes that synthetic examples never surface. Eval sets that don't evolve with your traffic are evals that lie to you."
+productionGotcha: "An eval set built from your development inputs will miss the cases that actually break in production. Seed your eval set with real traffic from day one: even a small sample of live inputs reveals failure modes that synthetic examples never surface. Eval sets that don't evolve with your traffic are evals that lie to you."
 draft: false
 ---
 
-## Layer 1 — Surface
+## Layer 1: Surface
 
 You cannot unit-test an LLM the way you unit-test a function. Given the same input, the output varies. The correct answer is often a matter of degree. There is no `assertEqual` for "this summary is accurate and well-written."
 
-What you can do is build an **evaluation system**: a set of representative inputs, a way to score outputs, and a process for running both before every significant change. This is not optional for production AI — it is the only way to know whether a prompt change, model upgrade, or new feature made things better or worse.
+What you can do is build an **evaluation system**: a set of representative inputs, a way to score outputs, and a process for running both before every significant change. This is not optional for production AI: it is the only way to know whether a prompt change, model upgrade, or new feature made things better or worse.
 
 The three types of evaluation:
 
@@ -30,24 +30,24 @@ The three types of evaluation:
 | **Quality** | How good is the output? | Accuracy on labelled examples; BLEU/ROUGE for summarisation |
 | **Behavioural** | Does the system behave correctly end-to-end? | Multi-turn flows; tool call sequences; edge cases |
 
-You don't need all three on day one. A small functional eval (20–50 inputs with clear pass/fail criteria) already gives you a regression safety net — and something is always better than nothing.
+You don't need all three on day one. A small functional eval (20–50 inputs with clear pass/fail criteria) already gives you a regression safety net, and something is always better than nothing.
 
 ### Production Gotcha
 
-> **Common Gotcha:** An eval set built from your development inputs will miss the cases that actually break in production. Seed your eval set with real traffic from day one — even a small sample of live inputs reveals failure modes that synthetic examples never surface. Eval sets that don't evolve with your traffic are evals that lie to you.
+> **Common Gotcha:** An eval set built from your development inputs will miss the cases that actually break in production. Seed your eval set with real traffic from day one: even a small sample of live inputs reveals failure modes that synthetic examples never surface. Eval sets that don't evolve with your traffic are evals that lie to you.
 
 ---
 
-## Layer 2 — Guided
+## Layer 2: Guided
 
 ### Building an eval dataset
 
 An eval dataset is a list of `(input, expected_output_or_criteria)` pairs. Start with:
 
-1. **Happy path examples** — Representative inputs the feature is designed to handle
-2. **Edge cases** — Inputs at the boundary of your specification
-3. **Known failure modes** — Any input that caused a bug or user complaint in the past
-4. **Adversarial inputs** — Inputs designed to trip up the model (unusual phrasing, mixed languages, injection attempts)
+1. **Happy path examples**: Representative inputs the feature is designed to handle
+2. **Edge cases**: Inputs at the boundary of your specification
+3. **Known failure modes**: Any input that caused a bug or user complaint in the past
+4. **Adversarial inputs**: Inputs designed to trip up the model (unusual phrasing, mixed languages, injection attempts)
 
 ```python
 # Simple eval dataset structure
@@ -190,7 +190,7 @@ Using the model as an evaluator (LLM-as-judge) is discussed further in Layer 3.
 
 ### Eval in CI
 
-Treat a failing eval the same way you treat a failing test — it blocks the change:
+Treat a failing eval the same way you treat a failing test: it blocks the change:
 
 ```bash
 # In your CI pipeline (e.g. GitHub Actions)
@@ -217,14 +217,14 @@ Set the threshold conservatively at first (80%) and raise it as your eval set ma
 
 ### Before vs After
 
-**No eval — changes land blind:**
+**No eval: changes land blind:**
 ```python
 # BAD: New system prompt, deployed to production, discovered broken 3 days later
 SYSTEM_PROMPT = "Classify support tickets into: BUG, BILLING, FEATURE, OTHER"
 # → deploy → users complain → rollback → post-mortem
 ```
 
-**Eval-gated — regressions caught before deploy:**
+**Eval-gated: regressions caught before deploy:**
 ```python
 # GOOD: Eval runs in CI; 92% → 71% drop is caught before merge
 # PR fails, author fixes prompt, re-runs eval, merges at 94%
@@ -232,22 +232,22 @@ SYSTEM_PROMPT = "Classify support tickets into: BUG, BILLING, FEATURE, OTHER"
 
 ### Common mistakes
 
-1. **Building the eval set from the same examples you used to write the prompt** — The model will pass because you optimised for those exact inputs. Use held-out examples.
-2. **Only happy-path examples** — An eval that never fails is not measuring anything useful. Include edge cases and adversarial inputs.
-3. **Running evals manually** — Evals only catch regressions if they run automatically on every change. Wire them into CI from the start.
-4. **Changing the eval set to make a new prompt pass** — The eval set is the ground truth. If a new prompt fails on old examples, the prompt has regressed, not the eval.
-5. **Ignoring latency and cost in evals** — Quality is one dimension. A change that improves accuracy by 2% but doubles cost and latency is not necessarily an improvement.
+1. **Building the eval set from the same examples you used to write the prompt**: The model will pass because you optimised for those exact inputs. Use held-out examples.
+2. **Only happy-path examples**: An eval that never fails is not measuring anything useful. Include edge cases and adversarial inputs.
+3. **Running evals manually**: Evals only catch regressions if they run automatically on every change. Wire them into CI from the start.
+4. **Changing the eval set to make a new prompt pass**: The eval set is the ground truth. If a new prompt fails on old examples, the prompt has regressed, not the eval.
+5. **Ignoring latency and cost in evals**: Quality is one dimension. A change that improves accuracy by 2% but doubles cost and latency is not necessarily an improvement.
 
 ---
 
-## Layer 3 — Deep Dive
+## Layer 3: Deep Dive
 
 ### LLM-as-judge
 
 For tasks where outputs are hard to score programmatically (summarisation quality, tone, helpfulness), using a model to evaluate model output is a practical and widely-used technique. The key principles:
 
 - Use a **stronger or different model** as judge than the one being evaluated, to avoid self-favouritism
-- Provide a **detailed rubric** — vague criteria produce noisy scores
+- Provide a **detailed rubric**: vague criteria produce noisy scores
 - Use **pairwise comparison** ("which output is better, A or B?") rather than absolute scoring where possible; it is more reliable
 - **Calibrate** the judge against human labels on a sample before trusting it at scale
 
@@ -287,9 +287,9 @@ A 5-point improvement on a 30-example eval is noise. On a 500-example eval it is
 Pre-deploy evals catch regressions before they ship. Production evals catch the problems pre-deploy evals miss:
 
 - **Shadow scoring**: run a scoring function on a sample of live traffic; alert when score distribution shifts
-- **User signal proxies**: session abandonment, retry rate, thumbs-down signals — not perfect, but free
+- **User signal proxies**: session abandonment, retry rate, thumbs-down signals: not perfect, but free
 - **Canary deployments**: route 5% of traffic to the new prompt/model; compare outcome metrics before full rollout
-- **Regression replay**: when a user reports a bug, add that input to the eval set immediately — don't let it recur
+- **Regression replay**: when a user reports a bug, add that input to the eval set immediately: don't let it recur
 
 The eval set and production monitoring together form a feedback loop. Eval set catches known failure modes; production monitoring discovers new ones; new failures feed back into the eval set.
 
@@ -299,7 +299,7 @@ If your model was trained or fine-tuned on data that includes your eval set inpu
 
 ### Further reading
 
-- [A Survey on Evaluation of Large Language Models](https://arxiv.org/abs/2307.03109) — Chang et al., 2023. Comprehensive taxonomy of LLM evaluation approaches, metrics, and benchmarks.
-- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685) — Zheng et al., 2023. Analysis of LLM-as-judge reliability, positional and verbosity biases, and mitigation strategies.
-- [Evals — OpenAI](https://github.com/openai/evals) — Open-source eval framework; useful reference for eval structure and scoring patterns regardless of which model you use.
-- [Evaluation — Anthropic documentation](https://docs.anthropic.com/en/docs/test-and-evaluate/eval-intro) [Anthropic] — Anthropic's guidance on building and running evals; the principles apply across providers.
+- [A Survey on Evaluation of Large Language Models](https://arxiv.org/abs/2307.03109); Chang et al., 2023. Comprehensive taxonomy of LLM evaluation approaches, metrics, and benchmarks.
+- [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685); Zheng et al., 2023. Analysis of LLM-as-judge reliability, positional and verbosity biases, and mitigation strategies.
+- [Evals, OpenAI](https://github.com/openai/evals), Open-source eval framework; useful reference for eval structure and scoring patterns regardless of which model you use.
+- [Evaluation, Anthropic documentation](https://docs.anthropic.com/en/docs/test-and-evaluate/eval-intro) [Anthropic], Anthropic's guidance on building and running evals; the principles apply across providers.

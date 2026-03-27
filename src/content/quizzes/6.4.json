@@ -1,5 +1,5 @@
 {
-  "title": "Tracing & Structured Logging — Check your understanding",
+  "title": "Tracing & Structured Logging: Check your understanding",
   "moduleId": "6.4",
   "questions": [
     {
@@ -8,12 +8,12 @@
       "question": "A team enables full prompt and response logging for debugging purposes. Three months later, they discover their logs contain users' medical conditions, names, and insurance numbers from prompts that included user profile data. The team now needs to retroactively scrub PII from terabytes of log data. What should they have done differently?",
       "options": [
         "Used a log retention policy of 7 days to limit the exposure window",
-        "Established a PII scrubbing policy before logging went live and built the scrubbing step into the logging pipeline at write time — retrofitting scrubbing onto existing logs is expensive, error-prone, and may require legal disclosure; scrubbing at write time is architecturally simple and prevents the liability from accumulating",
+        "Established a PII scrubbing policy before logging went live and built the scrubbing step into the logging pipeline at write time: retrofitting scrubbing onto existing logs is expensive, error-prone, and may require legal disclosure; scrubbing at write time is architecturally simple and prevents the liability from accumulating",
         "Logged only output tokens and never input tokens",
         "Used a sampling rate of 1% so that most prompts would not be stored"
       ],
       "answer": 1,
-      "explanation": "PII in logs is a data liability that compounds over time. The correct approach is to apply scrubbing at write time — before any prompt is written to a log store. Once PII-containing logs exist, remediation requires finding every affected record, applying scrubbing reliably, and potentially notifying affected users depending on jurisdiction. The production gotcha for this module states this explicitly: establish the scrubbing policy before logging goes live. A low sampling rate reduces exposure but does not eliminate it, and a short retention window does not prevent the PII from entering the system in the first place.",
+      "explanation": "PII in logs is a data liability that compounds over time. The correct approach is to apply scrubbing at write time: before any prompt is written to a log store. Once PII-containing logs exist, remediation requires finding every affected record, applying scrubbing reliably, and potentially notifying affected users depending on jurisdiction. The production gotcha for this module states this explicitly: establish the scrubbing policy before logging goes live. A low sampling rate reduces exposure but does not eliminate it, and a short retention window does not prevent the PII from entering the system in the first place.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -27,21 +27,21 @@
         "The services must use the same logging library to ensure compatible formats"
       ],
       "answer": 1,
-      "explanation": "Reconstructing a request that spans multiple services requires a shared identifier that is present in every log record generated for that request across all services. This is the correlation ID (or trace ID). Without it, logs from three services can only be approximately joined by timestamp — which is unreliable in distributed systems where clock skew and concurrency mean records from the same request may have timestamps that interleave with records from other requests. The trace ID is propagated via HTTP headers (e.g., using OpenTelemetry's traceparent header) and included in every log write.",
+      "explanation": "Reconstructing a request that spans multiple services requires a shared identifier that is present in every log record generated for that request across all services. This is the correlation ID (or trace ID). Without it, logs from three services can only be approximately joined by timestamp: which is unreliable in distributed systems where clock skew and concurrency mean records from the same request may have timestamps that interleave with records from other requests. The trace ID is propagated via HTTP headers (e.g., using OpenTelemetry's traceparent header) and included in every log write.",
       "personas": ["junior", "senior", "sre"]
     },
     {
       "id": "6.4-q3",
       "type": "multiple-choice",
-      "question": "A team logs all LLM requests but only stores token counts and latency — not the actual prompts or responses. A production incident occurs where the model starts returning responses that include inappropriate content for certain user inputs. What can the team NOT determine from their logs?",
+      "question": "A team logs all LLM requests but only stores token counts and latency: not the actual prompts or responses. A production incident occurs where the model starts returning responses that include inappropriate content for certain user inputs. What can the team NOT determine from their logs?",
       "options": [
         "Which model was called and how many tokens it consumed",
-        "What the specific user inputs were that triggered the problematic responses — without logging scrubbed prompt content, the team can identify that something went wrong (from quality metrics or user reports) but cannot reconstruct the triggering inputs to diagnose the cause or add them to the eval suite",
+        "What the specific user inputs were that triggered the problematic responses: without logging scrubbed prompt content, the team can identify that something went wrong (from quality metrics or user reports) but cannot reconstruct the triggering inputs to diagnose the cause or add them to the eval suite",
         "When the incident started relative to the last deployment",
         "Which feature_id was generating the most affected requests"
       ],
       "answer": 1,
-      "explanation": "Logging metadata (token counts, latency, model ID) tells you that something happened but not what triggered it. To diagnose a content quality incident, you need to see the actual inputs that produced the problematic outputs. Without scrubbed prompt logging, the team is limited to: knowing the incident happened (from quality metrics or user reports), knowing when it started (from timestamps), and knowing which feature was affected (from feature_id tags) — but they cannot reconstruct the triggering inputs, which is essential for adding regression cases to the eval suite and for diagnosing whether this is a model change, a prompt change, or an unusual input pattern.",
+      "explanation": "Logging metadata (token counts, latency, model ID) tells you that something happened but not what triggered it. To diagnose a content quality incident, you need to see the actual inputs that produced the problematic outputs. Without scrubbed prompt logging, the team is limited to: knowing the incident happened (from quality metrics or user reports), knowing when it started (from timestamps), and knowing which feature was affected (from feature_id tags), but they cannot reconstruct the triggering inputs, which is essential for adding regression cases to the eval suite and for diagnosing whether this is a model change, a prompt change, or an unusual input pattern.",
       "personas": ["junior", "senior", "sre"]
     },
     {
@@ -49,13 +49,13 @@
       "type": "multiple-choice",
       "question": "A team uses the span model for LLM tracing: one root span per request, with child spans for each LLM call, tool call, and retrieval operation. A request that involves one LLM call, two tool calls, and one retrieval operation should produce how many spans?",
       "options": [
-        "1 span — the root span contains all information",
-        "5 spans — one root span plus four child spans (one per LLM call, two for tool calls, one for retrieval); the span tree captures the full request lifecycle with timing and attributes at each level, enabling per-operation performance analysis",
-        "4 spans — the root span is replaced by the LLM span",
-        "3 spans — tool calls share a span because they execute sequentially"
+        "1 span: the root span contains all information",
+        "5 spans: one root span plus four child spans (one per LLM call, two for tool calls, one for retrieval); the span tree captures the full request lifecycle with timing and attributes at each level, enabling per-operation performance analysis",
+        "4 spans: the root span is replaced by the LLM span",
+        "3 spans: tool calls share a span because they execute sequentially"
       ],
       "answer": 1,
-      "explanation": "The span model creates one span per discrete operation: one root span for the overall request, one child span for the LLM call, one child span for each tool call (two in this case), and one child span for the retrieval operation. This gives 1 + 1 + 2 + 1 = 5 spans. The value of per-operation spans is that you can measure latency, token counts, and errors at each level independently — essential for diagnosing whether a slow request is caused by the model, a slow tool, or a slow retrieval operation.",
+      "explanation": "The span model creates one span per discrete operation: one root span for the overall request, one child span for the LLM call, one child span for each tool call (two in this case), and one child span for the retrieval operation. This gives 1 + 1 + 2 + 1 = 5 spans. The value of per-operation spans is that you can measure latency, token counts, and errors at each level independently: essential for diagnosing whether a slow request is caused by the model, a slow tool, or a slow retrieval operation.",
       "personas": ["junior", "senior", "sre"]
     },
     {
