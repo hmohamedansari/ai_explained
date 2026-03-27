@@ -43,7 +43,7 @@ const siteName = 'AI Explained';
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
 
-    <title>{title}: {siteName}</title>
+    <title>{`${title}: ${siteName}`}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL} />
 
@@ -61,13 +61,13 @@ const siteName = 'AI Explained';
     <meta property="og:title" content={`${title}: ${siteName}`} />
     <meta property="og:description" content={description} />
     <meta property="og:site_name" content={siteName} />
-    {ogImage && <meta property="og:image" content={new URL(ogImage, Astro.site)} />}
+    {ogImage ? <meta property="og:image" content={new URL(ogImage, Astro.site)} /> : null}
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={`${title}: ${siteName}`} />
     <meta name="twitter:description" content={description} />
-    {ogImage && <meta name="twitter:image" content={new URL(ogImage, Astro.site)} />}
+    {ogImage ? <meta name="twitter:image" content={new URL(ogImage, Astro.site)} /> : null}
 
     <!-- Per-page head injections (JSON-LD, etc.) -->
     <slot name="head" />
