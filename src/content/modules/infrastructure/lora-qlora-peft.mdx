@@ -1,0 +1,246 @@
+---
+moduleId: "5.10"
+title: "LoRA, QLoRA & PEFT"
+description: "LoRA lets you adapt a large model by training only a tiny fraction of its parameters — keeping the base weights frozen and adding small trainable matrices on top. This module covers the mechanics, the quantised variant QLoRA, and what production adapter serving actually looks like."
+track: "infrastructure"
+order: 10
+personas: ["senior", "sre"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Running multiple LoRA adapters on a single base model is an emerging production pattern that most serving infrastructure does not support out of the box. Plan for adapter versioning and hot-swap capability from day one, or you will re-architect under pressure later."
+draft: false
+---
+
+## Layer 1: Surface
+
+Standard fine-tuning updates every weight in the model. For a 7 billion parameter model, that means storing and computing gradients for 7 billion numbers — which requires substantial GPU memory and time. **LoRA** (Low-Rank Adaptation) sidesteps this by keeping all original weights frozen and injecting small trainable matrices alongside specific layers.
+
+The key insight: the changes needed to adapt a model to a new task have low intrinsic dimensionality. You don't need to move 7 billion weights; you need to move a much smaller set of parameters in a targeted way.
+
+**What LoRA adds to a layer:**
+
+```
+Original weight matrix W (frozen):  7680 × 7680 = ~59M parameters
+LoRA matrices A and B (trainable):  7680 × 8 + 8 × 7680 = ~123K parameters
+
+During training:  output = W·x + B·A·x
+After merging:    output = (W + B·A)·x   ← same as fine-tuning, zero overhead
+```
+
+The number `8` in the example is the **rank** — the key hyperparameter. Lower rank = fewer trainable parameters = faster training but less capacity to adapt. Typical ranks: 4, 8, 16, 32.
+
+| Method | What trains | VRAM needed | Quality vs. full FT |
+|---|---|---|---|
+| **Full fine-tune** | All weights | Very high (2–4× model size) | Baseline |
+| **LoRA** | Low-rank adapter matrices only | ~1.2× model size | Close (5–10% gap) |
+| **QLoRA** | Low-rank adapters on 4-bit base | ~0.5× model size | Slightly below LoRA |
+
+**QLoRA** combines 4-bit quantisation of the base model (to reduce VRAM) with LoRA adapters trained in higher precision. This is what makes fine-tuning a 13B parameter model on a consumer GPU feasible.
+
+> **Production Gotcha:** Running multiple LoRA adapters on a single base model is an emerging production pattern that most serving infrastructure does not support out of the box. Plan for adapter versioning and hot-swap capability from day one, or you will re-architect under pressure later.
+
+---
+
+## Layer 2: Guided
+
+### Training a LoRA adapter with PEFT
+
+The Hugging Face PEFT library is the standard interface for LoRA/QLoRA training. The following trains a LoRA adapter on a causal language model for a classification task.
+
+```python
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from peft import LoraConfig, get_peft_model, TaskType
+from datasets import Dataset
+
+# Step 1: Load a quantised base model (QLoRA — 4-bit base + LoRA adapters)
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.bfloat16,
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-v0.3",
+    quantization_config=bnb_config,
+    device_map="auto",
+)
+tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-v0.3")
+tokenizer.pad_token = tokenizer.eos_token
+
+# Step 2: Configure the LoRA adapter
+lora_config = LoraConfig(
+    r=16,                      # rank — the core hyperparameter
+    lora_alpha=32,             # scaling factor (usually 2x rank)
+    target_modules=[           # which layers to apply LoRA to
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+    ],
+    lora_dropout=0.05,
+    bias="none",
+    task_type=TaskType.CAUSAL_LM,
+)
+
+# Step 3: Wrap the model — only adapter parameters will train
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# Output: trainable params: 20,971,520 || all params: 7,262,330,880 || trainable%: 0.29
+# Less than 0.3% of parameters are being trained
+
+# Step 4: Train with standard Transformers Trainer
+from transformers import TrainingArguments, Trainer, DataCollatorForSeq2Seq
+
+training_args = TrainingArguments(
+    output_dir="./adapter-checkpoint",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=4,   # effective batch size = 16
+    learning_rate=2e-4,
+    fp16=True,
+    logging_steps=10,
+    save_steps=100,
+    evaluation_strategy="steps",
+    eval_steps=100,
+    load_best_model_at_end=True,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=eval_dataset,
+)
+
+trainer.train()
+
+# Step 5: Save the adapter — only ~40MB for a 7B model
+model.save_pretrained("./my-lora-adapter")
+tokenizer.save_pretrained("./my-lora-adapter")
+```
+
+### Two serving strategies: merged vs. adapter-on-base
+
+After training, you have a choice.
+
+**Option A — Merge the adapter into the base model weights:**
+
+```python
+from peft import PeftModel
+from transformers import AutoModelForCausalLM
+
+# Load base model in full precision for merging
+base_model = AutoModelForCausalLM.from_pretrained(
+    "mistralai/Mistral-7B-v0.3",
+    torch_dtype=torch.float16,
+    device_map="auto",
+)
+
+# Load adapter and merge
+peft_model = PeftModel.from_pretrained(base_model, "./my-lora-adapter")
+merged_model = peft_model.merge_and_unload()
+
+# Save the merged model — now a standard model, no LoRA overhead
+merged_model.save_pretrained("./merged-model")
+```
+
+After merging, the model is indistinguishable from a standard fine-tuned model. No runtime overhead. But you've lost the ability to swap adapters at serving time.
+
+**Option B — Serve the base model and load adapters dynamically:**
+
+```python
+from peft import PeftModel
+
+base_model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-v0.3", ...)
+
+# Load different adapters for different tasks
+support_model = PeftModel.from_pretrained(base_model, "./adapter-support")
+legal_model = PeftModel.from_pretrained(base_model, "./adapter-legal")
+code_model = PeftModel.from_pretrained(base_model, "./adapter-code")
+```
+
+This shares the base model VRAM across all adapters. A 7B base model uses ~14GB VRAM; each LoRA adapter adds ~80MB. You can serve dozens of task-specific adapters on a single GPU. This is the multi-adapter pattern — powerful but requires infrastructure that handles adapter routing.
+
+### Adapter versioning
+
+Treat adapters like software artefacts: version, test, and roll back independently of the base model.
+
+```
+./adapters/
+  support/
+    v1/      ← 2026-01-15, training run: run-001
+    v2/      ← 2026-02-10, training run: run-007  (current)
+  legal/
+    v1/      ← 2026-03-01, training run: run-012
+```
+
+When the base model is updated, adapters trained on the old base are not directly compatible — you must re-adapt. This is the base model update lock-in risk: if you're on a provider's managed API, adapter compatibility across model versions is your problem to manage.
+
+---
+
+## Layer 3: Deep Dive
+
+### The linear algebra of low-rank adaptation
+
+A weight matrix in a transformer attention layer is typically large: for a 7B model, `q_proj` might be `W ∈ R^(4096×4096)`. Fine-tuning updates every element of W. LoRA instead parameterises the update as:
+
+```
+ΔW = B · A
+
+where:
+  A ∈ R^(r×d)    — the "down-projection" matrix, initialized from N(0, σ²)
+  B ∈ R^(d×r)    — the "up-projection" matrix, initialized to zero
+  r << d          — rank is much smaller than the weight dimension
+```
+
+B is initialised to zero so that at the start of training, ΔW = 0 — the adapter contributes nothing and training begins from the original weights. A is initialised randomly to break symmetry.
+
+The adapted forward pass is:
+
+```
+h = W·x + (B·A)·x · (α/r)
+```
+
+The scaling factor `α/r` (where α is `lora_alpha` in the config) controls the magnitude of the adapter's contribution relative to the frozen weights. Setting α = 2r is a common default that keeps adapter contributions at a reasonable scale.
+
+**Why does this work?** The hypothesis — supported empirically by Hu et al. (2021) — is that the adaptation task has low intrinsic dimensionality: the model only needs to move through a small subspace of parameter space to acquire the new behaviour. A rank-8 update captures the dominant directions of that subspace. The remaining directions matter less for task adaptation.
+
+**Why not just use fewer layers?** Adapting fewer layers (or different layers) is an alternative. Empirically, attention projection matrices (q, k, v, o projections) respond better to LoRA adaptation than MLP layers for most instruction-following tasks. This is an area of active research.
+
+### QLoRA: quantisation-aware LoRA training
+
+QLoRA (Dettmers et al., 2023) adds three key innovations on top of LoRA:
+
+1. **4-bit NormalFloat (NF4) quantisation** — a data type specifically designed for normally distributed weights. Standard int4 quantisation introduces error at the extremes of the weight distribution; NF4 minimises quantisation error for weights following a normal distribution (which pre-trained transformers typically do).
+
+2. **Double quantisation** — quantise the quantisation constants themselves, recovering ~0.37 bits per parameter in memory savings.
+
+3. **Paged optimisers** — use unified memory to move optimiser state (the largest memory consumer during training) between GPU and CPU as needed, preventing OOM during training spikes.
+
+The practical result: a 65B parameter model that would normally require ~130GB VRAM for fine-tuning can be fine-tuned on a single 48GB GPU with QLoRA.
+
+### Named failure modes
+
+**Rank too low.** If the adapter rank is too small relative to the complexity of the adaptation task, the model will converge to a lower accuracy ceiling. Increasing rank helps — at the cost of more trainable parameters. If your training loss plateaus early and accuracy is below expectations, try doubling the rank.
+
+**Alpha misconfigured.** Getting `lora_alpha` wrong (e.g., equal to r instead of 2r) effectively halves or doubles the learning rate on the adapter, causing instability or slow convergence. Keep alpha = 2 × r as a default until you have a reason to deviate.
+
+**Adapter-base mismatch.** Loading an adapter trained on model version A onto model version B silently fails: the adapter matrices have the same shape but were trained against different base weights. Add model version assertions to your adapter loading code.
+
+**Merging in the wrong precision.** Merging a LoRA adapter onto a 4-bit quantised base model and then saving produces a weight-compressed merged model where the quantisation error is baked in. Merge in fp16 or bf16 using the full-precision base, not the quantised one.
+
+**Multi-adapter serving without infrastructure support.** Standard serving stacks (vLLM, TGI as of early 2026) have limited support for dynamic adapter switching under concurrent load. If you plan to serve dozens of adapters with low latency, validate your serving stack against your concurrency requirements before committing to the pattern.
+
+### Further reading
+
+- [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685); Hu et al., 2021. The original paper — explains the rank hypothesis and includes ablations over rank, alpha, and which layers to adapt.
+- [QLoRA: Efficient Finetuning of Quantized LLMs](https://arxiv.org/abs/2305.14314); Dettmers et al., 2023. Introduces NF4, double quantisation, and paged optimisers — the paper that made 65B fine-tuning on consumer hardware feasible.
+- [PEFT: State-of-the-Art Parameter-Efficient Fine-Tuning](https://github.com/huggingface/peft); Hugging Face, 2023. The library documentation for the implementation used in Layer 2 — covers additional PEFT methods beyond LoRA (prefix tuning, IA3, etc.).
+- [LongLoRA: Efficient Fine-tuning of Long-Context Large Language Models](https://arxiv.org/abs/2309.12307); Chen et al., 2023. Extension of LoRA to context-length adaptation — relevant if you need both parameter efficiency and extended context.

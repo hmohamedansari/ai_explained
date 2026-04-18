@@ -1,0 +1,273 @@
+---
+moduleId: "1.11"
+title: "Reasoning Models and Test-Time Compute"
+description: "Reasoning models generate internal thinking traces before responding, trading token cost for accuracy on hard problems. This module explains when that trade is worth making, how to budget reasoning tokens, and what the empirical evidence says about where test-time compute actually helps."
+track: "foundations"
+order: 11
+personas: ["senior", "leader"]
+volatility: "volatile"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 16
+  layer3: 35
+productionGotcha: "Reasoning models generate long internal thinking traces before responding. A task that costs 1x with a standard model may cost 10-50x with a reasoning model for equivalent output quality. Always benchmark cost per correct answer, not cost per token."
+draft: false
+---
+
+## Layer 1: Surface
+
+Standard LLMs are trained to predict the next token. When you send them a problem, they generate an answer in one forward pass through their context — fast, but limited by whatever the model can do in a single shot.
+
+**Reasoning models** are trained differently. Using reinforcement learning from verifiable outcomes, they learn to generate a scratchpad — an internal monologue of exploration, hypothesis testing, and self-correction — before producing the final answer. This scratchpad is sometimes visible (DeepSeek-R1 shows its thinking; Claude's extended thinking is optionally visible) and sometimes hidden.
+
+The result: on problems that require multi-step logic, mathematical reasoning, or careful planning, these models dramatically outperform standard LLMs at the same parameter count. On simple tasks, they are dramatically more expensive with no benefit.
+
+**The tradeoff at a glance:**
+
+| | Standard LLM | Reasoning model |
+|---|---|---|
+| **Cost** | Low | 10-50x higher for equivalent output |
+| **Latency** | Seconds | Tens of seconds to minutes |
+| **Best at** | Summarization, classification, generation, simple Q&A | Math, code reasoning, multi-step logic, planning |
+| **Worst at** | Problems requiring deep reasoning | Simple tasks where thinking adds no value |
+| **Examples** | GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro | o3, o4-mini, DeepSeek-R1, Claude with extended thinking |
+
+The key insight for leaders: reasoning models solve a different problem. They do not make your existing tasks better across the board. They make a specific class of hard problems tractable that were previously out of reach. The question is not "should we use reasoning models" — it is "which tasks in our pipeline actually need this kind of reasoning?"
+
+The production gotcha that bites teams: a task that costs $0.01 per call with a standard model may cost $0.50-$5.00 with a reasoning model. At production volume, that is the difference between a $300/month bill and a $15,000/month bill. The model's thinking is billable — and the model cannot tell you when thinking is unnecessary.
+
+---
+
+## Layer 2: Guided
+
+### When to use a reasoning model
+
+The decision is not about model capability — it is about the cost-per-correct-answer on your specific task.
+
+```python
+import time
+
+def evaluate_model_for_task(
+    model_id: str,
+    test_cases: list[dict],
+    client,
+) -> dict:
+    """
+    Measure accuracy and cost for a specific task.
+    Returns cost_per_correct_answer — the metric that matters.
+    """
+    correct = 0
+    total_cost_usd = 0.0
+    total_latency_s = 0.0
+
+    for case in test_cases:
+        start = time.time()
+        response = client.call(model=model_id, prompt=case["prompt"])
+        latency = time.time() - start
+
+        is_correct = case["evaluator"](response.text, case["expected"])
+        correct += int(is_correct)
+        total_cost_usd += response.usage.estimated_cost_usd
+        total_latency_s += latency
+
+    accuracy = correct / len(test_cases)
+    cost_per_correct = total_cost_usd / max(correct, 1)
+
+    return {
+        "model": model_id,
+        "accuracy": accuracy,
+        "total_cost_usd": total_cost_usd,
+        "cost_per_correct_answer": cost_per_correct,
+        "avg_latency_s": total_latency_s / len(test_cases),
+    }
+
+# Example output for a code debugging task:
+# Standard model:  accuracy=0.61, cost_per_correct=$0.008
+# Reasoning model: accuracy=0.89, cost_per_correct=$0.031
+# The reasoning model costs 4x more per correct answer — is that worth it for your use case?
+```
+
+Cost per correct answer is the right metric because accuracy alone is misleading: a model that is 40% more accurate but 50x more expensive is not always the right choice.
+
+### Controlling reasoning depth
+
+Reasoning models let you influence how much thinking they do. More thinking = higher accuracy on hard problems = higher cost.
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+def reason_with_budget(prompt: str, thinking_tokens: int) -> dict:
+    """
+    thinking_tokens: how many tokens the model can spend thinking.
+    Higher budget = deeper reasoning = higher cost.
+    Start low and increase only if accuracy is insufficient.
+    """
+    response = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=16000,
+        thinking={
+            "type": "enabled",
+            "budget_tokens": thinking_tokens,
+        },
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    thinking_text = ""
+    answer_text = ""
+
+    for block in response.content:
+        if block.type == "thinking":
+            thinking_text = block.thinking
+        elif block.type == "text":
+            answer_text = block.text
+
+    return {
+        "thinking_tokens_used": response.usage.cache_read_input_tokens,
+        "answer": answer_text,
+        "thinking": thinking_text,
+    }
+
+# Low budget: faster and cheaper, appropriate for moderately complex tasks
+result_low = reason_with_budget("Refactor this function to handle edge cases: ...", thinking_tokens=2000)
+
+# High budget: slower and more expensive, appropriate for very hard problems
+result_high = reason_with_budget("Design a database schema for...", thinking_tokens=10000)
+```
+
+### The hybrid architecture: reason once, cache the plan
+
+For pipelines where the same complex reasoning is applied repeatedly with minor variations, you can reason once to generate a reusable plan, then execute that plan with a cheaper model:
+
+```python
+import anthropic
+import json
+
+client = anthropic.Anthropic()
+
+def reason_and_cache_plan(complex_problem: str) -> str:
+    """Step 1: Use a reasoning model to produce a structured plan."""
+    response = client.messages.create(
+        model="claude-opus-4-5-20251101",
+        max_tokens=4096,
+        thinking={"type": "enabled", "budget_tokens": 8000},
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Analyze this problem and produce a step-by-step execution plan in JSON. "
+                    f"The plan will be executed by a fast model for many instances.\n\n{complex_problem}"
+                ),
+            }
+        ],
+    )
+
+    for block in response.content:
+        if block.type == "text":
+            return block.text
+    return ""
+
+
+def execute_plan(plan: str, instance_data: str) -> str:
+    """Step 2: Execute the plan against a specific instance using a cheaper model."""
+    response = client.messages.create(
+        model="claude-haiku-4-5",
+        max_tokens=1024,
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Execute this plan against the provided data. "
+                    f"Plan:\n{plan}\n\nData:\n{instance_data}"
+                ),
+            }
+        ],
+    )
+    return response.content[0].text
+
+
+plan = reason_and_cache_plan("How should we classify customer feedback tickets across 12 categories?")
+
+instances = ["This product keeps crashing", "Delivery was 3 days late", "Love the new UI"]
+results = [execute_plan(plan, instance) for instance in instances]
+```
+
+This pattern reduces reasoning model calls from N (one per instance) to 1 (one for the plan), cutting cost proportionally.
+
+### The most common mistake: using reasoning models as a drop-in upgrade
+
+Teams discover reasoning models, assume more capability always means better, and swap them in across their entire pipeline. Cost spikes 20-40x. Some tasks get better. Most stay the same.
+
+The discipline is to profile before switching: identify which tasks have accuracy problems, run the cost-per-correct-answer benchmark, and only upgrade the tasks where the improvement justifies the cost.
+
+---
+
+## Layer 3: Deep Dive
+
+### The scaling laws behind test-time compute
+
+The original neural scaling laws (Kaplan et al., 2020) showed that model performance scales predictably with training compute, dataset size, and parameter count — what is now called **pre-training compute scaling**. Increasing any of these axes improves performance on benchmarks.
+
+**Test-time compute scaling** is a separate axis: given a fixed trained model, you can improve its performance on hard tasks by letting it generate more tokens before answering. The key insight from Snell et al. (2024) is that for a given compute budget, it can be more efficient to spend that compute at inference time (reasoning) than at training time (larger model).
+
+The empirical finding: on mathematical reasoning benchmarks, a smaller model with a large thinking budget can match or exceed a larger model without thinking. The "right" allocation between training compute and inference compute depends on the task difficulty distribution.
+
+This has architectural implications: **reasoning models are not just better standard models.** They represent a different point on the compute frontier. A standard model optimized for average-case throughput and a reasoning model optimized for hard-problem accuracy are different tools, not a hierarchy.
+
+### When reasoning does not help
+
+Test-time compute scaling has a ceiling. The model can only reason about what it knows — extended thinking does not give it access to new information, updated knowledge, or external tools. The failure modes:
+
+**Named taxonomy of reasoning model failure patterns:**
+
+| Failure mode | What happens | Why it fails |
+|---|---|---|
+| **Knowledge gap reasoning** | Model thinks at length about a fact it was not trained on | Reasoning cannot compensate for missing training data |
+| **Confidence-accuracy mismatch** | Model's chain-of-thought expresses high confidence; answer is wrong | Self-consistency in the scratchpad does not imply correctness |
+| **Overthinking simple tasks** | Model generates 2,000 tokens of thinking for a task needing 50 | Adds cost and latency; sometimes reduces accuracy on simple tasks |
+| **Reasoning budget exhaustion** | Budget limit hit mid-thought; model truncates reasoning and guesses | Output quality degrades unpredictably at the token ceiling |
+| **Reward hacking** | RL training optimizes for verifiable outcomes; model learns to produce correct-looking intermediate steps that do not reflect genuine reasoning | Scores well on benchmarks; fails on out-of-distribution problems |
+
+### RL training and verifiable rewards
+
+Standard LLMs are trained with RLHF (Reinforcement Learning from Human Feedback), where a reward model is trained on human preference data. Reasoning models add a second RL phase using **verifiable rewards**: the model is trained to solve problems where the answer can be checked programmatically (math problems with known answers, code that passes unit tests).
+
+This changes what the model learns. Rather than learning "produce an answer that a human rater finds plausible," it learns "produce an answer that is verifiably correct." The thinking trace emerges as a learned behavior that improves the probability of reaching verifiable correct answers — not as a designed feature, but as a natural consequence of the training signal.
+
+DeepSeek-R1 (DeepSeek AI, 2025) demonstrated this can be replicated with an open-weights model, showing that the reasoning capability is not unique to closed-source providers. The paper describes the training pipeline in detail, including the Group Relative Policy Optimization (GRPO) algorithm used instead of PPO.
+
+### Cost modeling at production scale
+
+For capacity planning, model reasoning costs as follows:
+
+```
+total_cost = input_tokens × input_price
+           + thinking_tokens × thinking_price
+           + output_tokens × output_price
+```
+
+Thinking tokens are typically billed at the same rate as output tokens. For a reasoning-heavy call:
+- Input: 500 tokens at $0.000015/token = $0.0075
+- Thinking: 8,000 tokens at $0.000075/token = $0.60
+- Output: 200 tokens at $0.000075/token = $0.015
+- **Total: $0.6225**
+
+The same call with a standard model (no thinking): approximately $0.012.
+
+At 10,000 calls/day, that is $1,800/month versus $120/month. The accuracy improvement must justify this delta for the specific task.
+
+### Primary sources
+
+- [Scaling LLM Test-Time Compute Optimally Can be More Effective than Scaling Model Parameters](https://arxiv.org/abs/2408.03314); Snell et al., 2024. The foundational empirical paper showing test-time compute as a distinct scaling axis; includes the compute-optimal frontier analysis.
+- [DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning](https://arxiv.org/abs/2501.12948); DeepSeek AI, 2025. Full training pipeline for an open-weights reasoning model; explains GRPO and the verifiable rewards approach.
+- [Scaling Laws for Neural Language Models](https://arxiv.org/abs/2001.08361); Kaplan et al., OpenAI, 2020. The original pre-training scaling laws paper — context for understanding where test-time compute fits in the broader scaling picture.
+
+### Further reading
+
+- [OpenAI o3 and o4-mini system card](https://openai.com/index/o3-and-o4-mini-system-card/); OpenAI, 2025. Covers the safety evaluations and capability profiles for the current o-series reasoning models.
+- [Let's Verify Step by Step](https://arxiv.org/abs/2305.20050); Lightman et al., OpenAI, 2023. Introduces process reward models (PRMs) for training reasoning — explains why verifying each reasoning step outperforms verifying only the final answer.
+- [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://arxiv.org/abs/2201.11903); Wei et al., Google, 2022. The original CoT paper — predates dedicated reasoning models but foundational for understanding why thinking traces improve performance.
+- [On the Difficulty of Evaluating LLM Reasoning](https://arxiv.org/abs/2406.04271); Mirzadeh et al., 2024. Empirical study of benchmark contamination and generalization gaps in reasoning models — essential reading before trusting benchmark numbers.

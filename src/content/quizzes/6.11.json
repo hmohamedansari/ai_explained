@@ -1,0 +1,76 @@
+{
+  "title": "Multimodal Evaluation & Observability — Check your understanding",
+  "moduleId": "6.11",
+  "questions": [
+    {
+      "id": "6.11-q1",
+      "type": "multiple-choice",
+      "question": "Your invoice processing pipeline extracts structured data from scanned PDFs and feeds it to an LLM that generates a summary. Your text-based LLM-as-judge eval shows 91% quality. Users report frequent errors in the extracted totals. Why is the eval score misleading?",
+      "options": [
+        "LLM-as-judge is not appropriate for structured data tasks — you need exact-match evaluation instead",
+        "The text judge evaluates the quality of the LLM summary, not the accuracy of the preceding OCR extraction step. Hallucinated totals in the extracted data produce confident, well-reasoned summaries of wrong numbers.",
+        "91% is below the threshold needed for production PDF pipelines — the bar should be 98% or higher",
+        "The eval set likely doesn't include enough low-resolution documents to represent the production distribution"
+      ],
+      "answer": 1,
+      "explanation": "A text-based eval can only grade the final LLM output — it has no visibility into the extraction step that fed it. If OCR hallucinates a total or misreads a field, the LLM reasons correctly from wrong premises. The resulting summary is grammatically sound and well-structured, and a text judge rates it highly. You need a separate extraction-layer eval that compares structured output against human-annotated ground truth, independent of the generation step.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "6.11-q2",
+      "type": "multiple-choice",
+      "question": "You deploy an audio transcription pipeline for call centre recordings. WER on your eval set is 4.2%. After three months, users report that transcripts for calls during peak hours are incomplete. WER on your eval set has not changed. What is the most likely explanation?",
+      "options": [
+        "Your WER threshold of 4.2% is too permissive — a 3% threshold would have caught this regression",
+        "Peak-hour audio quality degrades due to network congestion or microphone overload, shifting the input distribution away from your eval set. The eval set reflects off-peak audio quality.",
+        "WER cannot detect completeness failures — you need a different metric entirely",
+        "The transcription model is hitting rate limits during peak hours and returning partial responses"
+      ],
+      "answer": 1,
+      "explanation": "WER measured on a static eval set only tells you how the model performs on that specific distribution of audio. If production audio during peak hours has different quality characteristics — higher background noise, more compression artifacts, lower sample rates — the model's performance on that audio will differ from your eval set results. Track input quality signals (file size, sample rate, background noise level) as observability metrics, and build an eval set that samples peak-hour recordings specifically.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "6.11-q3",
+      "type": "multiple-choice",
+      "question": "You want to use an LLM-as-judge to evaluate whether your image extraction pipeline is hallucinating content not present in the scanned document. What is the minimum requirement for a reliable vision judge?",
+      "options": [
+        "The judge must be a different model than the one used for extraction to avoid self-preference bias",
+        "The judge must have vision capability and receive both the original image and the extracted output — judging only the text output without the source image cannot detect hallucination",
+        "The judge must be prompted with explicit examples of hallucinated content from your specific document type",
+        "Vision judges are not reliable enough for production use — human review is the only valid approach"
+      ],
+      "answer": 1,
+      "explanation": "A text-only judge receiving the extracted output has no way to detect hallucination — it cannot compare the extraction against the source image. A vision-capable judge that receives both the original image and the extracted output can verify whether each extracted field actually appears in the image. Without the source image in context, a judge can only assess whether the extracted output is internally consistent, not whether it reflects what was actually in the document.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "6.11-q4",
+      "type": "multiple-choice",
+      "question": "Your managed OCR vendor ships a model update. Two weeks later, your extraction quality dashboards show a 12% drop in the per-field extraction rate for invoice line items, but your end-to-end text eval scores are unchanged. Why did the dashboard catch what the eval missed?",
+      "options": [
+        "The dashboard uses a stricter quality threshold than the eval suite",
+        "The per-field extraction rate is a modality-specific metric measured at the extraction layer, independent of the generation step. End-to-end text evals only observe the final output, which can mask extraction degradation if the LLM compensates by generating plausible values.",
+        "The eval set does not include enough invoice documents to detect this regression",
+        "End-to-end eval scores are averaged, which smooths out modality-specific failures"
+      ],
+      "answer": 1,
+      "explanation": "Per-field extraction rate is an extraction-layer metric — it measures the fraction of documents where each specific field is successfully extracted, independent of what the LLM does with the output afterward. If the OCR model starts failing to extract line items, the LLM may generate plausible-sounding line items from context, keeping the final output quality score high. The extraction-layer metric catches the failure before the generation step compensates for it. This is why each pipeline layer needs independent observability.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "6.11-q5",
+      "type": "multiple-choice",
+      "question": "You build a multimodal pipeline that processes PDFs containing both machine-typed text and scanned images of tables. Your text extraction and image extraction steps produce conflicting values for the same 'total' field. Your end-to-end evaluation shows 87% accuracy. What evaluation gap does this scenario reveal, and what metric would catch it?",
+      "options": [
+        "87% is insufficient accuracy for financial documents — the gap is the quality threshold, not the metric design",
+        "Cross-modal consistency — when two extraction paths produce values for the same field, you need a metric that explicitly checks whether they agree. Disagreement is a signal of pipeline unreliability that end-to-end accuracy obscures.",
+        "The eval should use a stricter judge that penalises all ambiguous cases — the metric gap is judge calibration",
+        "Multi-source extraction is an architectural problem, not an evaluation problem — the fix is to use only one extraction method per field"
+      ],
+      "answer": 1,
+      "explanation": "When a pipeline has multiple extraction paths for the same field, cross-modal consistency is a distinct quality signal: do the two paths agree? End-to-end accuracy only checks whether the final output is correct — it can't tell you whether correctness came from reliable extraction or lucky reconciliation of conflicting signals. A cross-modal field agreement metric (fraction of documents where both extraction paths return the same value) surfaces this class of unreliability before it causes customer-visible errors.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

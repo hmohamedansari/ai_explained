@@ -1,0 +1,76 @@
+{
+  "title": "Cost Management — Check your understanding",
+  "moduleId": "6.9",
+  "questions": [
+    {
+      "id": "6.9-q1",
+      "type": "multiple-choice",
+      "question": "Your team deploys a customer support agent. After one week in production, the bill is five times higher than your staging estimate. Staging and production use the same model and system prompt. What is the most likely cause?",
+      "options": [
+        "Production traffic uses longer output tokens because users ask more complex questions",
+        "The staging estimate was based on single LLM calls, but production requests trigger multi-turn tool-use loops that multiply the call count per user request",
+        "Provider pricing changed between staging and production deployment",
+        "The system prompt is not being cached in production as expected"
+      ],
+      "answer": 1,
+      "explanation": "Multi-agent and tool-use workflows multiply the number of LLM calls per user request. A staging estimate that measures single-call cost misses the orchestrator-to-sub-agent fan-out entirely. One user request in a looping agent can generate 5-15 API calls, each billing independently. Always estimate cost per user request, not per LLM call, and measure actual call multipliers from staging load tests.",
+      "personas": ["sre", "leader"]
+    },
+    {
+      "id": "6.9-q2",
+      "type": "multiple-choice",
+      "question": "You enable prompt caching on a 2,500-token system prompt. After a week, your costs have not decreased at all. What is the most likely explanation?",
+      "options": [
+        "Prompt caching only applies to output tokens, not input tokens",
+        "A dynamic element — such as a timestamp or a request ID — near the start of the system prompt is invalidating cache affinity on every request",
+        "The system prompt is too short to qualify for caching; most providers require at least 10,000 tokens",
+        "Caching is only effective when the same user makes repeated requests"
+      ],
+      "answer": 1,
+      "explanation": "Prompt caching works by matching a prefix of the prompt. Any change to the cacheable prefix — including a timestamp, a session ID, or even a trailing whitespace difference — breaks the cache match and forces a full input token charge. The system prompt must be completely static up to and including the cache control marker. Common culprits are injected dates, version strings in comments, and per-request identifiers placed before the cache boundary.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "6.9-q3",
+      "type": "multiple-choice",
+      "question": "You implement a hard daily spending limit: when the team's budget is exhausted, all API calls return an error. Users start reporting that tasks complete 80% of the way through and then silently stop with no message. What should you change?",
+      "options": [
+        "Increase the daily budget so the ceiling is never hit during business hours",
+        "Switch from a hard stop to a graceful degradation path: route to a cheaper model, trim context, or return an explicit user-facing message explaining the limit",
+        "Log the budget exhaustion event and retry the request the following day",
+        "Move the budget check to after the API call completes so in-flight requests are never interrupted"
+      ],
+      "answer": 1,
+      "explanation": "A hard limit that silently kills a request leaves the user with a broken experience and no actionable information. The right pattern is a circuit breaker with degradation tiers: attempt the request with a cheaper model, trim context to reduce token count, or return an explicit message ('Daily budget exhausted — resets at midnight UTC'). The user should always know what happened and what they can do next.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "6.9-q4",
+      "type": "multiple-choice",
+      "question": "Your platform serves five product teams sharing one LLM API key. At the end of the month, the invoice is $40,000 but no one knows which team spent what. How do you fix this going forward?",
+      "options": [
+        "Ask each team to self-report their estimated usage at the end of each month",
+        "Give each team a separate API key so the provider's billing dashboard shows per-key totals",
+        "Implement cost attribution at the gateway layer: record team ID, project ID, model, and token counts on every call, then roll up into per-team dashboards",
+        "Set equal budget caps for all five teams and divide the invoice evenly"
+      ],
+      "answer": 2,
+      "explanation": "Self-reporting is unreliable, and separate API keys don't give you request-level attribution or the ability to enforce per-team policies programmatically. A shared gateway that tags every request with team and project metadata is the correct pattern. It gives you per-team spend visibility, supports budget enforcement, and produces the audit trail needed for chargebacks. Separate API keys are a partial solution — they miss intra-team attribution and prevent centralised policy enforcement.",
+      "personas": ["sre", "leader"]
+    },
+    {
+      "id": "6.9-q5",
+      "type": "multiple-choice",
+      "question": "You are forecasting LLM costs for next quarter. Your current cache hit rate is 68%. You plan to add a feature that injects a per-user personalisation block into the system prompt. What cost impact should you anticipate?",
+      "options": [
+        "None — personalisation blocks are short and token costs for them are negligible",
+        "A moderate increase in input token costs proportional to the length of the personalisation block",
+        "A significant cost increase because injecting dynamic, per-user content into the system prompt prefix will collapse cache affinity, turning cached requests back into full-price input token calls",
+        "A cost decrease because the model will need fewer output tokens to personalise its responses"
+      ],
+      "answer": 2,
+      "explanation": "Cache affinity depends on a static prefix. Adding a per-user personalisation block to the system prompt prefix means every user's prompt is different — cache hit rate drops toward zero for that prefix. If the cacheable portion currently covers 68% of your input token cost, losing that cache hit rate could more than double your input token spend overnight. The fix is to place dynamic content after the static cacheable prefix, or to use a separate user-context injection mechanism that does not break the cache boundary.",
+      "personas": ["sre", "senior"]
+    }
+  ]
+}

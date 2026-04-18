@@ -1,0 +1,155 @@
+---
+moduleId: "7.9"
+title: "EU AI Act & Governance, Risk, and Compliance"
+description: "The EU AI Act is the first comprehensive binding regulation for AI systems. It classifies AI by risk tier, imposes strict obligations on high-risk deployments, and prohibits specific uses outright. This module covers what you must do, what you cannot do, and how to determine which rules apply to your system."
+track: "safety"
+order: 9
+personas: ["leader"]
+volatility: "volatile"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 8
+  layer2: 15
+  layer3: 25
+productionGotcha: "The EU AI Act classifies risk by use case, not by model. The same underlying model can be minimal-risk in one deployment and high-risk in another depending on what it is used for. Legal classification must be performed per deployment, not per model — using GPT-4 to answer HR questions is a different regulatory situation than using it to assist hiring decisions."
+draft: false
+---
+
+## Layer 1: Surface
+
+The EU AI Act (Regulation 2024/1689) entered into force on 1 August 2024 and applies in phases through 2026 and beyond. It governs AI systems placed on the EU market or affecting EU persons — regardless of where the developer is based.
+
+**Risk classification tiers:**
+
+| Tier | What qualifies | Status |
+|---|---|---|
+| **Prohibited** | Social scoring, real-time biometric surveillance in public, manipulative AI targeting vulnerable groups | Banned. No compliance path. |
+| **High-risk** | Hiring, credit scoring, critical infrastructure control, education assessment, law enforcement, border control, administration of justice | Conformity assessment, audit logs, human oversight, bias monitoring required |
+| **Limited risk** | Chatbots, deepfakes, emotion recognition systems | Transparency obligations (disclose AI, label synthetic content) |
+| **Minimal risk** | Spam filters, AI in video games, content recommendation | No specific obligations |
+
+The critical insight: **classification is use-case specific**. A document summarisation tool is minimal risk. The same tool deployed to summarise evidence in criminal proceedings is high risk.
+
+**Implementation timeline (key dates):**
+
+| Date | What takes effect |
+|---|---|
+| 2 Feb 2025 | Prohibited AI provisions apply |
+| 2 Aug 2025 | GPAI model obligations apply (foundation model providers) |
+| 2 Aug 2026 | High-risk AI obligations fully apply |
+
+---
+
+## Layer 2: Guided
+
+### Determining your risk classification
+
+Work through these questions in order:
+
+**Step 1 — Is this use case prohibited?**
+- Social scoring by public authorities? → Prohibited
+- Real-time remote biometric identification in public spaces? → Prohibited (with narrow law enforcement exceptions)
+- Subliminal manipulation of behaviour? → Prohibited
+- Exploiting vulnerabilities of specific groups (age, disability)? → Prohibited
+
+If any answer is yes, stop. There is no compliance path.
+
+**Step 2 — Is this use case high-risk?**
+
+Check Annex III of the regulation. High-risk categories include:
+- Biometric categorisation affecting legal status
+- Critical infrastructure management (water, gas, electricity, traffic)
+- Education and vocational training (admissions, assessment)
+- Employment, worker management, access to self-employment (including CV screening, performance monitoring)
+- Essential private/public services (credit scoring, insurance risk, emergency services)
+- Law enforcement (evidence evaluation, risk profiling)
+- Migration, asylum, border control
+- Administration of justice and democratic processes
+
+**Step 3 — Does a transparency obligation apply?**
+- AI interacting with humans without disclosure? → Disclose it is AI
+- Synthetic media (deepfakes)? → Label as AI-generated
+- Emotion recognition or biometric categorisation? → Inform affected persons
+
+**Step 4 — Does the GPAI model obligation apply?**
+If you are a foundation model provider (not a deployer of a model built by someone else), systemic-risk provisions apply from August 2025. This module focuses on deployers — see the EU AI Office guidance for providers.
+
+### High-risk compliance obligations checklist
+
+For high-risk systems, the Act requires:
+
+```
+□ Risk management system (documented, ongoing)
+□ Training, validation, and test data governance
+□ Technical documentation before market placement
+□ Logging and audit trails (automatic event logging)
+□ Transparency to deployers (usage instructions, capabilities, limitations)
+□ Human oversight design (ability to override, stop, correct)
+□ Accuracy, robustness, and cybersecurity measures
+□ Conformity assessment (self-assessment for most; third-party for some)
+□ EU Declaration of Conformity
+□ CE marking and registration in EU AI database
+□ Post-market monitoring plan
+```
+
+### Bias detection and hallucination monitoring
+
+The Act requires high-risk systems to achieve "appropriate levels of accuracy, robustness, and cybersecurity." For AI systems, this translates to:
+
+**Bias detection**: Monitor output distributions across protected characteristics (age, gender, nationality). For hiring tools, track acceptance rates per demographic group. Statistical parity difference > 5% is a common threshold requiring investigation.
+
+**Hallucination monitoring**: For systems making consequential factual claims (legal, medical, financial), implement automated faithfulness scoring on a sample of outputs. LLM-as-judge or RAGAS faithfulness metrics work for this.
+
+**Logging requirements**: High-risk systems must log inputs, outputs, and decision rationale with enough detail to reconstruct any individual decision. Logs must be retained for the duration of the system's lifespan or at least 10 years for certain categories.
+
+---
+
+## Layer 3: Deep Dive
+
+### Structural differences from GDPR
+
+Organisations that handled GDPR compliance will encounter familiar concepts (risk assessment, documentation, human oversight) alongside fundamentally different ones.
+
+**GDPR** focuses on data processing — who processes personal data, for what purpose, and with what legal basis. GDPR compliance is primarily a question of lawful processing.
+
+**EU AI Act** focuses on the decision-making system — how it is designed, tested, monitored, and controlled. The Act regulates the AI system regardless of whether it processes personal data. An AI system that makes decisions using only publicly available data can still be high-risk under the Act.
+
+Key differences:
+
+| Dimension | GDPR | EU AI Act |
+|---|---|---|
+| Trigger | Personal data processing | Placing AI on EU market or affecting EU persons |
+| Risk model | By data category and purpose | By use case and sector |
+| Documentation | Privacy notices, DPIA | Technical documentation, conformity assessment |
+| Human oversight | Right to explanation, human review of automated decisions | Design requirement — system must enable override |
+| Enforcement | Data Protection Authorities | National market surveillance + EU AI Office |
+
+### The "general purpose AI" (GPAI) model regime
+
+Foundation models — large models trained on broad data that can be used across many tasks — face a separate obligation track:
+
+- **All GPAI providers**: transparency requirements, technical documentation, copyright policy, training data summary
+- **GPAI with systemic risk** (capable models above a compute threshold, currently 10²⁵ FLOPs): adversarial testing, incident reporting, cybersecurity measures, energy efficiency reporting
+
+For most enterprise deployers, the GPAI regime applies to your AI provider (Anthropic, OpenAI, Google), not to you. Your obligations as a deployer are under the high-risk or limited-risk tier based on your use case.
+
+### Governance programme structure
+
+A minimal EU AI Act governance programme for an enterprise deployer:
+
+1. **AI inventory**: Register every AI system in use, with use case, data inputs, decision type, and affected persons. This is the prerequisite for all classification work.
+
+2. **Classification decisions**: For each system, document the risk classification with rationale. Treat this as a legal document — it should be reviewed by legal counsel and updated when the use case changes.
+
+3. **High-risk management system**: For each high-risk system, maintain a living risk register, testing records, and audit log demonstrating ongoing compliance.
+
+4. **Fundamental rights impact assessment**: Required before deploying high-risk systems. Similar in structure to GDPR's DPIA but focused on fundamental rights (non-discrimination, privacy, due process) rather than data protection specifically.
+
+5. **Incident reporting**: High-risk AI incidents causing serious harm must be reported to national market surveillance authorities. Establish a reporting process before you need it.
+
+### Further reading
+
+- [EU AI Act full text](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1689); Official Journal of the European Union, 2024. The binding regulation text; Annex III (high-risk categories) and Annex IV (technical documentation) are the most practically relevant sections.
+- [EU AI Office GPAI Code of Practice](https://digital-strategy.ec.europa.eu/en/policies/ai-office); European Commission, 2024. Ongoing guidance from the EU AI Office on GPAI compliance; updated as implementation progresses.
+- [AI Act Explorer](https://artificialintelligenceact.eu/); Future of Life Institute, 2024. Interactive guide to navigating the Act; useful for initial classification work.

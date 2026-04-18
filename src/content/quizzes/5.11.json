@@ -1,0 +1,76 @@
+{
+  "title": "Synthetic Data for Training & Distillation — Check your understanding",
+  "moduleId": "5.11",
+  "questions": [
+    {
+      "id": "5.11-q1",
+      "type": "multiple-choice",
+      "question": "You're building a distillation pipeline: a large frontier model generates answers, and a smaller model trains on them. Both models are from the same provider's model family. What specific risk does this introduce?",
+      "options": [
+        "The student model will become larger than expected due to knowledge transfer",
+        "Circular reinforcement: the student learns the teacher's systematic biases and failure modes, not just its competence — including errors the teacher makes on specific topics",
+        "The training examples will be too high quality, causing the student to overfit",
+        "Tokenizer incompatibilities between models from the same family cause training failures"
+      ],
+      "answer": 1,
+      "explanation": "When teacher and student share a model family, the student doesn't just learn correct behaviour — it learns the teacher's systematic biases, characteristic errors, and gaps. These failure modes are amplified rather than corrected in the student, since they appear consistently in the training data with high confidence. Using a cross-family teacher (e.g., a Gemini teacher for a Llama student) breaks this circular reinforcement. Quality doesn't cause overfitting in this context, and tokenizers within a family are typically compatible.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.11-q2",
+      "type": "multiple-choice",
+      "question": "After training on synthetic data, your student model scores 0.91 on the synthetic eval set but only 0.67 on your held-out real examples. What does this indicate?",
+      "options": [
+        "The student model is overfitted — reduce the number of training epochs",
+        "The synthetic eval set was too easy — generate harder synthetic questions",
+        "The synthetic training data has diverged from the real user distribution, and the student has learned patterns that don't transfer to real queries",
+        "Evaluation on real examples requires a different metric than evaluation on synthetic examples"
+      ],
+      "answer": 2,
+      "explanation": "A large gap between synthetic and real eval performance is the signature of synthetic distribution divergence. The student learned to answer synthetic questions well — but real user queries have different phrasing, different assumptions, and different edge cases than what the synthetic pipeline generated. This is why held-out real examples are essential: they expose this gap. Reducing epochs or generating harder synthetic questions doesn't fix a distribution problem. The metrics can be identical across both eval sets.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.11-q3",
+      "type": "multiple-choice",
+      "question": "Your team is considering using chain-of-thought distillation instead of final-answer distillation for training a student model on a reasoning task. What is the primary benefit?",
+      "options": [
+        "Chain-of-thought examples are shorter and reduce training costs",
+        "The student model learns to decompose problems similarly to the teacher, transferring reasoning capability rather than just output patterns",
+        "Chain-of-thought training eliminates the need for quality filtering",
+        "Chain-of-thought examples allow the student to exceed the teacher's capabilities"
+      ],
+      "answer": 1,
+      "explanation": "When the student trains on the teacher's reasoning steps, it learns the decomposition strategy — not just the final answer. Research has shown that chain-of-thought distillation transfers substantially more reasoning capability than final-answer distillation at the same model scale. The student learns how to think through a problem, not just what answers look like. CoT examples are typically longer (not shorter), quality filtering is still required, and the student is bounded by the teacher's capability on the training distribution.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "5.11-q4",
+      "type": "multiple-choice",
+      "question": "Six months after deploying a synthetic-data-trained model, you notice it handles common queries well but completely fails on rare but valid edge cases it used to handle correctly. Diversity metrics on its outputs show decreasing vocabulary and length variance over successive fine-tuning rounds. What is happening?",
+      "options": [
+        "The model's context window has degraded due to heavy use",
+        "Mode collapse: iterative synthetic distillation has eroded the model's ability to generate rare but valid outputs, converging it toward a narrow distribution",
+        "The model has been compromised — an adversarial attack is suppressing rare tokens",
+        "The evaluation benchmark has changed and the rare cases now use different phrasing"
+      ],
+      "answer": 1,
+      "explanation": "This is the mode collapse pattern described by Shumailov et al. (2024): iterative training on synthetic data causes the model to lose the tails of its output distribution — the rare but valid responses. The symptoms match: decreasing vocabulary diversity, shrinking length variance, and failure on edge cases with maintained performance on common queries. The fix is to anchor each training round with fresh real data. Context windows don't degrade through use, and the scenario describes production queries not benchmark shifts.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.11-q5",
+      "type": "multiple-choice",
+      "question": "You're building a synthetic data pipeline for a medical Q&A model. Your teacher model occasionally expresses uncertainty by saying 'I'm not sure about this specific dosage.' Should these examples be included in training data?",
+      "options": [
+        "Yes — uncertainty calibration is a valuable signal for the student to learn",
+        "Yes — removing uncertain examples biases the training set toward overconfident responses",
+        "No — examples where the teacher is uncertain about facts are likely to contain errors or incomplete information, and training on them risks injecting those failures into the student's weights",
+        "No — uncertain examples cause the student model to refuse to answer medical questions entirely"
+      ],
+      "answer": 2,
+      "explanation": "Teacher uncertainty is a signal of potential error, not a training signal to preserve. In medical contexts especially, an uncertain teacher may be providing incomplete, hedged, or subtly wrong information. Training on these examples risks encoding errors into the student's weights, where they're harder to detect and correct than at inference time. The correct approach is to filter these out and either leave that knowledge gap in the student or fill it with verified expert-labelled examples. The risk of injecting factual errors far outweighs the benefit of calibration signals from uncertain teacher outputs.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

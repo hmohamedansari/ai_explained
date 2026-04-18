@@ -1,0 +1,76 @@
+{
+  "title": "Human Feedback Operations — Check your understanding",
+  "moduleId": "6.12",
+  "questions": [
+    {
+      "id": "6.12-q1",
+      "type": "multiple-choice",
+      "question": "Your team trains a reward model on human preference labels collected over 12 months. Model quality was improving for the first 8 months, then plateaued and started declining. Your labeller workforce, data volume, and training setup are unchanged. What is the most likely cause?",
+      "options": [
+        "The base model has reached its capacity limit and cannot be improved further by preference training",
+        "Reviewer label drift — over time, reviewers have developed personal heuristics that diverge from the original labelling guidelines, so labels from month 10 represent different quality criteria than labels from month 2",
+        "The reward model has overfitted to the training set and cannot generalise",
+        "Twelve months of labels is too many — recent labels should be weighted higher to prevent outdated signal from dominating"
+      ],
+      "answer": 1,
+      "explanation": "Label drift is the canonical failure mode for long-running annotation programmes. Reviewers who review thousands of examples develop shorthand heuristics. These heuristics may diverge from the labelling guidelines over time as reviewers adapt to feedback, team norms shift, or edge cases accumulate. Training data from month 10 reflects different quality criteria than month 2 data, introducing systematic inconsistency. Detecting this requires periodic calibration: give reviewers a 'gold set' of examples with known correct labels and measure agreement over time. Overfitting and model capacity limits produce different patterns and would not explain a gradual plateau followed by decline correlated with time.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "6.12-q2",
+      "type": "multiple-choice",
+      "question": "Two reviewers disagree on 40% of preference pairs in your annotation batch. Your project manager suggests averaging their scores. What is the correct response?",
+      "options": [
+        "40% disagreement is within normal range — averaging is appropriate for all preference data",
+        "Average the scores, but flag the batch for additional review",
+        "40% disagreement indicates a systemic problem — the labelling guidelines need clarification, the examples need to be re-reviewed with an adjudication process, or the task is genuinely ambiguous and requires a different annotation strategy",
+        "Discard one reviewer and use only the other's labels to ensure consistency"
+      ],
+      "answer": 2,
+      "explanation": "40% disagreement is far above acceptable inter-annotator agreement for most preference tasks. Averaging disagreements without understanding their source buries the signal: you get a synthetic label that neither reviewer actually chose, for reasons you don't understand. The right response is to investigate: are the disagreements on specific example types? Is one reviewer misunderstanding the guidelines? Is the task genuinely ambiguous (e.g., two answers that are equally good for different reasons)? Discarding one reviewer loses calibration information and is not statistically sound. Averaging without adjudication produces training data that represents no human's actual judgement.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "6.12-q3",
+      "type": "multiple-choice",
+      "question": "You measure inter-annotator agreement using Cohen's kappa before and after a labelling guidelines update. Kappa drops from 0.71 to 0.48. What does this tell you?",
+      "options": [
+        "The updated guidelines improved quality by introducing more nuanced distinctions that naturally reduce mechanical agreement",
+        "The updated guidelines introduced ambiguity or were not clearly communicated — reviewers are now less consistent with each other, which will degrade the quality of the preference data",
+        "0.48 is acceptable — Cohen's kappa below 0.5 is normal for subjective tasks",
+        "The kappa drop reflects changes in the example distribution, not the guidelines themselves"
+      ],
+      "answer": 1,
+      "explanation": "A drop in inter-annotator agreement after a guidelines update is a strong signal that the new guidelines introduced ambiguity, were not clearly communicated, or require more calibration examples. Cohen's kappa of 0.48 is 'moderate' agreement at best — for preference labelling that will train a reward model, you typically need kappa above 0.70. Guidelines that increase nuance without increasing agreement mean reviewers are applying different interpretations of the nuance. The fix is calibration: provide labelled examples for the new edge cases, hold a norming session, and re-measure agreement before collecting data at scale.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "6.12-q4",
+      "type": "multiple-choice",
+      "question": "Your annotation team reviews 200 examples per person per day. After 3 months, throughput is maintained but error rates on a gold-set calibration check have risen from 5% to 19%. What is the most likely explanation and appropriate response?",
+      "options": [
+        "The gold set has become outdated — update it with new examples and re-measure",
+        "Reviewer fatigue and cognitive adaptation — reviewers are pattern-matching on surface features to maintain throughput, not applying the full rubric. Reduce daily volume, introduce mandatory breaks, and rotate example types",
+        "The 200 examples per day target is too low — increasing volume would reduce the time pressure causing errors",
+        "The error rate increase is within measurement noise — 14 percentage points is not statistically significant with a small gold set"
+      ],
+      "answer": 1,
+      "explanation": "Sustained high-volume annotation tasks reliably produce two symptoms over time: maintained throughput (reviewers find faster strategies) and rising error rates (the faster strategies are pattern-matching shortcuts, not genuine evaluation). This is annotator fatigue combined with heuristic development. The correct intervention is to reduce cognitive load: lower daily volume targets, build in breaks, rotate example types to prevent pattern lock-in, and calibrate more frequently. Increasing volume accelerates the problem. Gold set staleness would produce different error patterns (errors on specific new topics, not a general rise). 14 percentage points on a calibration check is substantial and actionable.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "6.12-q5",
+      "type": "multiple-choice",
+      "question": "You collect thumbs-up/thumbs-down feedback from users in production. After 3 months, positive ratings are at 87%. A product manager says the model quality is excellent. What is the limitation of this conclusion?",
+      "options": [
+        "User feedback is always biased toward positive — 87% is actually a poor score adjusted for this bias",
+        "Production user feedback measures satisfaction, not quality: users may give thumbs-up to confident wrong answers, miss factual errors they cannot detect, and under-report problems they find embarrassing to report. It is a weak quality signal without additional grounding",
+        "87% is below the industry standard of 92% for AI products, indicating the model needs improvement",
+        "Thumbs-up feedback is a valid quality measure as long as the sample size is large enough"
+      ],
+      "answer": 1,
+      "explanation": "User satisfaction ratings conflate quality with user experience. Users give positive ratings when they feel the interaction went well — which may or may not correlate with factual accuracy, safety, or alignment with your quality criteria. A confidently wrong answer may get a thumbs-up because it sounds authoritative. Embarrassing failure modes (bias, inappropriate content) may go unreported. The satisfaction-quality gap widens for expert domains where users cannot evaluate correctness. Meaningful quality measurement requires ground-truth evaluation, LLM-as-judge on sampled outputs, and adversarial probing — not just production satisfaction scores.",
+      "personas": ["senior", "leader"]
+    }
+  ]
+}

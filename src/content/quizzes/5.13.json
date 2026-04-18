@@ -1,0 +1,76 @@
+{
+  "title": "Caching & Latency Engineering — Check your understanding",
+  "moduleId": "5.13",
+  "questions": [
+    {
+      "id": "5.13-q1",
+      "type": "multiple-choice",
+      "question": "Your RAG system's semantic cache has a 0.90 similarity threshold and no TTL. Users start reporting that the system gives correct answers to some queries but confidently wrong answers to semantically similar ones. What is the most likely cause?",
+      "options": [
+        "The similarity threshold is too high, causing too many cache misses",
+        "A cached response was correct at cache time but the underlying facts changed — without a TTL, the stale response keeps being served",
+        "The embedding model is computing identical embeddings for different queries, collapsing them to the same cache entry",
+        "The cache is using cosine similarity incorrectly and returning random entries"
+      ],
+      "answer": 1,
+      "explanation": "Without a TTL, a semantic cache stores responses indefinitely. If the underlying data changes (a price updates, a policy changes, a fact is corrected), the cached response stays fresh in the cache while becoming wrong in the world. This is the canonical semantic cache correctness hazard. The TTL must be set based on how quickly the underlying facts change, not on storage cost. A threshold too high would cause misses, not wrong answers. Embedding models produce consistent results for the same input.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "5.13-q2",
+      "type": "multiple-choice",
+      "question": "Your API p95 latency is 4.2 seconds. Looking at the data, you find that 85% of requests complete in under 500ms and 15% take 12+ seconds. What does this distribution tell you?",
+      "options": [
+        "The system is overloaded and needs more compute capacity across the board",
+        "The p95 is masking a bimodal distribution — the fast requests are likely cache hits and the slow requests are full LLM generation misses, which need to be measured and optimised separately",
+        "The p99 must be measured before any action can be taken",
+        "The 15% of slow requests are network-bound and require a CDN"
+      ],
+      "answer": 1,
+      "explanation": "A bimodal latency distribution (fast cluster + slow cluster) is the signature of a system where some requests hit a cache and others do not. Measuring the p95 across both populations gives a misleading average of the two fundamentally different request types. The correct approach is to instrument cache hits and misses separately and measure SLOs for each path independently. Adding compute capacity would help with the slow path but ignores the cache optimisation opportunity. CDN is for static assets, not LLM inference.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "5.13-q3",
+      "type": "multiple-choice",
+      "question": "Every API request you send includes the same 3,000-token system prompt. You want to reduce per-request cost. Which caching layer directly addresses this?",
+      "options": [
+        "Semantic cache — store the system prompt as an embedding and retrieve it once",
+        "Response cache — cache the complete response including the system prompt processing",
+        "Prefix (KV) cache — the inference server caches the attention key-value tensors for the shared system prompt so they are computed once and reused across requests",
+        "Retrieval cache — cache the chunks retrieved by the system prompt at startup"
+      ],
+      "answer": 2,
+      "explanation": "Prefix (KV) caching is specifically designed for shared prompt prefixes. The inference server computes the attention keys and values for the 3,000-token system prompt once and stores them. Every subsequent request that starts with the same prefix reuses those stored tensors instead of recomputing them. This cuts the compute cost and latency for the prefix portion to near zero for cache hits. Semantic caching operates on complete queries and responses, not prompt components. Response caching requires an exact match on the full request. Retrieval caching is for vector search results.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "5.13-q4",
+      "type": "multiple-choice",
+      "question": "Your corpus ingestion runs nightly at 2am. You have a retrieval cache with a 6-hour TTL. At 8am, users query for information updated in the 2am ingestion but get stale responses. What is wrong with the cache configuration?",
+      "options": [
+        "The TTL of 6 hours is too short — it should be at least 24 hours to survive the nightly ingestion",
+        "The retrieval cache TTL should be set to match the ingestion interval, and the cache should be explicitly invalidated immediately after each successful ingestion run",
+        "Retrieval caches cannot be invalidated without restarting the vector store",
+        "The 6-hour TTL is correct but the ingestion should run at midnight instead of 2am to align with cache expiry"
+      ],
+      "answer": 1,
+      "explanation": "The retrieval cache TTL should match the ingestion frequency (24 hours for nightly ingestion), but more importantly, the cache should be actively invalidated after each successful ingestion run — not passively expired by TTL. Passive TTL expiry means there is always a window between when new data is indexed and when the cache expires. Event-driven invalidation (call cache.invalidate_all() at ingestion completion) ensures users see updated results immediately. A longer TTL makes the staleness window worse, not better. Cache invalidation APIs are standard in all major cache implementations.",
+      "personas": ["sre", "senior"]
+    },
+    {
+      "id": "5.13-q5",
+      "type": "multiple-choice",
+      "question": "You deploy a new version of your application that changes the system prompt. Within the same deployment window, some users experience inconsistent behaviour — the same query gets different responses depending on which server instance handles it. What is the cause?",
+      "options": [
+        "The new system prompt introduced a bug that only affects some query types",
+        "Load balancing is routing requests to different model versions during the rollout",
+        "Prefix (KV) cache entries from the old system prompt persist on some server instances, so requests hitting those instances use the old prompt's cached KV tensors until the cache is invalidated or the instance is restarted",
+        "The semantic cache is returning old responses that were generated under the old system prompt"
+      ],
+      "answer": 2,
+      "explanation": "Prefix cache entries are stored in the inference server's memory. When the system prompt changes, old KV cache entries for the previous prompt remain valid until the server is restarted or the cache is explicitly cleared. During a rolling deployment, some instances have the new prompt (cold cache) and some have the old prompt's cached KV tensors — producing inconsistent responses for the same query. Treating system prompt changes as deployment events (roll all servers) is the mitigation. The semantic cache would return full cached responses, which is a different issue. Load balancer routing to different model versions is a different failure mode with different symptoms.",
+      "personas": ["sre", "senior"]
+    }
+  ]
+}

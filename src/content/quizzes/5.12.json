@@ -1,0 +1,76 @@
+{
+  "title": "Sovereign & Air-Gapped AI Architecture — Check your understanding",
+  "moduleId": "5.12",
+  "questions": [
+    {
+      "id": "5.12-q1",
+      "type": "multiple-choice",
+      "question": "Your organisation deploys a fully air-gapped RAG system. Three months after deployment, the model starts giving confidently wrong answers on a topic that was never in the training data. What is the most likely root cause?",
+      "options": [
+        "The model weights have degraded due to storage hardware failure",
+        "The knowledge base has not been updated, so the model lacks information on topics that emerged after the initial corpus was assembled",
+        "The air gap is preventing the model from accessing the internet to retrieve current information",
+        "The embedding model version has drifted from the LLM version, causing retrieval mismatches"
+      ],
+      "answer": 1,
+      "explanation": "Air-gapped systems have no live connection to external data — the knowledge base must be actively maintained through a controlled ingest process. When new topics emerge (regulation changes, new products, updated procedures), the corpus must be updated manually. The model giving wrong answers on new topics is the expected behaviour of a system with a static knowledge base. Model weights do not degrade from storage. The air gap is intentional, not a failure. Embedding and LLM version mismatches would cause broad retrieval degradation, not topically specific failures.",
+      "personas": ["senior", "sre", "leader"]
+    },
+    {
+      "id": "5.12-q2",
+      "type": "multiple-choice",
+      "question": "You download a model weight file from a trusted source to deploy in an air-gapped environment. Your security team says a hash check at download time is not sufficient. Why not?",
+      "options": [
+        "Hash algorithms can be broken by sophisticated attackers during transmission",
+        "A model file can be clean at download but tampered with during the transfer to the air-gapped environment or during storage before deployment",
+        "Hash checks only verify file size, not content integrity",
+        "Air-gapped environments cannot compute cryptographic hashes without internet access"
+      ],
+      "answer": 1,
+      "explanation": "Model provenance requires verification at two points: at download time (the file came from the right source) and at deployment time (the file is still the same file). In a compromised or untrusted internal environment, a clean file can be modified between the download point and the air-gapped deployment target. The fix is to compute and store the hash at download, then verify the hash again immediately before loading the model. SHA-256 and similar algorithms remain cryptographically strong against practical attacks. Hash algorithms verify content integrity, not just size.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.12-q3",
+      "type": "multiple-choice",
+      "question": "Your air-gapped deployment needs to support multiple teams with different data access levels. Team A can query all documents; Team B can only query documents tagged 'public'. How should this access control be implemented?",
+      "options": [
+        "Prompt the LLM with each team's access level and trust it to filter its responses accordingly",
+        "Run separate model instances for each team with their own isolated vector stores",
+        "Implement access control at the retrieval layer — filter chunks by access tag before they reach the LLM, so restricted documents never enter the model's context",
+        "Use the LLM to classify each retrieved chunk as appropriate or inappropriate for the requesting team before including it in the response"
+      ],
+      "answer": 2,
+      "explanation": "Access control must happen before restricted content reaches the LLM, not after. If a restricted document enters the context, the LLM may expose it even when instructed not to — either by direct quotation or by reasoning that implicitly reflects the restricted content. Retrieval-layer filtering is deterministic and cannot be bypassed by prompt manipulation. Separate model instances are expensive and operationally complex for a permission boundary problem that can be solved with metadata filtering. Trusting the LLM to self-censor is insufficient for security requirements.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.12-q4",
+      "type": "multiple-choice",
+      "question": "You operate an air-gapped AI system in a regulated environment. A critical security patch is released for the LLM serving framework. What is the correct patching approach?",
+      "options": [
+        "Skip the patch — air-gapped systems are not exposed to internet threats so the patch is unnecessary",
+        "Connect the system temporarily to the internet to apply the patch automatically",
+        "Download the patch to an external system, verify its integrity, transfer it through your approved secure transfer process, and apply it in the air-gapped environment",
+        "Wait for the next scheduled model update cycle to include the patch"
+      ],
+      "answer": 2,
+      "explanation": "Air-gapped environments are not immune to internal threats, supply chain attacks, or vulnerabilities that can be exploited by local users. The patching process for air-gapped systems requires a secure transfer mechanism (often called a 'data diode' or 'secure transfer station') that allows one-way inbound data transfer after verification. Skipping patches leaves the system vulnerable to internal threat actors and supply chain attacks. Temporary internet connectivity defeats the purpose of the air gap and violates the compliance posture the architecture was designed to achieve. Delaying patches until a scheduled cycle extends the exposure window unnecessarily.",
+      "personas": ["senior", "sre", "leader"]
+    },
+    {
+      "id": "5.12-q5",
+      "type": "multiple-choice",
+      "question": "A CISO asks whether an air-gapped AI system eliminates data sovereignty risk entirely. What is the accurate answer?",
+      "options": [
+        "Yes — air-gapped systems have no external connections, so data cannot leave the environment",
+        "No — air-gapped deployments address external data transmission risk but do not eliminate risks from physical media transfer, insider access, side-channel attacks, or regulatory compliance failures unrelated to network connectivity",
+        "No — air-gapped systems actually increase data sovereignty risk because they lack cloud provider compliance certifications",
+        "Yes, provided the system uses on-premise hardware and the model was trained only on the organisation's own data"
+      ],
+      "answer": 1,
+      "explanation": "Air-gapping prevents network-based data exfiltration but is not a complete data sovereignty solution. Residual risks include: physical media (USB, optical) carrying data out of the environment; insider threats with physical access; hardware side-channel attacks (timing, power analysis); improper handling of model weights or outputs on external presentation systems; and compliance obligations that require specific logging, audit, or reporting that the air-gapped architecture may not support. Data sovereignty is a legal and operational posture, not a purely technical property — the air gap addresses one threat vector among many.",
+      "personas": ["senior", "leader"]
+    }
+  ]
+}

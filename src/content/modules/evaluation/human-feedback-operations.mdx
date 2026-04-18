@@ -1,0 +1,329 @@
+---
+moduleId: "6.12"
+title: "Human Feedback Operations"
+description: "Human review of AI output is not a checkbox — it's an operational discipline with its own failure modes. Reviewer quality degrades over time, labels drift, and retraining on degraded data makes models worse. This module covers the workflows, tooling, and quality controls that keep human feedback reliable."
+track: "evaluation"
+order: 12
+personas: ["senior", "leader"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 20
+  layer3: 35
+productionGotcha: "Most teams treat human-in-the-loop as a binary concept. In practice, reviewer quality degrades over time: reviewers develop heuristics, become fatigued, and drift in their interpretation of labelling guidelines. Without adjudication policy and periodic calibration, human feedback data silently degrades — and retraining on it makes the model worse."
+draft: false
+---
+
+## Layer 1: Surface
+
+Every RLHF pipeline, every fine-tuning job, every model improvement driven by human feedback is only as good as the feedback itself. If the feedback is inconsistent, biased by fatigue, or drifted from the guidelines — the model learns the wrong thing.
+
+**The four ways human feedback degrades:**
+
+| Failure mode | What it looks like | When it happens |
+|---|---|---|
+| **Reviewer fatigue** | Later cases in a session rated more leniently | After ~2 hours of continuous review |
+| **Guideline drift** | Different reviewers interpret ambiguous cases differently over time | Without regular calibration sessions |
+| **Heuristic shortcutting** | Reviewers learn to pattern-match on surface features instead of reading carefully | After a few weeks on the same task |
+| **Label distribution shift** | Approval rates change without an underlying quality change | When reviewer pool or task difficulty changes |
+
+The compounding danger: if you retrain on degraded labels, the model learns the degraded signal. The next batch of human reviewers see model outputs influenced by that training, and label them relative to that degraded baseline. The quality floor drops with each cycle.
+
+**What a functional human feedback operation looks like:**
+
+```
+  [Model output queue]
+        │
+        ▼
+  [Reviewer assignment]   ← based on expertise, workload, blind rotation
+        │
+        ▼
+  [Review + label]
+        │
+        ▼
+  [Adjudication]          ← resolves disagreements between reviewers
+        │
+        ▼
+  [Agreement tracking]    ← flags reviewers or cases that disagree frequently
+        │
+        ▼
+  [Calibration sessions]  ← periodic re-alignment on edge cases
+        │
+        ▼
+  [Training data export]  ← only high-confidence, adjudicated labels
+```
+
+> **Production Gotcha:** Most teams treat human-in-the-loop as a binary concept. In practice, reviewer quality degrades over time: reviewers develop heuristics, become fatigued, and drift in their interpretation of labelling guidelines. Without adjudication policy and periodic calibration, human feedback data silently degrades — and retraining on it makes the model worse.
+
+---
+
+## Layer 2: Guided
+
+### Inter-annotator agreement
+
+Before you trust your labels, measure agreement between reviewers. The standard metrics are Cohen's kappa (two reviewers) and Krippendorff's alpha (multiple reviewers or ordinal scales).
+
+```python
+from itertools import combinations
+import numpy as np
+
+def cohens_kappa(labels_a: list, labels_b: list) -> float:
+    """
+    Cohen's kappa for two reviewers.
+    Returns -1 to 1. Interpretation:
+    < 0.4  = poor agreement (guideline problem or task ambiguity)
+    0.4-0.6 = moderate (acceptable for subjective tasks)
+    0.6-0.8 = substantial (target for most labelling tasks)
+    > 0.8  = almost perfect
+    """
+    assert len(labels_a) == len(labels_b), "Reviewers must label the same items"
+    categories = list(set(labels_a) | set(labels_b))
+    n = len(labels_a)
+
+    # Observed agreement
+    p_o = sum(a == b for a, b in zip(labels_a, labels_b)) / n
+
+    # Expected agreement by chance
+    p_e = sum(
+        (labels_a.count(cat) / n) * (labels_b.count(cat) / n)
+        for cat in categories
+    )
+
+    if p_e == 1.0:
+        return 1.0  # perfect agreement, no chance baseline
+
+    return (p_o - p_e) / (1 - p_e)
+
+def krippendorffs_alpha(ratings: list[list], level: str = "ordinal") -> float:
+    """
+    Krippendorff's alpha for multiple reviewers.
+    ratings: list of reviewer rating lists (each list = one reviewer's labels)
+    level: "nominal" | "ordinal" | "interval"
+    """
+    # Transpose: items as rows, reviewers as columns
+    items = list(zip(*ratings))
+    n_items = len(items)
+    values = sorted(set(v for item in items for v in item if v is not None))
+
+    def metric(v1, v2):
+        if level == "nominal":
+            return 0 if v1 == v2 else 1
+        elif level == "ordinal":
+            rank1 = values.index(v1)
+            rank2 = values.index(v2)
+            return (rank1 - rank2) ** 2
+        else:  # interval
+            return (v1 - v2) ** 2
+
+    # Observed disagreement
+    d_o = 0
+    n_paired = 0
+    for item in items:
+        vals = [v for v in item if v is not None]
+        for v1, v2 in combinations(vals, 2):
+            d_o += metric(v1, v2)
+            n_paired += 1
+
+    # Expected disagreement
+    all_vals = [v for item in items for v in item if v is not None]
+    d_e = 0
+    for v1, v2 in combinations(all_vals, 2):
+        d_e += metric(v1, v2)
+
+    n_all = len(all_vals)
+    d_e_norm = d_e / (n_all * (n_all - 1) / 2) if n_all > 1 else 0
+    d_o_norm = d_o / n_paired if n_paired > 0 else 0
+
+    if d_e_norm == 0:
+        return 1.0
+
+    return 1 - (d_o_norm / d_e_norm)
+```
+
+Run this weekly on a random sample of cases that were labelled by multiple reviewers. A kappa below 0.4 is a signal that your guidelines are ambiguous or your reviewer pool is not calibrated.
+
+### Adjudication policy
+
+When reviewers disagree, you need a defined policy for resolving the disagreement — not a vague "escalate to a lead."
+
+```python
+from enum import Enum
+from dataclasses import dataclass
+
+class AdjudicationMethod(Enum):
+    MAJORITY_VOTE = "majority_vote"
+    EXPERT_REVIEW = "expert_review"
+    CONSENSUS_SESSION = "consensus_session"
+    DISCARD = "discard"  # case is too ambiguous to include in training data
+
+@dataclass
+class AdjudicationPolicy:
+    min_reviewers: int = 2
+    auto_approve_threshold: float = 1.0   # 100% agreement → auto-approve
+    majority_threshold: float = 0.67      # 2/3 agreement → majority vote
+    expert_threshold: float = 0.5         # < 2/3 → route to expert
+    discard_threshold: float = 0.0        # 0% agreement on 3+ reviewers → discard
+
+def adjudicate(labels: list, policy: AdjudicationPolicy) -> dict:
+    if len(labels) < policy.min_reviewers:
+        return {"outcome": "insufficient_labels", "label": None, "method": None}
+
+    counts = {}
+    for label in labels:
+        counts[label] = counts.get(label, 0) + 1
+
+    top_label = max(counts, key=counts.get)
+    agreement_rate = counts[top_label] / len(labels)
+
+    if agreement_rate >= policy.auto_approve_threshold:
+        return {"outcome": "approved", "label": top_label, "method": AdjudicationMethod.MAJORITY_VOTE, "confidence": "high"}
+
+    if agreement_rate >= policy.majority_threshold:
+        return {"outcome": "approved", "label": top_label, "method": AdjudicationMethod.MAJORITY_VOTE, "confidence": "medium"}
+
+    if agreement_rate > policy.discard_threshold:
+        return {"outcome": "escalated", "label": None, "method": AdjudicationMethod.EXPERT_REVIEW, "confidence": "low"}
+
+    return {"outcome": "discarded", "label": None, "method": AdjudicationMethod.DISCARD, "confidence": None}
+```
+
+### Detecting reviewer drift
+
+Track each reviewer's agreement rate with the adjudicated ground truth over time. A reviewer whose individual-vs-adjudicated agreement rate drops is drifting — they need a calibration session.
+
+```python
+import time
+from collections import defaultdict
+
+class ReviewerDriftMonitor:
+    def __init__(self, calibration_threshold: float = 0.75):
+        self.calibration_threshold = calibration_threshold
+        self.reviewer_history: dict[str, list[dict]] = defaultdict(list)
+
+    def record_review(self, reviewer_id: str, item_id: str,
+                      reviewer_label: str, adjudicated_label: str | None):
+        if adjudicated_label is None:
+            return  # skip unadjudicated cases
+
+        self.reviewer_history[reviewer_id].append({
+            "ts": time.time(),
+            "item_id": item_id,
+            "agreed": reviewer_label == adjudicated_label,
+        })
+
+    def agreement_rate(self, reviewer_id: str, window_days: int = 14) -> float:
+        cutoff = time.time() - (window_days * 86400)
+        recent = [
+            r for r in self.reviewer_history[reviewer_id]
+            if r["ts"] >= cutoff
+        ]
+        if not recent:
+            return 1.0
+        return sum(1 for r in recent if r["agreed"]) / len(recent)
+
+    def flagged_reviewers(self) -> list[dict]:
+        flagged = []
+        for reviewer_id in self.reviewer_history:
+            rate = self.agreement_rate(reviewer_id)
+            if rate < self.calibration_threshold:
+                flagged.append({
+                    "reviewer_id": reviewer_id,
+                    "agreement_rate": round(rate, 3),
+                    "action": "Schedule calibration session",
+                })
+        return flagged
+```
+
+### Feedback queue design
+
+Structure your review queue to prevent fatigue-induced errors:
+
+```python
+QUEUE_DESIGN_PRINCIPLES = {
+    "session_length": "90 minutes maximum. Quality drops sharply after 2 hours.",
+    "case_ordering": "Randomise. Never group all hard cases at the end of a session.",
+    "calibration_injection": "Inject 5–10% known gold cases per session. Use these to measure per-session accuracy.",
+    "blind_rotation": "Assign cases to reviewers randomly, not based on domain expertise, to prevent systematic bias.",
+    "break_enforcement": "Enforce 10-minute breaks every 45 minutes. Track cases reviewed per hour as a fatigue proxy.",
+}
+
+def build_review_queue(
+    pending_cases: list[dict],
+    gold_cases: list[dict],
+    session_target: int = 60,
+) -> list[dict]:
+    import random
+
+    # Inject gold cases at ~8%
+    gold_sample = random.sample(gold_cases, max(1, session_target // 12))
+    working_cases = random.sample(pending_cases, min(session_target - len(gold_sample), len(pending_cases)))
+
+    # Interleave gold cases randomly
+    all_cases = working_cases + [{"_is_gold": True, **g} for g in gold_sample]
+    random.shuffle(all_cases)
+
+    return all_cases
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### The feedback loop and its failure modes
+
+Human feedback operations exist to serve a learning loop: human labels train or fine-tune the model, the model produces better outputs, those outputs are easier to label correctly, the model improves further. This loop is self-reinforcing in both directions.
+
+If label quality is high and the loop is healthy, each cycle improves the model. If label quality degrades, the model is trained on a degraded signal. The next generation of outputs reflects that degradation. Reviewers, now labelling against a degraded baseline, produce labels calibrated to the new lower floor. The model trains on that. The floor drops again.
+
+This is the compound failure that makes reviewer quality maintenance non-optional, not just good practice.
+
+### Inter-annotator agreement in context
+
+Cohen's kappa and Krippendorff's alpha are the standard measures, but the targets depend on the task:
+
+- **Binary classification** (acceptable/not acceptable): target kappa > 0.7
+- **Quality rating (3-5 point scale)**: target kappa > 0.6; ordinal Krippendorff's alpha > 0.67
+- **Subjective tasks** (writing quality, tone): kappa 0.4–0.6 may be the practical ceiling without more specific rubrics
+
+Low agreement on a specific label category (rather than across all categories) is a signal that the rubric is ambiguous for that category. Targeted guideline updates for the specific disagreement class are more effective than global recalibration.
+
+### Organisational design for leaders
+
+A reviewer workforce has a staffing model distinct from engineering. Key decisions:
+
+**In-house vs. vendor vs. crowd.** In-house reviewers develop domain expertise but are expensive and create headcount risk. Crowd-sourcing (MTurk, Scale AI, Surge) scales quickly but requires more rigid rubrics and more calibration overhead. Vendor-managed reviewers (Appen, Lionbridge) sit in the middle. Most at-scale operations use all three in layers: crowd for volume, vendor for quality control, in-house for edge case adjudication.
+
+**Cost model.** Human review cost scales with case volume, review time per case, and error/adjudication overhead. A realistic model:
+
+```
+cost_per_case = (review_time_minutes / 60) * hourly_rate
++ (disagreement_rate * adjudication_time_minutes / 60) * senior_hourly_rate
++ (calibration_sessions_per_month * session_cost) / monthly_case_volume
+```
+
+For a 10,000-case/month operation at 3 minutes per case, 20% disagreement rate, and $25/hr reviewers with $60/hr adjudicators: approximately $2,500–$4,000/month before infrastructure.
+
+**Capacity planning.** Reviewer throughput is not constant. Track cases-reviewed-per-hour per reviewer over time. A 20%+ drop in throughput is a fatigue or engagement signal, not just a productivity metric.
+
+### Failure taxonomy
+
+**Label laundering.** Cases that are consistently disagreed on are quietly dropped from training data without documentation. The training set becomes systematically biased toward the cases that are easy to agree on, which are rarely the edge cases that matter most.
+
+**Calibration theater.** Calibration sessions are held but reviewers perform better on calibration cases (which they recognize as calibration) than on production cases. Track agreement rates separately for identified vs. blind calibration cases.
+
+**Expertise concentration.** One senior reviewer adjudicates all edge cases. Their idiosyncratic judgements become ground truth. When they leave, the standards leave with them.
+
+**Queue bias.** Cases are assigned to reviewers based on domain match. Reviewers develop a strong prior for their domain's typical outputs, which biases their labels toward expectation rather than actual quality.
+
+### Primary sources
+
+- Krippendorff, Klaus. *Content Analysis: An Introduction to Its Methodology*. Sage Publications, 2004. The original formulation of Krippendorff's alpha and its application to reliability in content analysis — the methodological foundation for inter-annotator agreement in annotation pipelines.
+- Ouyang, Long, et al. "Training Language Models to Follow Instructions with Human Feedback." *NeurIPS*, 2022. The InstructGPT paper. Documents the RLHF pipeline in detail including the labeller qualification process, agreement measurement, and the relationship between labeller quality and model quality.
+
+### Further reading
+
+- Cross-reference: Module 6.4 (Error Analysis Workflow) — the error analysis discipline that determines which cases to prioritise for human review.
+- Cross-reference: Module 7.10 (Constitutional AI & RLHF) — the training-time use of human feedback and how CAI reduces dependence on raw human labels for safety-relevant cases.
+- Braylan, Alexander, et al. ["Measuring Agreement on Perceived Offensiveness."](https://aclanthology.org/2022.acl-long.388/) *ACL*, 2022. Empirical study of how annotator demographics affect label distributions in subjective tasks — important context for teams building safety-relevant feedback pipelines.

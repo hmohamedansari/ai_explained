@@ -1,0 +1,76 @@
+{
+  "title": "Fine-Tuning: When & Why — Check your understanding",
+  "moduleId": "5.9",
+  "questions": [
+    {
+      "id": "5.9-q1",
+      "type": "multiple-choice",
+      "question": "Your team needs a model that correctly cites internal KB article IDs in customer support responses. The model currently hallucinate IDs. Which approach solves this most directly?",
+      "options": [
+        "Fine-tune the model on a dataset of support conversations that include correct article IDs",
+        "Use RAG: retrieve the relevant KB articles at query time and include them in context, so the model cites IDs that are actually present",
+        "Use a larger model — it will be less likely to hallucinate",
+        "Add a system prompt instruction telling the model not to invent article IDs"
+      ],
+      "answer": 1,
+      "explanation": "Hallucinated IDs are a factual grounding problem, not a behavioural problem. Fine-tuning shifts probability distributions but does not reliably inject facts — the model may still confabulate IDs that pattern-match to your training data. RAG solves this directly: real IDs are in context, so the model can cite them without inventing. A larger model reduces hallucination rates marginally but doesn't eliminate the root cause. A system prompt helps but the model has no way to verify IDs it doesn't have access to.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "5.9-q2",
+      "type": "multiple-choice",
+      "question": "After fine-tuning a support chatbot on 500 labelled examples, users report it gives poor answers to billing questions it used to handle well. What most likely happened?",
+      "options": [
+        "The fine-tuning dataset did not include billing examples, so the model forgot general reasoning patterns needed for those queries",
+        "500 examples is far too many — overfitting caused the model to memorise rather than generalise",
+        "The model's context window shrinks after fine-tuning",
+        "Billing questions require a different model architecture"
+      ],
+      "answer": 0,
+      "explanation": "This is catastrophic forgetting: gradient updates during fine-tuning nudged parameters toward the training distribution, degrading performance on queries outside it. If billing edge cases were underrepresented in your 500 examples, the model's prior ability to reason through them was partially overwritten. 500 examples is in the right range for fine-tuning — overfitting is not the issue here. Context window and architecture are unaffected by fine-tuning.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.9-q3",
+      "type": "multiple-choice",
+      "question": "You're running a large frontier model for a narrow classification task: classify support tickets into one of 12 categories. The task is simple but high-volume, and inference cost is 40% of your operating budget. What is the best approach?",
+      "options": [
+        "Switch to RAG — retrieve similar past tickets and use the retrieved category as the answer",
+        "Fine-tune a small model (1–7B parameters) on your labelled ticket data and serve that instead",
+        "Reduce the system prompt to lower token count, keeping the frontier model",
+        "Run the frontier model with a lower temperature to speed up inference"
+      ],
+      "answer": 1,
+      "explanation": "Specialising a small model on a narrow task is one of the clearest production wins for fine-tuning. A fine-tuned 3B model routinely achieves 90–95% of a frontier model's accuracy on constrained classification tasks at a fraction of the serving cost. RAG doesn't help here — the task is classification, not knowledge retrieval. Reducing prompt length or temperature adjusts quality and style, not cost at this scale.",
+      "personas": ["senior", "sre", "leader"]
+    },
+    {
+      "id": "5.9-q4",
+      "type": "multiple-choice",
+      "question": "Your model follows tone and escalation rules most of the time, but it's inconsistent. You've already tried detailed system prompts. A colleague suggests DSPy before attempting fine-tuning. What is the rationale?",
+      "options": [
+        "DSPy automatically generates training data, eliminating the need for human labelling",
+        "DSPy treats prompts as hyperparameters and searches over them using a small labelled dev set — it frequently matches fine-tuned model performance on structured tasks without modifying weights",
+        "DSPy is a wrapper around fine-tuning that makes it cheaper",
+        "DSPy is only useful for retrieval tasks, not behavioural consistency"
+      ],
+      "answer": 1,
+      "explanation": "DSPy optimises prompts systematically using a small labelled development set — a middle path between manual prompting and weight modification. It does not generate training data or perform fine-tuning. For structured behavioural tasks like following escalation rules, DSPy-optimised prompts frequently match or exceed fine-tuned model performance while keeping weights frozen. This means no retraining cost, no catastrophic forgetting risk, and no base model lock-in.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "5.9-q5",
+      "type": "multiple-choice",
+      "question": "You fine-tune a model for a legal document summarisation task. Six months later, your legal team updates their preferred citation format. What does this require?",
+      "options": [
+        "A full or partial retrain of the fine-tuned model, since the behaviour is baked into the weights",
+        "Updating your vector database index with the new format examples",
+        "Switching to a larger base model that supports the new format natively",
+        "Editing the fine-tuning dataset — changes take effect at the next query"
+      ],
+      "answer": 0,
+      "explanation": "Fine-tuned behaviour is encoded in the weights. A format change requires a retraining cycle — collect new examples, fine-tune, evaluate, deploy. This is the retraining lag failure mode: a RAG system with updated index is live in minutes; a fine-tuned model requires a full training pipeline run. Updating the dataset has no effect without retraining. The base model size is irrelevant to format preferences.",
+      "personas": ["senior", "sre", "leader"]
+    }
+  ]
+}

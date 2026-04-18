@@ -1,0 +1,76 @@
+{
+  "title": "Hybrid Memory Architecture — Check your understanding",
+  "moduleId": "2.10",
+  "questions": [
+    {
+      "id": "2.10-q1",
+      "type": "multiple-choice",
+      "question": "A user reports that your AI assistant 'keeps forgetting' their preference for concise answers, even though they state it at the start of every conversation. What is the most likely architectural explanation, and what is the fix?",
+      "options": [
+        "The context window is too small to hold the user's preference alongside the conversation; increase max_tokens",
+        "The system has no long-term memory tier — preferences only exist within the context window and are lost when the session ends; add an episodic/preference store and retrieve relevant memories at session start",
+        "The system prompt is overriding the user's stated preference; move the preference statement to the system prompt",
+        "The model is not following instructions correctly; switch to a larger model with better instruction-following"
+      ],
+      "answer": 1,
+      "explanation": "This is the cold-start problem caused by context-window-only memory. User preferences are a canonical example of what belongs in long-term memory — they are stable, cross-session, and low-volume. The fix is to detect preference statements during a session, store them in the long-term memory store, and retrieve them at the start of each subsequent session to inject into the system prompt. Increasing max_tokens doesn't help across sessions. Moving a dynamically stated preference to a static system prompt requires human intervention for every user.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.10-q2",
+      "type": "multiple-choice",
+      "question": "You are building a multi-step code review agent. The agent creates a plan, analyses each file, and compiles a final report across multiple LLM calls. Between calls, where should the intermediate analysis results be stored?",
+      "options": [
+        "Long-term vector store — so that future sessions can benefit from prior analyses of the same codebase",
+        "Working memory (Redis or in-process KV store) — intermediate task state is active only for the duration of the task and should be cleared when complete",
+        "Short-term context window only — pass all prior results in each new prompt",
+        "A relational database — for durable storage that survives server restarts"
+      ],
+      "answer": 1,
+      "explanation": "Intermediate analysis for an in-progress task is working memory: it needs to survive across multiple LLM calls within the task, but it should be cleared when the task completes. Redis or a KV store with a TTL is the right tier. Long-term vector store is for knowledge that should persist across sessions — per-file intermediate analysis is transient. Stuffing all prior results into the context window (option C) is viable for small tasks but hits token limits quickly for large codebases. A relational database without TTL creates working memory leaks.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.10-q3",
+      "type": "multiple-choice",
+      "question": "Your long-term memory store has grown to 50,000 entries per user after six months. Users report that retrieved memories are increasingly irrelevant — the system surfaces context from six months ago even when it conflicts with recent conversations. What two problems have occurred, and what is the correct fix?",
+      "options": [
+        "The vector database is too slow at this scale; add an ANN index and increase top-k to retrieve more candidates",
+        "Both retrieval pollution (too many low-signal entries) and stale memory override (old entries outranking recent ones) have occurred; fix by applying importance × recency forgetting and adding a selectivity gate at write time",
+        "The embedding model has drifted; re-embed all memories with the current model version to fix relevance",
+        "The system is retrieving semantic memories when it should only retrieve episodic ones; add type filtering to the retrieval query"
+      ],
+      "answer": 1,
+      "explanation": "Two compounding problems: retrieval pollution from storing too many low-signal entries (all turns without selectivity), and stale override where old memories scored by embedding similarity still surface even when they've been superseded. The fix requires both a write-time gate (only store high-signal exchanges) and a TTL/importance forgetting policy (prune old low-importance entries). Re-embedding doesn't solve staleness or selectivity. Type filtering helps retrieval precision but not the staleness or pollution problems.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.10-q4",
+      "type": "multiple-choice",
+      "question": "A user told your assistant 'I prefer Python for scripting tasks' in a session eight months ago. That entry is in long-term memory with importance 0.7. Last week, the same user said 'I've switched everything to Go.' Your system stored that as importance 0.8. This week, the user asks for a script. Your retrieval returns both memories. What should the system do?",
+      "options": [
+        "Retrieve both and let the model decide which to follow based on context",
+        "Use only the most recent memory, since preferences are episodic and recency should win when memories conflict",
+        "Discard both and ask the user to state their current preference",
+        "Average the importance scores and follow the higher-scoring preference"
+      ],
+      "answer": 1,
+      "explanation": "Preferences are episodic memories, and for episodic memories that directly conflict, recency should win — the user's current stated preference supersedes the older one. The architecture should prioritise by recency when two memories of the same type on the same topic conflict. Letting the model decide without guidance produces non-deterministic results. Discarding both wastes valid information (the Go preference is current). Averaging importance scores has no semantic meaning for conflicting preferences.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.10-q5",
+      "type": "multiple-choice",
+      "question": "Your memory system's `should_store_long_term` gate is running on every conversation turn and calling a model to decide. At 500,000 daily active users, this adds significant cost and latency. What is the most architecturally sound way to reduce this cost without eliminating the quality of the write decision?",
+      "options": [
+        "Remove the gate entirely and store every turn; retrieval filters will handle noise at query time",
+        "Apply heuristic pre-filters (turn length, presence of preference keywords, absence of question marks) to eliminate obvious non-candidates before calling the model; only call the model for turns that pass the pre-filter",
+        "Reduce the frequency of long-term memory writes to once per week per user to amortise the model call cost",
+        "Switch to a keyword matching approach for memory type classification, replacing the model-based gate entirely"
+      ],
+      "answer": 1,
+      "explanation": "A heuristic pre-filter is the right engineering answer: it eliminates the most obvious non-candidates (short turns, pure questions, greetings) at zero model cost, so the expensive model-based gate only fires on turns that have a real chance of containing storable information. This preserves decision quality on candidates while dramatically reducing volume. Storing everything without a gate causes retrieval pollution (option A). Reducing write frequency to weekly loses time-sensitive information. Keyword matching alone misses nuanced preference and episodic statements that don't contain the right keywords.",
+      "personas": ["senior"]
+    }
+  ]
+}

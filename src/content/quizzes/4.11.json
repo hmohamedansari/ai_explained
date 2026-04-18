@@ -1,0 +1,76 @@
+{
+  "title": "Middleware and Deterministic Injection — Check your understanding",
+  "moduleId": "4.11",
+  "questions": [
+    {
+      "id": "4.11-q1",
+      "type": "multiple-choice",
+      "question": "Your agent is supposed to only respond to queries from users with an 'enterprise' tier. You implement this by adding 'Only respond to enterprise users' to the system prompt. A week after launch, a user circumvents this with a prompt injection attack. What architectural change would have prevented this?",
+      "options": [
+        "Make the system prompt longer and more explicit about the restriction",
+        "Use a more powerful model that is harder to jailbreak",
+        "Implement the tier check as a deterministic pre-processing middleware step that rejects non-enterprise requests before they reach the LLM",
+        "Fine-tune the model on examples of correctly refusing non-enterprise users"
+      ],
+      "answer": 2,
+      "explanation": "Access control is something you can formally specify — either the user has enterprise tier or they do not. Deterministic middleware can check this with certainty; the LLM cannot. Putting access control in the system prompt creates a rule the LLM is expected to enforce, but the LLM can be overridden by adversarial input. Deterministic middleware runs before the LLM sees the request and cannot be bypassed by prompt manipulation. Longer prompts and fine-tuning make bypasses harder but not impossible; only removing the check from the LLM's responsibility eliminates the attack surface.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.11-q2",
+      "type": "multiple-choice",
+      "question": "You add output validation middleware that checks whether the agent's response is valid JSON when the schema requires JSON output. The middleware rejects 15% of responses and triggers a retry. After investigating, you find the LLM is producing correct answers in a natural language format when the query is conversational. What does this indicate about the middleware design?",
+      "options": [
+        "The LLM needs to be fine-tuned to always output JSON regardless of query type",
+        "The middleware rejection rate is acceptable — 15% is within normal variance for LLM output",
+        "The middleware is too restrictive: it applies a JSON schema check to all responses, including ones where JSON output is not appropriate",
+        "The retry logic is causing the LLM to second-guess its initial correct responses"
+      ],
+      "answer": 2,
+      "explanation": "This is the 'middleware too restrictive' failure mode. The JSON validation is correct for structured data responses but inappropriate for conversational replies. Middleware should be scoped to the cases where the constraint applies — checking JSON output only when the agent is in a structured-response mode, not unconditionally. A 15% rejection rate on correct outputs is a sign the middleware boundary is drawn in the wrong place, not that the LLM is malfunctioning. Fine-tuning and retry logic address symptoms rather than the root cause.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.11-q3",
+      "type": "multiple-choice",
+      "question": "Which of the following is the best candidate for deterministic middleware vs. LLM reasoning?",
+      "options": [
+        "Deciding whether a user's question is about sales or support — deterministic middleware",
+        "Checking whether a generated response mentions a competitor brand name — deterministic middleware using exact string match",
+        "Classifying whether a document is relevant to a query — LLM reasoning",
+        "Verifying that a date field in structured output is a valid ISO 8601 date — LLM reasoning"
+      ],
+      "answer": 2,
+      "explanation": "Relevance classification requires semantic understanding — it is exactly the kind of task where LLM reasoning outperforms deterministic rules. Date format validation is purely structural (does the string match a known pattern?) and should be deterministic. Competitor brand detection by exact string match is straightforward regex or string matching — deterministic. Intent classification (sales vs. support) can often be done with keyword matching or a small classifier, but if intent boundaries are ambiguous, an LLM is appropriate. The key principle: use deterministic code for things you can formally specify; use LLM reasoning when semantic understanding is required.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.11-q4",
+      "type": "multiple-choice",
+      "question": "You implement a middleware pipeline that normalises inputs, then routes to the LLM, then validates outputs. After a month in production, you notice the middleware is doing increasingly complex work — custom logic for 30+ edge cases accumulated by the team. What risk does this pattern introduce?",
+      "options": [
+        "The middleware will slow down requests as it grows, making the system unresponsive",
+        "The middleware is accumulating business logic that belongs in the LLM's system prompt",
+        "The middleware is becoming a parallel decision-making system that can contradict the LLM, making system behaviour harder to predict and debug",
+        "Middleware cannot handle more than 10 rules without becoming unreliable"
+      ],
+      "answer": 2,
+      "explanation": "When middleware grows to handle 30+ edge cases, it is often replicating reasoning that belongs in the LLM layer, creating two systems that can produce contradictory decisions. The right architecture keeps middleware focused on what can be formally specified (schema validation, access control, input normalisation) and lets the LLM handle the ambiguous cases. A growing middleware rule set is a signal that the boundary was drawn in the wrong place. This makes the system harder to debug because a given output may be the result of middleware intervention, LLM reasoning, or an interaction between both.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.11-q5",
+      "type": "multiple-choice",
+      "question": "Your agent generates SQL queries to answer user questions. You want to prevent data exfiltration. Which combination of middleware is most effective?",
+      "options": [
+        "Prompt the LLM to only generate safe SQL queries and trust the model's alignment",
+        "Parse and validate generated SQL with a deterministic SQL parser before execution, blocking any query containing DROP, DELETE, or UPDATE statements",
+        "Log all generated SQL queries and review them manually after execution",
+        "Limit the LLM's context to exclude table schemas so it cannot construct harmful queries"
+      ],
+      "answer": 1,
+      "explanation": "SQL validation is precisely the kind of task deterministic middleware excels at: SQL has a formal grammar, dangerous statements (DDL, DML that modifies data) can be identified with certainty by parsing the query, and the check runs before any side effects occur. Trusting the LLM's alignment is insufficient — aligned models can still generate harmful SQL under adversarial input. Post-execution logging catches the damage after it has occurred. Hiding schemas reduces capability without eliminating risk, since the LLM might still construct valid queries from context clues.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

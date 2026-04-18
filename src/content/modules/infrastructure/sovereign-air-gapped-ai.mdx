@@ -1,0 +1,325 @@
+---
+moduleId: "5.12"
+title: "Sovereign & Air-Gapped AI Architecture"
+description: "Some data cannot leave your environment. Air-gapped AI deployments run the full stack — embeddings, vector database, and inference — entirely on-premise with no internet access. The architecture is straightforward; the hard parts are model provenance, patch strategy, and keeping the system from going stale."
+track: "infrastructure"
+order: 12
+personas: ["senior", "sre", "leader"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Model provenance requires cryptographic verification at download time and again at deployment. A model weight file that was clean when downloaded can be tampered with before it reaches the air-gapped environment. Hash the file at download, store the hash in a tamper-evident log, and verify that hash at deployment."
+draft: false
+---
+
+## Layer 1: Surface
+
+**Data sovereignty** means you control where your data goes and who can access it — down to the hardware. For regulated industries (defence, financial services, healthcare under certain jurisdictions, critical infrastructure), this isn't a preference: it's a legal requirement.
+
+**Air-gapped deployment** is the strictest implementation: the AI system has no network connectivity to the internet or external services. Everything runs on hardware you control, inside a perimeter you control.
+
+**Why this is harder than it sounds:**
+
+Most AI tooling assumes internet access. Model weights are downloaded from Hugging Face or provider APIs. Embedding models are called via REST endpoints. Vector databases pull updates from cloud. Error reporting goes to external services. In an air-gapped environment, none of these paths exist. You must pre-stage everything before the airgap.
+
+**The compliance case (for leaders):**
+
+| Regulation/Framework | Key requirement | AI implication |
+|---|---|---|
+| **GDPR / national equivalents** | Personal data must not leave the jurisdiction | Cloud API calls are cross-border transfers |
+| **Defence/Government classified** | Data must not leave classified network | Any cloud inference is prohibited |
+| **HIPAA / health data** | PHI must be secured with BAAs | Self-hosted is often cleaner than BAA negotiation |
+| **Financial regulatory** | Audit trail for all data processing | Self-hosted with local logging = cleaner audit |
+| **Critical infrastructure** | Air-gap requirement | Absolute prohibition on external network access |
+
+**The architecture at a glance:**
+
+```
+┌─────────────────────────────────────────────────────┐
+│                Air-Gapped Environment                │
+│                                                     │
+│  ┌─────────────┐    ┌──────────────┐    ┌────────┐  │
+│  │  Documents  │───▶│  Embedding   │───▶│ Vector │  │
+│  │  (on-prem)  │    │  Model       │    │   DB   │  │
+│  └─────────────┘    │  (local GPU) │    │(local) │  │
+│                     └──────────────┘    └────┬───┘  │
+│                                              │      │
+│  ┌─────────────┐    ┌──────────────┐         │      │
+│  │    User     │───▶│  Inference   │◀────────┘      │
+│  │   Query     │    │  Model       │                │
+│  └─────────────┘    │  (local GPU) │                │
+│                     └──────────────┘                │
+└─────────────────────────────────────────────────────┘
+         No traffic crosses this boundary
+```
+
+> **Production Gotcha:** Model provenance requires cryptographic verification at download time and again at deployment. A model weight file that was clean when downloaded can be tampered with before it reaches the air-gapped environment. Hash the file at download, store the hash in a tamper-evident log, and verify that hash at deployment.
+
+---
+
+## Layer 2: Guided
+
+### Full offline RAG + inference stack
+
+The following implements a complete air-gapped RAG pipeline using only components that can run without internet access.
+
+**Components:**
+- **Inference:** Ollama (runs any GGUF model locally)
+- **Embeddings:** a local sentence-transformers model
+- **Vector store:** Chroma (fully local, no external dependencies)
+- **Documents:** pre-indexed at staging time
+
+```python
+import hashlib
+import json
+import os
+from pathlib import Path
+import chromadb
+from sentence_transformers import SentenceTransformer
+import ollama
+
+# ── Model verification ──────────────────────────────────────────────────
+
+VERIFIED_MODELS = {
+    # Populate this from your tamper-evident manifest at deployment time
+    "embeddings": {
+        "path": "/opt/models/all-MiniLM-L6-v2",
+        "sha256": "a3e7d89f2b1c4..."  # pre-computed at download time
+    },
+    "inference": {
+        "path": "/opt/models/llama3.2-3b.gguf",
+        "sha256": "b4f2a91c3d8e7..."
+    }
+}
+
+def verify_model(model_path: str, expected_hash: str) -> bool:
+    """Verify model file integrity before loading."""
+    sha256 = hashlib.sha256()
+    with open(model_path, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            sha256.update(chunk)
+    actual_hash = sha256.hexdigest()
+    if actual_hash != expected_hash:
+        raise RuntimeError(
+            f"Model integrity check FAILED for {model_path}. "
+            f"Expected: {expected_hash[:16]}... Got: {actual_hash[:16]}... "
+            f"Do not proceed — the model file may have been tampered with."
+        )
+    return True
+
+# Verify before loading
+verify_model(
+    VERIFIED_MODELS["embeddings"]["path"],
+    VERIFIED_MODELS["embeddings"]["sha256"]
+)
+
+# ── Embedding model (fully local) ───────────────────────────────────────
+
+embedding_model = SentenceTransformer(
+    VERIFIED_MODELS["embeddings"]["path"],
+    # Disable any network calls — sentence-transformers will try to check
+    # for model updates if given a model name string instead of a local path
+    local_files_only=True,
+)
+
+# ── Vector store (fully local) ──────────────────────────────────────────
+
+chroma_client = chromadb.PersistentClient(
+    path="/opt/vectorstore/chroma_db"
+    # No server URL — fully in-process, no network
+)
+
+collection = chroma_client.get_or_create_collection(
+    name="documents",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# ── Document ingestion (run at staging time, before air-gap) ───────────
+
+def ingest_documents(doc_paths: list[Path]) -> None:
+    """Pre-index documents before sealing the air-gapped environment."""
+    for path in doc_paths:
+        text = path.read_text()
+        # Chunk into 512-token segments (simple character split for illustration)
+        chunks = [text[i:i+2000] for i in range(0, len(text), 2000)]
+        embeddings = embedding_model.encode(chunks).tolist()
+        collection.add(
+            documents=chunks,
+            embeddings=embeddings,
+            ids=[f"{path.stem}-chunk-{i}" for i in range(len(chunks))],
+        )
+    print(f"Indexed {len(doc_paths)} documents into local vector store.")
+
+# ── RAG query (fully air-gapped) ────────────────────────────────────────
+
+def rag_query(user_question: str, top_k: int = 3) -> str:
+    """Answer a question using only local models and local vector store."""
+    # Embed the question locally
+    query_embedding = embedding_model.encode([user_question]).tolist()[0]
+
+    # Retrieve from local vector store
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k,
+    )
+    context_chunks = results["documents"][0]
+    context = "\n\n---\n\n".join(context_chunks)
+
+    # Generate answer using local inference model (via Ollama)
+    response = ollama.chat(
+        model="llama3.2:3b",  # must be pre-pulled before air-gapping
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant with access to internal documents. "
+                    "Answer only from the provided context. "
+                    "If the context does not contain enough information, say so."
+                )
+            },
+            {
+                "role": "user",
+                "content": f"Context:\n{context}\n\nQuestion: {user_question}"
+            }
+        ]
+    )
+    return response["message"]["content"]
+```
+
+### Staging checklist: what must be pre-staged before air-gapping
+
+```
+BEFORE SEALING THE AIR-GAP:
+  □ Download all model weights
+  □ Compute SHA-256 of each model file
+  □ Store hashes in tamper-evident manifest (signed, separate from models)
+  □ Pre-pull inference models into Ollama model directory
+  □ Install all Python dependencies (no pip install should run inside air-gap)
+  □ Pre-index document corpus into vector store
+  □ Test full RAG pipeline end-to-end in offline mode
+  □ Document model versions and training cutoff dates
+  □ Establish patch ingress process (USB/optical media + verification)
+
+BEFORE EACH DEPLOYMENT:
+  □ Verify model file hashes against manifest
+  □ Verify manifest signature
+  □ Run integration smoke test
+```
+
+### Patch and update strategy
+
+In a connected environment, model updates happen transparently. In an air-gapped environment, you need an explicit ingress process:
+
+```
+Secure Download Zone (internet-connected) → Physical Media → Air-Gapped Zone
+         ↓                                                         ↓
+  Download new model                                        Verify hash
+  Compute hash                                              Load model
+  Sign manifest                                             Test
+  Transfer to media                                         Replace if verified
+```
+
+Establish a patch cycle cadence before deployment — quarterly is common for stable models, monthly for security patches. Without a cadence, air-gapped environments drift and become stale without anyone noticing.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why "air-gapped" is not binary
+
+True air-gapping (no physical network connection) is rare outside classified government environments. Most regulated deployments implement **data sovereignty** without full physical air-gapping:
+
+- **Network-isolated VLAN** — AI system on a dedicated subnet with no egress rules
+- **Private cloud / on-premise VPC** — cloud infrastructure in your data centre with no public endpoints
+- **Sovereign cloud region** — cloud provider infrastructure in a specific jurisdiction, with contractual data residency guarantees
+
+Each has different threat models and compliance implications. Physical air-gapping eliminates network-based exfiltration but introduces the supply chain problem: the only way in or out is physical media, which can carry malware.
+
+### Model provenance and the supply chain threat
+
+Model provenance is the ability to verify that a model file is exactly what it claims to be, and that it hasn't been modified after its legitimate source released it.
+
+This is harder than it sounds because:
+
+1. Model files are large (multi-GB) and rarely checked after download
+2. Hugging Face and similar repositories serve models that have not been code-reviewed by the consuming organisation
+3. A compromised model can behave normally on test inputs while carrying adversarial backdoors triggered by specific inputs
+
+**Cryptographic verification flow:**
+
+```python
+import hashlib
+import json
+from datetime import datetime, timezone
+
+def create_model_manifest(model_paths: dict[str, str]) -> dict:
+    """
+    Create a signed manifest at download time.
+    Store this manifest separate from the models,
+    in a tamper-evident system (append-only log, HSM, etc.)
+    """
+    manifest = {
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "models": {}
+    }
+    for name, path in model_paths.items():
+        sha256 = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                sha256.update(chunk)
+        manifest["models"][name] = {
+            "path": path,
+            "sha256": sha256.hexdigest(),
+            "size_bytes": os.path.getsize(path),
+        }
+    return manifest
+
+def verify_against_manifest(manifest: dict) -> bool:
+    """Verify all models at deployment time."""
+    for name, record in manifest["models"].items():
+        sha256 = hashlib.sha256()
+        with open(record["path"], "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                sha256.update(chunk)
+        actual = sha256.hexdigest()
+        if actual != record["sha256"]:
+            raise RuntimeError(
+                f"INTEGRITY FAILURE: {name} ({record['path']}) "
+                f"hash mismatch. Expected {record['sha256'][:16]}... "
+                f"Got {actual[:16]}... HALT DEPLOYMENT."
+            )
+    return True
+```
+
+For high-security environments, supplement SHA-256 with a hardware security module (HSM) that holds the signing key for the manifest. If the manifest is unsigned, an attacker who can modify the model can also modify the manifest.
+
+### Named failure modes
+
+**Supply chain compromise.** A malicious model is staged into the air-gapped environment via the legitimate ingress process, bypassing network controls. Mitigation: cryptographic manifest verification at every boundary crossing, with the manifest signed by a key held outside the staging pipeline.
+
+**Model staleness drift.** The model's training cutoff is January 2025. Your organisation continues to use it in 2027. Users ask questions about events that happened after the cutoff; the model answers confidently and incorrectly. Mitigation: track training cutoff dates in the manifest, display them to users, and establish a replacement cadence.
+
+**Dependency update failure.** The Python environment inside the air-gap uses library versions that were current at staging time. Over months, CVEs are discovered in those libraries but cannot be patched because pip install has no egress. Mitigation: treat OS and Python dependency updates as part of your patch ingress process, not just model updates.
+
+**VRAM planning error.** The model that worked in the staging environment fails to load in the air-gapped environment because the hardware configuration differs. Mitigation: staging must use identical hardware to production, or VRAM requirements must be explicitly documented and verified against target hardware before transfer.
+
+**Embedding model / inference model version mismatch.** The embedding model was updated but the vector index was not re-built. New documents are embedded with the new model while old documents are embedded with the old model — similarity search produces inconsistent results. Mitigation: version embedding models alongside index builds; rebuilding the index is required when the embedding model changes.
+
+### Regulatory frameworks and their specific requirements
+
+**GDPR Article 44-49 (transfers):** Personal data transfers to third countries require either adequacy decisions or appropriate safeguards. Sending queries containing personal data to a cloud API may constitute a transfer. Self-hosted with no egress eliminates this question.
+
+**NIS2 Directive (EU, 2024):** Critical infrastructure operators must ensure AI systems used in critical functions meet security requirements that may effectively mandate on-premise deployment for classified workloads.
+
+**FedRAMP / DoD IL (US):** Government cloud frameworks allow cloud but require specific authorization levels. Air-gapped solutions above IL4 require on-premise or private cloud in approved facilities.
+
+### Further reading
+
+- [NIST AI Risk Management Framework](https://www.nist.gov/system/files/documents/2023/01/26/AI%20RMF%201.0.pdf); NIST, 2023. Governance framework for AI risk, including data governance and supply chain security requirements relevant to sovereign deployments.
+- [Backdoor Attacks on Pre-trained Models by Layerwise Weight Poisoning](https://arxiv.org/abs/2108.13888); Li et al., 2021. Demonstrates that adversarial backdoors can be injected into pre-trained model weights — the threat model for supply chain attacks on model files.
+- [ENISA Threat Landscape for AI](https://www.enisa.europa.eu/publications/enisa-threat-landscape-for-artificial-intelligence); ENISA, 2023. EU cybersecurity agency taxonomy of AI-specific threats — covers supply chain, model poisoning, and data exfiltration in regulated contexts.
+- [Hugging Face Model Cards and the Responsibilities they Imply](https://arxiv.org/abs/2202.12026); Cramer et al., 2022. Analysis of model provenance documentation practices — useful background for understanding what upstream metadata is and isn't trustworthy.

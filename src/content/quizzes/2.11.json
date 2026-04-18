@@ -1,0 +1,76 @@
+{
+  "title": "Multimodal RAG — Check your understanding",
+  "moduleId": "2.11",
+  "questions": [
+    {
+      "id": "2.11-q1",
+      "type": "multiple-choice",
+      "question": "You are indexing a slide deck with 80 slides. You retrieve top-5 images per query. Each full-resolution slide image costs approximately 1,200 tokens when passed to a vision model. Your context window is 8,000 tokens. What problem will you hit, and what is the most practical mitigation?",
+      "options": [
+        "The CLIP model will run out of memory processing 80 images at once; batch images in groups of 10",
+        "Retrieving top-5 images will consume 6,000 tokens on images alone, leaving only 2,000 tokens for the question, system prompt, and any text context; mitigate by using thumbnails for retrieval and context assembly, loading full resolution only when visual detail is explicitly needed",
+        "The vector database cannot store image embeddings and text embeddings in the same collection; use separate collections per modality",
+        "Slide decks cannot be indexed with CLIP because they contain text — use caption-only indexing instead"
+      ],
+      "answer": 1,
+      "explanation": "5 images × 1,200 tokens = 6,000 tokens just for images, leaving 2,000 tokens for everything else in an 8K window. This is the context budget problem specific to multimodal RAG. The fix is thumbnail-first: store a low-resolution version for context assembly (e.g., 200 tokens per image) and load the full-resolution version only when the query requires visual detail. Images don't crash CLIP memory individually; they are processed sequentially. Separate collections per modality is a design choice, not a hard requirement.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.11-q2",
+      "type": "multiple-choice",
+      "question": "A user queries 'Find the microservices architecture diagram showing the payment service.' Your image index uses CLIP embeddings only. Retrieval returns a photograph of a whiteboard with a hand-drawn diagram, but misses the clean vector diagram in a slide. Why did CLIP miss it, and what would fix it?",
+      "options": [
+        "CLIP cannot handle PNG images, only JPEG; re-index the slides in JPEG format",
+        "CLIP is optimised for visual similarity, not structural/semantic content; the whiteboard photo looks visually similar to 'architecture diagram' while the clean vector diagram in the slide looks different. Adding caption-based indexing (where a vision model describes the diagram's structure in text) would surface the semantic match",
+        "CLIP requires at least 512×512 images; the slide diagram was below this resolution and was excluded from indexing",
+        "The query contains the word 'payment' which is a domain-specific term CLIP was not trained on; fine-tune CLIP on your domain"
+      ],
+      "answer": 1,
+      "explanation": "CLIP encodes visual appearance into a shared image-text space. A hand-drawn whiteboard diagram looks more visually 'architecture-diagram-like' to CLIP than a clean vector chart because CLIP has seen more whiteboard-style diagrams in training. Caption-based indexing adds a semantic layer: a vision model reads the slide, recognises 'payment service', 'microservices', and structural elements, and generates text that directly matches the query. This is why hybrid CLIP + caption indexing outperforms either alone for enterprise documents.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.11-q3",
+      "type": "multiple-choice",
+      "question": "You index recorded engineering standups using Whisper. Users report that the assistant frequently cites the wrong speaker or attributes statements incorrectly — for example, 'Alice says the API is ready' when Alice actually said 'the API is not ready.' What is the root cause?",
+      "options": [
+        "Whisper has a known bug with negation; use a post-processing step to detect and invert negative statements",
+        "Speaker overlap during meetings causes Whisper to interleave two speakers' words, producing transcription errors; the fix is diarisation (speaker identification) before transcription, plus domain vocabulary prompting to reduce word-level errors",
+        "Whisper transcribes in batch mode and loses timestamp accuracy for long recordings; split audio into 5-minute segments before transcribing",
+        "The chunking window is too small; increase chunk_duration_seconds to ensure full sentences are preserved"
+      ],
+      "answer": 1,
+      "explanation": "Speaker overlap is a primary source of transcription errors in meeting recordings. When two people speak simultaneously, Whisper interleaves their words in ways that create plausible-sounding but wrong sentences — including negation errors ('not ready' becoming 'ready' when the 'not' is from one speaker being merged mid-sentence). Diarisation separates speaker streams before transcription, significantly reducing this class of error. Whisper doesn't have a negation bug; the error is from interleaved speakers. Batch mode and chunk size affect different problems.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.11-q4",
+      "type": "multiple-choice",
+      "question": "You build a multimodal RAG system that retrieves and passes top-2 images and top-4 text chunks to the model. A user asks a text-based question about a policy. The correct answer exists in both a text document and as text overlaid on an infographic image. Retrieval returns the infographic image but not the text document. The model answers correctly. Three months later, the infographic is updated but the text document is not — the text document now has stale information, the infographic has the current policy. What indexing design would have prevented this problem?",
+      "options": [
+        "Store images and text in separate vector databases so their indexes are managed independently",
+        "Attach a content hash and source URL to every indexed item; when the infographic is updated, detect the hash change and re-index it; alert when the text document has not been updated within a configurable staleness window",
+        "Only index images, not text documents, since images are more likely to be kept current",
+        "Re-index the entire corpus weekly to ensure consistency across all modalities"
+      ],
+      "answer": 1,
+      "explanation": "This is the stale index problem in multimodal form. The fix is content hash tracking per asset: when an image is updated, the hash changes, triggering re-indexing. A staleness alert on the text document would have surfaced the divergence. Separate databases don't address the staleness problem — they complicate it. Indexing only images assumes images are always more current, which is not reliable. Weekly full re-indexing is expensive and creates a 7-day window where stale content is served confidently.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.11-q5",
+      "type": "multiple-choice",
+      "question": "You are designing a multimodal RAG system for a manufacturing company. Their knowledge base includes: technical manuals (PDF text + embedded diagrams), quality inspection images (high-res photographs), and recorded training videos. You have a token budget of 12,000 per request. What retrieval and context assembly strategy is most appropriate?",
+      "options": [
+        "Retrieve all modalities with equal top-k and let the model prioritise; it will attend to the most relevant content automatically",
+        "Index only text from the PDFs and transcripts; treat images as supplementary and don't index them",
+        "Assign per-modality token budgets (e.g., 4K text, 4K images as thumbnails, 4K audio transcripts); use a two-stage approach for high-res inspection photos where captions are retrieved first and full images are loaded only when the query requires visual detail",
+        "Increase the context window to 100K tokens so that all retrieved content can be included without budgeting"
+      ],
+      "answer": 2,
+      "explanation": "Per-modality token budgets are the correct design for a constrained context window. High-resolution inspection photographs can consume thousands of tokens each if passed directly — a caption-first, image-on-demand strategy preserves budget for the cases where visual detail is actually needed. Letting the model prioritise without budgeting (option A) routinely overflows the context window with images before text can be included. Skipping image indexing loses a critical source of domain knowledge for manufacturing QA. Expanding to 100K tokens addresses the symptom but not the underlying cost — each request becomes significantly more expensive.",
+      "personas": ["senior"]
+    }
+  ]
+}

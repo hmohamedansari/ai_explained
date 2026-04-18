@@ -1,0 +1,228 @@
+---
+moduleId: "5.9"
+title: "Fine-Tuning: When & Why"
+description: "Fine-tuning is one of several ways to adapt a model to a task — and often the most expensive, slowest, and most fragile. This module is a decision framework: when to fine-tune, when not to, and what you give up either way."
+track: "infrastructure"
+order: 9
+personas: ["senior", "sre", "leader"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Fine-tuning is often the wrong answer. RAG, prompting, and declarative prompt optimisation frequently outperform fine-tuning at a fraction of the cost and without the risk of degrading capabilities the base model already had."
+draft: false
+---
+
+## Layer 1: Surface
+
+You have a model. You need it to behave differently. You have four options, ordered roughly from cheapest to most expensive:
+
+| Approach | What changes | Cost | Reversible? |
+|---|---|---|---|
+| **Prompting** | The instructions you send | Trivial | Yes — instantly |
+| **Declarative optimisation** (DSPy, etc.) | Prompts, systematically searched | Low | Yes |
+| **RAG** | What the model knows at query time | Medium | Yes |
+| **Fine-tuning** | The model's weights | High | No |
+
+Fine-tuning is the only approach that modifies the model itself. That's both its power and its danger.
+
+**What fine-tuning actually does:** it continues training on your data, shifting the probability distribution of the model's outputs. The model "remembers" patterns in your dataset by weighting tokens differently. It does not, in any meaningful sense, "learn facts" — that's what RAG is for. Fine-tuning teaches the model *how* to respond, not *what* to say.
+
+**Decision tree:**
+
+```
+Problem: "The model's output style, tone, or format is wrong"
+  → Try prompting first. Then declarative optimisation (DSPy).
+  → Fine-tune only if prompts consistently fail.
+
+Problem: "The model doesn't know our proprietary data"
+  → Use RAG. Fine-tuning does not reliably inject factual knowledge
+     and is prone to hallucinating facts it was "trained on".
+
+Problem: "The model needs to follow a very specific output schema"
+  → Try structured output / constrained decoding first.
+  → Fine-tune if schema conformance is still unreliable.
+
+Problem: "Inference cost is too high for our use case"
+  → Fine-tune a smaller model on a specific task. This is one of
+     the clearest wins for fine-tuning — specialised small models
+     outperform large generalist ones on narrow tasks.
+
+Problem: "Latency is too high"
+  → Fine-tune a smaller model. Same logic as cost.
+```
+
+> **Production Gotcha:** Fine-tuning a model on narrow data degrades its general capabilities in ways you won't notice until users hit an edge case you didn't test. This is catastrophic forgetting — the model overwrites knowledge it had before. Always measure base capability regression after fine-tuning.
+
+---
+
+## Layer 2: Guided
+
+### Worked comparison: the same task, four approaches
+
+Task: a customer support chatbot that must respond in a specific tone, follow strict escalation rules, and cite internal knowledge base articles by ID.
+
+**Approach 1 — Prompting only**
+
+```python
+system_prompt = """
+You are a customer support agent for Acme Corp. Follow these rules:
+1. Always respond in a calm, professional tone.
+2. If the customer mentions a billing dispute, escalate by saying:
+   "I'm connecting you to our billing team."
+3. When referencing documentation, cite the article ID in brackets: [KB-1042].
+
+Do not make up article IDs. If you don't know the article ID, say so.
+"""
+
+response = llm.chat(model="your-preferred-model", messages=[
+    {"role": "system", "content": system_prompt},
+    {"role": "user", "content": customer_message}
+])
+```
+
+Cost: nearly zero. Works surprisingly well for tone and basic rules. Fails on KB article IDs — the model will hallucinate them.
+
+**Approach 2 — RAG for knowledge, prompting for tone**
+
+```python
+def handle_support_query(customer_message: str) -> str:
+    # Retrieve relevant KB articles from your vector DB
+    articles = kb_search(customer_message, top_k=3)
+    context = "\n".join(
+        f"[{a['id']}]: {a['content']}" for a in articles
+    )
+
+    system_prompt = f"""
+You are a customer support agent for Acme Corp.
+Respond calmly and professionally.
+If the customer mentions a billing dispute, escalate immediately.
+Only cite article IDs from the context below — never invent IDs.
+
+Context:
+{context}
+"""
+    return llm.chat(model="your-preferred-model", messages=[
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": customer_message}
+    ])
+```
+
+This solves the KB hallucination problem. The model cites real IDs because real IDs are in context. For most support chatbot use cases, this is the right stopping point.
+
+**Approach 3 — Fine-tuning (when it's justified)**
+
+Fine-tuning makes sense here only if: (a) the tone and escalation rules are so nuanced that prompts consistently fail, and (b) you have labelled examples demonstrating the correct behaviour.
+
+```python
+# Training data format (JSONL, one example per line)
+# Each example shows the ideal input → output pair
+training_example = {
+    "messages": [
+        {
+            "role": "system",
+            "content": "You are a customer support agent for Acme Corp."
+        },
+        {
+            "role": "user",
+            "content": "I was charged twice last month and nobody has helped me."
+        },
+        {
+            "role": "assistant",
+            "content": (
+                "I completely understand your frustration, and I'm sorry for this experience. "
+                "I'm connecting you to our billing team right now — they have full access to "
+                "your transaction history and can resolve this today."
+            )
+        }
+    ]
+}
+```
+
+You need at minimum 50–100 high-quality examples for behavioural fine-tuning. For reliable results: 500+. For teaching complex multi-step reasoning: 1,000+.
+
+**What you give up when you fine-tune:**
+
+```python
+# Before fine-tuning — model handles general questions well
+response = model.chat("Explain what an API rate limit is")
+# → Clear, accurate explanation
+
+# After fine-tuning on narrow support data — model "forgets" general knowledge
+response = fine_tuned_model.chat("Explain what an API rate limit is")
+# → May produce support-speak answer, or drift toward irrelevant KB citations
+```
+
+### Cost comparison (rough orders of magnitude)
+
+| Approach | Setup cost | Per-query cost | Maintenance |
+|---|---|---|---|
+| Prompting | Hours | $0.001–0.01 | Low — update prompt |
+| RAG | Days | $0.005–0.02 | Medium — update index |
+| LoRA fine-tune (small model) | Weeks + GPU hours | $0.0001–0.001 | High — retrain on data drift |
+| Full fine-tune (large model) | Weeks + significant GPU cost | $0.001–0.005 | Very high |
+
+The gap between prompting/RAG and fine-tuning is not just compute — it's the ongoing operational cost of retraining when your data changes or the base model is updated.
+
+---
+
+## Layer 3: Deep Dive
+
+### Catastrophic forgetting: the theory
+
+When a pre-trained model is fine-tuned on a narrow dataset, it undergoes **catastrophic forgetting** (also called catastrophic interference): the weights that encode general knowledge are overwritten by the gradient updates that optimise for the fine-tuning task.
+
+The mechanism is straightforward. Fine-tuning minimises loss on your dataset using gradient descent. The model has no explicit mechanism to preserve weights that are important for tasks *outside* your dataset. Parameters that contributed to, say, logical reasoning get nudged toward your customer support distribution, even if that logic capability isn't exercised in your training examples.
+
+The severity depends on:
+
+- **How narrow is your dataset?** A dataset covering only one domain causes more forgetting than one that includes diverse examples.
+- **How many fine-tuning steps?** More steps = more forgetting. Early stopping is not just about overfitting.
+- **Learning rate?** High learning rates cause more catastrophic forgetting than low rates.
+- **Full fine-tune vs. LoRA?** LoRA (module 5.10) mitigates this by keeping base weights frozen and adding small trainable matrices. It is not immune but substantially reduces forgetting.
+
+### Empirical evidence for when fine-tuning wins
+
+The research here is clearer than the marketing suggests:
+
+**Fine-tuning wins when:**
+
+1. **Style/format adherence is complex and examples are available.** Brown et al. (2020) showed that few-shot prompting was strong but fine-tuning on task examples consistently outperformed it on structured format tasks. The gap is largest when the desired format is unlike anything in pre-training.
+
+2. **Inference cost or latency is the bottleneck, and a smaller model can be specialised.** Distillation — fine-tuning a small model on outputs from a large one — routinely achieves 90%+ of the large model's accuracy on specific tasks at 10× lower serving cost. This is the single clearest production win for fine-tuning.
+
+3. **The task requires a specialised vocabulary or domain.** Medical, legal, and code-heavy domains benefit from continued pre-training on domain corpora. This is different from instruction fine-tuning: you're updating the model's token distribution, not just its behaviour.
+
+**Fine-tuning loses when:**
+
+1. **The goal is to inject facts.** Fine-tuning does not reliably inject factual knowledge — it shifts probability distributions, which means the model produces text that sounds like your domain but may confabulate specifics. Kandpal et al. (2022) showed that language models trained on factual associations still fail to reliably retrieve low-frequency facts. RAG is the right tool.
+
+2. **You have fewer than ~100 high-quality examples.** With small datasets, the model is not learning generalizable behaviour — it's memorising your training set, which degrades on anything slightly different.
+
+3. **The task changes frequently.** Fine-tuned models require retraining when the task evolves. A RAG system with an updated index is available in minutes; a retrained model takes days.
+
+### Named failure modes
+
+**Mode 1 — Hallucinated fluency.** After fine-tuning on domain text, the model produces confident, domain-appropriate-sounding outputs — but hallucinates specifics. It learned the style, not the facts.
+
+**Mode 2 — Distribution cliff.** The fine-tuned model performs excellently on inputs similar to training data and degrades sharply outside that distribution. The boundary between "works" and "fails" is not visible until a user finds it.
+
+**Mode 3 — Regression on base capabilities.** Capabilities the model had before fine-tuning — coding, math, general reasoning — degrade after fine-tuning on unrelated domain text. If you never evaluated those capabilities before fine-tuning, you won't notice until production.
+
+**Mode 4 — Retraining lag.** Your data changes, the fine-tuned model doesn't. In a RAG system, you update the index and the model has fresh information immediately. With a fine-tuned model, there's always a lag between data change and model capability — and a full retraining cycle is required.
+
+**Mode 5 — Base model update lock-in.** When the base model provider releases a better version, your fine-tuned model is stranded on the old version. You must re-fine-tune on the new base, which means your fine-tuning investment doesn't compound.
+
+### The declarative optimisation alternative
+
+DSPy (Khattab et al., 2023) is worth understanding as a middle path. Instead of fine-tuning weights or hand-crafting prompts, DSPy treats prompts as hyperparameters and optimises them systematically using a small labelled development set. In practice, DSPy-optimised prompts often match or exceed fine-tuned models on structured tasks — without touching the weights. If you're considering fine-tuning purely because manual prompt engineering has plateaued, try DSPy first.
+
+### Further reading
+
+- [Language Models are Few-Shot Learners](https://arxiv.org/abs/2005.14165); Brown et al., 2020. The paper that characterised the few-shot prompting vs. fine-tuning tradeoff at scale — baseline reading for understanding when fine-tuning adds value.
+- [Large Language Models Struggle to Learn Long-Tail Knowledge](https://arxiv.org/abs/2211.08411); Kandpal et al., 2022. Empirical evidence that fine-tuning does not reliably inject factual knowledge — directly relevant to the "RAG vs. fine-tune for knowledge" decision.
+- [DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines](https://arxiv.org/abs/2310.03714); Khattab et al., 2023. The declarative optimisation alternative to fine-tuning for behavioural tasks.
+- [Catastrophic forgetting in connectionist networks](https://www.sciencedirect.com/science/article/pii/S1364661399012910); McCloskey & Cohen, 1989. The original characterisation of catastrophic interference — relevant background for understanding why fine-tuning degrades base capabilities.

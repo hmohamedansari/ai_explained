@@ -1,0 +1,76 @@
+{
+  "title": "Evaluating the Evaluator — Check your understanding",
+  "moduleId": "6.10",
+  "questions": [
+    {
+      "id": "6.10-q1",
+      "type": "multiple-choice",
+      "question": "Your eval suite has been showing steady improvement for two months: average judge score has risen from 3.8 to 4.4. But your user satisfaction scores are flat, and support ticket volume has not changed. What is the most likely explanation?",
+      "options": [
+        "User satisfaction metrics lag eval metrics by 6-8 weeks — the improvement will show up soon",
+        "The eval suite is measuring a different dimension than what users actually care about, or metric inflation has caused scores to rise without real quality improvement",
+        "The eval set is too small to produce statistically meaningful trends at 60 days",
+        "Judge model scores and human satisfaction are inherently uncorrelated and should not be compared"
+      ],
+      "answer": 1,
+      "explanation": "When eval scores trend upward but user experience stays flat, the most likely cause is metric divergence: the evaluator is measuring something other than real quality, or scores have inflated because the system now reliably produces outputs in the style the judge model prefers. The fix is to run a concordance check — compare eval scores against a sample of human-reviewed cases or user feedback — to determine whether the score increase reflects actual quality improvement.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "6.10-q2",
+      "type": "multiple-choice",
+      "question": "You version-pin your judge model to a specific snapshot. Three months later, you upgrade the judge to a newer version. Your eval scores drop by 0.3 points on average — but you have not changed the product. What should you do?",
+      "options": [
+        "Roll back to the old judge model and defer the upgrade indefinitely",
+        "Accept the new scores as the new baseline — the new model is likely stricter and more accurate",
+        "Run a canary comparison: score the same eval set with both models and assess which aligns better with human labels before adopting either score as authoritative",
+        "Average the old and new scores to produce a transitional metric"
+      ],
+      "answer": 2,
+      "explanation": "A 0.3-point score shift with no product change means the judge changed — but you do not yet know whether the new judge is stricter (and correct) or just different (and not better calibrated). The right response is a canary comparison: run both models on the same eval set and compare each against human labels. If the new model aligns better with human judgement, the lower score is the more accurate signal. If it does not, the upgrade may not be warranted without recalibration.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "6.10-q3",
+      "type": "multiple-choice",
+      "question": "Your eval score distribution has been compressing over six months. Six months ago, scores ranged from 2.5 to 4.8. Now almost everything scores between 4.0 and 4.4. What does this indicate?",
+      "options": [
+        "The system has become genuinely excellent, eliminating low-quality outputs",
+        "The eval set is too easy or the rubric too forgiving — the distribution ceiling is masking variation in output quality",
+        "The judge model has become more consistent, reducing scoring variance",
+        "The eval set should be reduced in size to increase statistical sensitivity"
+      ],
+      "answer": 1,
+      "explanation": "Score compression — where outputs cluster at the top of the scale — is a sign that the eval is no longer discriminating between good and mediocre outputs. The cause is usually an eval set that has become too easy (your system now handles all the original cases well) or a rubric that is too permissive (the judge rewards anything that is not obviously wrong). The fix is to add harder adversarial test cases, recalibrate the rubric with human reviewers, or switch to a stricter judge.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "6.10-q4",
+      "type": "multiple-choice",
+      "question": "You launched three new product features last quarter. Your eval suite has been passing CI gates consistently. A senior engineer says the eval suite is 'a green light we no longer trust.' What is the most likely reason for this distrust?",
+      "options": [
+        "CI gates are inherently less trustworthy than manual testing for AI systems",
+        "The eval set was written before the new features existed and has no test cases covering them — the CI gate is green because new features are not tested, not because they work correctly",
+        "Automated evals cannot detect regression in generative outputs without human review",
+        "The new features use a different model than the one the eval suite was calibrated on"
+      ],
+      "answer": 1,
+      "explanation": "Eval suites with no coverage for new features produce green CI results not because quality is good, but because the new code paths are not being exercised. This is coverage blindness — the eval suite is a valid test for the features it was written for, and silent about everything else. The fix is a quarterly coverage audit: for every new feature or prompt change, add test cases before or at the time of shipping, not after.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "6.10-q5",
+      "type": "multiple-choice",
+      "question": "You use the same model family for both generation and LLM-as-judge evaluation. Your product team fine-tunes the system prompt to produce outputs in the style the model naturally prefers. Scores improve 15% over the next month. Why is this outcome untrustworthy, and what should you do?",
+      "options": [
+        "Fine-tuning the system prompt always improves scores artificially — the only trustworthy eval is one with no prompt changes",
+        "The generator and judge share training distribution, so the judge will increasingly reward the style the generator produces regardless of whether that style is better for users. Validate the score improvement against human labels or a judge from a different model family.",
+        "A 15% improvement is statistically implausible from prompt changes alone — the measurement is likely erroneous",
+        "Self-preference bias only affects open-source models, not fine-tuned commercial models"
+      ],
+      "answer": 1,
+      "explanation": "When generator and judge share a model family, self-preference bias is a real confound: the judge tends to favour outputs stylistically similar to its own training distribution. If your prompt tuning makes outputs match that style better, scores rise — but the improvement may not reflect any improvement in user-facing quality. This is the self-referential inflation failure mode. To validate, compare against a judge from a different provider or against a sample of human-reviewed outputs before claiming the improvement is real.",
+      "personas": ["senior"]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "title": "The AGENTS.md Convention — Check your understanding",
+  "moduleId": "3.9",
+  "questions": [
+    {
+      "id": "3.9-q1",
+      "type": "multiple-choice",
+      "question": "Your team deployed an AI coding agent six months ago and wrote an AGENTS.md at that time. Since then, you renamed `make test` to `make test-all`, reorganized the `src/` directory, and dropped a deprecated linting tool. No one updated AGENTS.md. A new engineer runs the agent on a bug fix. What should you expect?",
+      "options": [
+        "The agent will discover the current state by running commands and observing errors, then adapt automatically",
+        "The agent will produce worse results than if AGENTS.md did not exist, because it will follow the outdated instructions confidently",
+        "The agent will ignore AGENTS.md if the commands in it return errors",
+        "The agent will flag the AGENTS.md as outdated and ask for an updated version before proceeding"
+      ],
+      "answer": 1,
+      "explanation": "An outdated AGENTS.md is actively harmful. Agents follow the instructions they are given without knowing they are wrong. The agent will attempt to run `make test` (which no longer exists), reference directories that have moved, and invoke the dropped linting tool — failing in ways that look like tool problems rather than config problems. This is worse than having no AGENTS.md at all, because the absence of a file prompts the agent to reason from the codebase itself. Agents do not automatically detect or flag staleness in configuration files.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "3.9-q2",
+      "type": "multiple-choice",
+      "question": "You are writing the tool permissions section of AGENTS.md for a billing service. The agent needs to run unit tests and lint checks, but should never touch the database migration files or push to any branch. Which approach best reflects least-privilege principles?",
+      "options": [
+        "List all allowed commands explicitly and list all forbidden commands explicitly, so the agent has no ambiguity in either direction",
+        "Grant the agent full read/write access to the repository but document in comments which areas are sensitive",
+        "Omit the permissions section and rely on the agent's training to make sensible choices about what to run",
+        "Grant permissions only to the CI system — never to the local development agent — to ensure humans review all changes"
+      ],
+      "answer": 0,
+      "explanation": "Explicit allow and explicit deny gives the agent the clearest signal with no ambiguity. Relying on comments (option B) or the agent's own judgment (option C) introduces ambiguity that different agent implementations resolve differently. Restricting to CI only (option D) prevents the agent from being useful during local development, which is its primary value. Least-privilege means: state exactly what is allowed, and state exactly what is not — no implicit permissions either way.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "3.9-q3",
+      "type": "multiple-choice",
+      "question": "You maintain a monorepo with 12 microservices. Each service has different test commands, directory structures, and coding conventions. How should you structure AGENTS.md to handle this?",
+      "options": [
+        "Put a single AGENTS.md at the repo root that documents all 12 services in full detail",
+        "Put one AGENTS.md in each service directory with service-specific instructions, and skip a root-level file",
+        "Put a root AGENTS.md with repo-wide conventions and shared tooling, and a service-specific AGENTS.md in each service directory for local overrides",
+        "AGENTS.md does not support monorepos — use a separate configuration format for each service"
+      ],
+      "answer": 2,
+      "explanation": "The layered approach mirrors how conventions actually work in monorepos: some things are universal (CI tooling, contribution guidelines, org-wide conventions) and some things are service-specific (test commands, directory layout, framework-specific patterns). A single root file that tries to document all 12 services becomes unmanageable and irrelevant to the agent when working in a specific service. Service-level files with no root file lose the shared context. The layered model — root for shared, local for specific — is the standard pattern for tools like CODEOWNERS and follows the same principle.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "3.9-q4",
+      "type": "multiple-choice",
+      "question": "A teammate proposes adding detailed architecture decision records (ADRs), full API documentation, and team process norms to AGENTS.md to give the agent maximum context. You push back. Why?",
+      "options": [
+        "AGENTS.md has a maximum file size limit that would be exceeded by adding this content",
+        "Agents cannot read prose documentation — they only parse structured sections with specific headers",
+        "AGENTS.md should encode actionable agent-specific context: commands, file boundaries, and coding conventions. Detailed ADRs and process docs belong in other files — including them inflates the file, buries the actionable content, and makes AGENTS.md harder to maintain",
+        "ADRs and API documentation change too frequently to be included in any static config file"
+      ],
+      "answer": 2,
+      "explanation": "AGENTS.md is most valuable when it is dense with actionable, agent-specific information: what to run, what to avoid, how to structure code. Detailed ADRs and process norms dilute this signal. The agent needs to know how to run tests, not the rationale for your microservices architecture decision from 2022. There is no file size limit in the convention, and agents can read any prose — but more content means the critical sections are harder to find and the file is harder to keep current. Separate concerns: AGENTS.md for agent-actionable config, docs/ or ADR directories for the rest.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "3.9-q5",
+      "type": "multiple-choice",
+      "question": "You want to ensure AGENTS.md stays accurate as the codebase evolves. You add it to CODEOWNERS so changes require platform team review. A colleague says this is insufficient. What additional mechanism would most directly catch the most common class of staleness?",
+      "options": [
+        "A monthly reminder in the team calendar to manually review AGENTS.md for accuracy",
+        "A CI test that extracts the commands listed in AGENTS.md and verifies they exist in the Makefile or package.json",
+        "A pre-commit hook that blocks any Makefile change unless AGENTS.md is also modified in the same commit",
+        "Generating AGENTS.md automatically from the Makefile on every build, replacing any manually authored content"
+      ],
+      "answer": 1,
+      "explanation": "The most common class of staleness is renamed or removed commands — `make test` becomes `make test-all`, a script is dropped from package.json. A CI test that parses AGENTS.md and validates each command against the Makefile or package.json catches this automatically on every PR, with no human discipline required. Calendar reminders (option A) rely on human follow-through and catch drift weeks or months late. A pre-commit hook (option C) blocks legitimate Makefile changes and does not catch cases where the AGENTS.md command is wrong but present. Auto-generation (option D) removes the ability to include context that is not derivable from the Makefile.",
+      "personas": ["senior"]
+    }
+  ]
+}

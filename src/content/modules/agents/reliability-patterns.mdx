@@ -1,0 +1,410 @@
+---
+moduleId: "4.12"
+title: "Reliability Patterns for Agent Systems"
+description: "Agent failures are often silent, partial, and hard to replay. This module applies distributed-systems reliability patterns — idempotency, compensation transactions, circuit breakers, and graceful degradation — to the specific failure modes agents introduce."
+track: "agents"
+order: 12
+personas: ["senior", "sre"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 18
+  layer3: 35
+productionGotcha: "Standard retry logic is dangerous in agentic systems. Retrying a non-idempotent tool call — send email, place order, charge card — after a partial failure can cause duplicate real-world effects. Every agent action with side effects must be idempotent or wrapped in a compensation transaction, by design, not as an afterthought."
+draft: false
+---
+
+## Layer 1: Surface
+
+Reliability engineering for agents is the same discipline as reliability engineering for distributed systems — with one additional complication: agent failures are often silent. A distributed service returns a 500. An agent calls the wrong tool with the wrong arguments, gets a plausible-looking response, and continues as if everything worked.
+
+The patterns here are not new. They come from decades of distributed systems work. What is new is applying them to a system where the decision-maker is a language model, the "service calls" are tool invocations, and the "responses" are text that requires interpretation.
+
+**Core patterns and what they solve:**
+
+| Pattern | What it solves | Agent-specific wrinkle |
+|---|---|---|
+| **Idempotency keys** | Duplicate actions from retries | Agents may retry without knowing they already succeeded |
+| **Compensation transactions** | Undoing partial side effects | Agents may not know which steps completed before a failure |
+| **Circuit breakers** | Cascading failures from repeated bad tool calls | Agents will keep calling a broken tool unless explicitly stopped |
+| **Quorum / consensus** | Wrong output from a single agent | One agent can be confidently wrong; multiple agents can disagree |
+| **Graceful degradation** | Partial unavailability | Agent without a tool should return reduced capability, not crash |
+
+None of these patterns require changing the model or the prompt. They are implemented in the orchestration layer — the code that runs the agent.
+
+> **Production gotcha:** Standard retry logic is dangerous in agentic systems. Retrying a non-idempotent tool call — send email, place order, charge card — after a partial failure can cause duplicate real-world effects. Every agent action with side effects must be idempotent or wrapped in a compensation transaction, by design, not as an afterthought.
+
+---
+
+## Layer 2: Guided
+
+### Idempotency keys for tool calls
+
+Idempotency keys are identifiers that let a server detect and deduplicate repeated requests. The pattern is standard in payment APIs and message queues. In agent systems, it prevents duplicate side effects when the agent retries after a failure — or when the orchestrator retries the agent.
+
+```python
+import hashlib
+import time
+from typing import Any
+
+class IdempotentToolExecutor:
+    def __init__(self, kv_store):
+        self.store = kv_store  # Redis, DynamoDB, or any KV with TTL support
+        self.ttl_seconds = 86400  # 24 hours
+
+    def execute(
+        self,
+        tool_name: str,
+        args: dict,
+        idempotency_key: str | None = None
+    ) -> Any:
+        if idempotency_key is None:
+            # Derive a key from tool + args — same inputs always produce the same key
+            key_material = f"{tool_name}:{sorted(args.items())}"
+            idempotency_key = hashlib.sha256(key_material.encode()).hexdigest()
+
+        cache_key = f"idem:{idempotency_key}"
+
+        # Check if we already have a result for this key
+        cached = self.store.get(cache_key)
+        if cached is not None:
+            return {"result": cached, "from_cache": True, "key": idempotency_key}
+
+        # Execute the tool
+        result = TOOL_REGISTRY[tool_name](**args)
+
+        # Cache the result with a TTL
+        self.store.setex(cache_key, self.ttl_seconds, serialize(result))
+
+        return {"result": result, "from_cache": False, "key": idempotency_key}
+
+
+def run_agent_with_idempotency(goal: str, session_id: str, executor: IdempotentToolExecutor) -> str:
+    messages = [{"role": "user", "content": goal}]
+    step = 0
+
+    for _ in range(20):
+        response = llm.chat(messages=messages, tools=TOOLS)
+
+        if response.stop_reason == "end_turn":
+            return response.text
+
+        for tool_call in response.tool_calls:
+            # Key includes session and step — deterministic for replay, unique across sessions
+            idempotency_key = f"{session_id}:step{step}:{tool_call.name}"
+
+            result = executor.execute(
+                tool_name=tool_call.name,
+                args=tool_call.input,
+                idempotency_key=idempotency_key
+            )
+
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({
+                "role": "user",
+                "content": [{"type": "tool_result", "content": str(result["result"])}]
+            })
+
+        step += 1
+
+    return "Max steps reached."
+```
+
+The idempotency key must be deterministic for replay (same session, same step, same tool — same key) but unique across different runs. Including the `session_id` and the step number achieves both.
+
+### Compensation transactions
+
+When an agent completes a sequence of steps and then fails, you need a way to undo the completed steps. This is a **compensation transaction** (also called a saga): instead of rolling back database state, you execute the reverse operation for each completed step in reverse order.
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class AgentAction:
+    tool_name: str
+    args: dict
+    result: Any
+    compensate_tool: str | None     # tool to call to undo this action
+    compensate_args: dict = field(default_factory=dict)  # args for the compensation
+
+
+class CompensatingAgentOrchestrator:
+    def __init__(self, tools: dict, compensation_map: dict):
+        self.tools = tools
+        # Maps tool_name → (compensating_tool_name, args_transformer)
+        self.compensation_map = compensation_map
+        self.completed_actions: list[AgentAction] = []
+
+    def execute_tool(self, tool_name: str, args: dict) -> Any:
+        result = self.tools[tool_name](**args)
+
+        comp_tool, args_fn = self.compensation_map.get(tool_name, (None, None))
+        action = AgentAction(
+            tool_name=tool_name,
+            args=args,
+            result=result,
+            compensate_tool=comp_tool,
+            compensate_args=args_fn(args, result) if args_fn else {}
+        )
+        self.completed_actions.append(action)
+        return result
+
+    def compensate(self) -> list[dict]:
+        """Undo completed actions in reverse order."""
+        errors = []
+        for action in reversed(self.completed_actions):
+            if action.compensate_tool is None:
+                continue
+            try:
+                self.tools[action.compensate_tool](**action.compensate_args)
+            except Exception as e:
+                errors.append({"action": action.tool_name, "error": str(e)})
+
+        self.completed_actions.clear()
+        return errors
+
+
+# Define compensation for each side-effecting tool
+COMPENSATION_MAP = {
+    "create_calendar_event": (
+        "delete_calendar_event",
+        lambda args, result: {"event_id": result["event_id"]}
+    ),
+    "send_email": (
+        None,  # email cannot be unsent — this is why you add a review gate before send_email
+        None
+    ),
+    "charge_card": (
+        "refund_charge",
+        lambda args, result: {"charge_id": result["charge_id"], "amount": args["amount"]}
+    ),
+    "create_github_pr": (
+        "close_github_pr",
+        lambda args, result: {"pr_number": result["pr_number"]}
+    ),
+}
+```
+
+Notice `send_email` has no compensation. That is the point: some actions are genuinely irreversible. The right response is to not call `send_email` from an agent without a human review gate, not to pretend it can be undone.
+
+### Circuit breakers for tool calls
+
+A circuit breaker stops calling a failing service after a threshold of failures, giving the service time to recover. In agent systems, this prevents the agent from spending its entire step budget calling a tool that has been returning errors for the last ten calls.
+
+```python
+import time
+from enum import Enum
+
+class CircuitState(Enum):
+    CLOSED = "closed"       # normal operation
+    OPEN = "open"           # failing fast
+    HALF_OPEN = "half_open" # testing recovery
+
+class CircuitBreaker:
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 60.0,
+        success_threshold: int = 2
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.success_threshold = success_threshold
+        self.failure_count = 0
+        self.success_count = 0
+        self.last_failure_time: float | None = None
+        self.state = CircuitState.CLOSED
+
+    def call(self, fn: callable, *args, **kwargs) -> Any:
+        if self.state == CircuitState.OPEN:
+            if time.time() - self.last_failure_time > self.recovery_timeout:
+                self.state = CircuitState.HALF_OPEN
+                self.success_count = 0
+            else:
+                raise CircuitOpenError(f"Circuit open. Retry after {self.recovery_timeout}s")
+
+        try:
+            result = fn(*args, **kwargs)
+            self._on_success()
+            return result
+        except Exception as e:
+            self._on_failure()
+            raise
+
+    def _on_success(self):
+        if self.state == CircuitState.HALF_OPEN:
+            self.success_count += 1
+            if self.success_count >= self.success_threshold:
+                self.state = CircuitState.CLOSED
+                self.failure_count = 0
+        elif self.state == CircuitState.CLOSED:
+            self.failure_count = max(0, self.failure_count - 1)
+
+    def _on_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = CircuitState.OPEN
+
+
+class CircuitOpenError(Exception):
+    pass
+
+
+# Wrap each tool with its own circuit breaker
+class ProtectedToolRegistry:
+    def __init__(self, tools: dict):
+        self.tools = tools
+        self.breakers = {name: CircuitBreaker() for name in tools}
+
+    def call(self, tool_name: str, **args) -> Any:
+        if tool_name not in self.tools:
+            raise ValueError(f"Unknown tool: {tool_name}")
+
+        try:
+            return self.breakers[tool_name].call(self.tools[tool_name], **args)
+        except CircuitOpenError:
+            return f"Tool '{tool_name}' is temporarily unavailable. Try a different approach."
+```
+
+When the circuit is open, the tool call returns an explanatory string rather than raising an exception. The agent sees this as an observation and can try an alternative approach — which is the correct behaviour.
+
+### Graceful degradation
+
+An agent that crashes when a tool is unavailable is less useful than one that provides reduced capability. Graceful degradation means designing for partial tool availability.
+
+```python
+def run_agent_with_degradation(
+    goal: str,
+    tool_registry: ProtectedToolRegistry
+) -> str:
+    # Determine which tools are actually available at the start of the run
+    available_tools = []
+    degraded = []
+
+    for tool_name, tool_spec in TOOL_SPECS.items():
+        if tool_registry.breakers[tool_name].state != CircuitState.OPEN:
+            available_tools.append(tool_spec)
+        else:
+            degraded.append(tool_name)
+
+    degradation_note = ""
+    if degraded:
+        degradation_note = (
+            f"\nNote: the following tools are currently unavailable: {', '.join(degraded)}. "
+            f"Complete the task without them if possible, or explain what you cannot do."
+        )
+
+    messages = [{
+        "role": "user",
+        "content": goal + degradation_note
+    }]
+
+    # Run the agent with reduced tool set — it knows what it cannot use
+    return run_react_agent(goal=messages[0]["content"], tools=available_tools)
+```
+
+Telling the model which tools are unavailable — rather than letting it discover via repeated failures — saves steps and produces better explanations to the end user.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why agent reliability is harder than service reliability
+
+In a microservices system, each service has a defined interface: inputs, outputs, and error codes. Reliability engineering works because the failure modes are enumerable.
+
+An agent's "interface" is language. A tool call that returns `{"status": "queued"}` might mean "success, process in background" or it might mean "accepted but not yet validated." The agent interprets this text. Its interpretation depends on its context, its prompt, and statistical patterns from training. Two agents given the same observation may reach different conclusions about whether a step succeeded.
+
+This introduces a reliability problem that has no direct parallel in service engineering: **semantic ambiguity in failure signals.** The agent may not know it has failed.
+
+Three mitigations:
+
+1. **Unambiguous tool return values.** Design tools to return structured results with explicit success flags: `{"success": true, "id": "..."}` or `{"success": false, "error": "...", "retryable": false}`. Do not rely on the model to infer success from natural language.
+
+2. **Postcondition checks.** After each step, verify the expected postcondition deterministically. If the agent called `create_record()`, check that the record exists before proceeding to the next step.
+
+3. **Step receipts.** Log a receipt for every completed step with: the tool name, the arguments, the result, and a timestamp. If the agent's run is interrupted, the receipt log lets you determine which steps completed — without replaying the whole run.
+
+### Quorum and consensus for high-stakes outputs
+
+For decisions where the cost of a wrong answer is high — a medical triage recommendation, a financial risk classification, a legal document review — a single agent is not enough. Run multiple agents independently and require agreement before acting on the result.
+
+```python
+def quorum_agent_decision(
+    goal: str,
+    agents: list[callable],
+    quorum_size: int,
+    compare_fn: callable
+) -> dict:
+    """
+    Run multiple agents independently. Return a result only if quorum_size
+    agents agree. Otherwise, escalate.
+    """
+    results = [agent(goal) for agent in agents]
+
+    # Find the result that appears at least quorum_size times
+    for i, result in enumerate(results):
+        agreeing = [j for j, r in enumerate(results) if compare_fn(result, r)]
+        if len(agreeing) >= quorum_size:
+            return {
+                "decision": result,
+                "confidence": len(agreeing) / len(agents),
+                "escalated": False
+            }
+
+    # No quorum — escalate
+    return {
+        "decision": None,
+        "results": results,
+        "escalated": True,
+        "reason": "No quorum reached"
+    }
+```
+
+Quorum is expensive: it runs N agents for every decision. Use it only where the cost of a wrong automated decision exceeds the cost of N agent runs — which is a narrow but real set of cases.
+
+### Named failure modes in agent reliability
+
+**Retry storm:** The orchestrator retries an agent run after a timeout. The agent run itself retries tool calls internally. The result is N*M executions of the same tool call. Mitigation: implement retry budgets at both layers; the orchestrator and the agent should share a retry-count signal rather than retrying independently.
+
+**Partial completion invisibility:** An agent completes steps 1-7 of a 10-step task and then hits a rate limit and fails. The orchestrator retries. The retry starts from step 1. Steps 1-7 execute again, with side effects. Mitigation: implement checkpointing — persist completed steps and on retry, resume from the last checkpoint rather than restarting.
+
+**Compensation failure cascade:** During compensation, one of the compensating actions fails. The orchestrator has a partial compensation now — more state to clean up than it started with. Mitigation: compensation actions must themselves be idempotent and retriable; build a dead-letter queue for failed compensations and alert on non-empty queue.
+
+**Silent success on non-idempotent calls:** The tool call returns a network timeout after executing on the server side. The agent retries. The server executes again. The idempotency key was not sent because the tool was not designed for it. Mitigation: design every side-effecting tool to accept an idempotency key as a standard parameter, not as an optional feature.
+
+**Circuit never closes:** After a transient failure, the circuit opens. The recovery timeout fires and the circuit moves to half-open. The test request succeeds. But the success threshold is set to 10, and traffic is sparse — the circuit stays in half-open indefinitely. Mitigation: set success threshold to 2-3; do not require a high volume of successes to close the circuit after a transient failure.
+
+### Observability requirements
+
+Reliability patterns only work if you can observe them. The minimum telemetry for a production agent system:
+
+```python
+@dataclass
+class AgentStepTrace:
+    session_id: str
+    step_number: int
+    tool_name: str | None
+    tool_args: dict | None
+    tool_result: str | None
+    llm_tokens_input: int
+    llm_tokens_output: int
+    duration_ms: int
+    idempotency_key: str | None
+    circuit_state: str         # closed, open, half_open
+    from_cache: bool           # was this result served from idempotency cache?
+    compensation_available: bool  # does this step have a compensating action?
+    timestamp: str
+```
+
+Without step-level traces, you cannot distinguish "agent timed out" from "agent called a tool that never returned" from "agent succeeded but the orchestrator lost the result." All three look the same from the outside.
+
+### Further reading
+
+- [Sagas](https://www.cs.cornell.edu/andros/docs/saga.pdf); Garcia-Molina and Salem, 1987. The original paper on saga transactions — long-running transactions that compensate rather than roll back; the conceptual foundation for compensation in agent systems.
+- [Release It! Design and Deploy Production-Ready Software](https://pragprog.com/titles/mnee2/release-it-second-edition/); Nygard, 2018. Chapter on stability patterns including circuit breakers, timeouts, and bulkheads — the source of the circuit breaker pattern as commonly implemented.
+- [Patterns of Distributed Systems](https://martinfowler.com/articles/patterns-of-distributed-systems/); Fowler, 2023. Online catalogue of distributed systems patterns including idempotent receiver and two-phase commit; maps well to the agent context.
+- [Failure Modes and Effects Analysis (FMEA)](https://asq.org/quality-resources/fmea); ASQ. The engineering discipline for enumerating and prioritising failure modes; applying FMEA systematically to an agent tool set surfaces the non-idempotent actions that need compensation.

@@ -1,0 +1,321 @@
+---
+moduleId: "2.9"
+title: "Context Failure Taxonomy"
+description: "Four named failure modes account for the majority of context-related bugs in LLM systems: poisoning, distraction, confusion, and clash. Naming them is the first step to fixing them — each requires a structurally different response."
+track: "rag"
+order: 9
+personas: ["senior"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Name the failure mode before you try to fix it. Developers who lack this taxonomy discover all four experimentally — after shipping."
+draft: false
+---
+
+## Layer 1: Surface
+
+Context bugs are not random. They cluster into four distinct failure modes, each with a different root cause, symptom, and fix. Without names for them, your debugging process is trial-and-error. With names, you have a diagnostic protocol.
+
+| Failure mode | What happens | Typical symptom |
+|---|---|---|
+| **Poisoning** | Wrong information enters context early and compounds across turns | Confident, consistent wrong answers that get worse over time |
+| **Distraction** | Irrelevant content overwhelms relevant content | Model ignores the right chunks; answers from noise |
+| **Confusion** | Ambiguous or contradictory instructions produce inconsistent behaviour | Same query, different answers across runs |
+| **Clash** | Two pieces of context directly contradict each other | Unpredictable output; sometimes correct, sometimes wrong |
+
+These are not theoretical edge cases. Every production RAG and agent system encounters all four.
+
+### Concrete examples
+
+**Poisoning:** A user asks "What's our refund policy?" Your system retrieves an outdated policy chunk from 2022 (still in the index). The model answers confidently using it. The user references this in a follow-up. The model treats the prior turn as ground truth and builds on the error. By turn 4, the entire conversation is grounded in a policy that was retired two years ago.
+
+**Distraction:** A user asks a specific question about API rate limits. Your retrieval pipeline returns 8 chunks: 2 are directly relevant, 6 are tangentially related (general API concepts, other API products). The model answers from the general chunks, ignoring the two precise ones.
+
+**Confusion:** Your system prompt says "be concise" in one section and "provide comprehensive explanations" three paragraphs later. Depending on how the model reads the prompt, it behaves differently — sometimes brief, sometimes verbose, with no predictable pattern.
+
+**Clash:** Your RAG pipeline retrieves two chunks from the same document — one from an updated section, one from an older section that wasn't refreshed. They say opposite things. The model must choose, and its choice is not deterministic.
+
+### Production Gotcha
+
+> **Common Gotcha:** Name the failure mode before you try to fix it. Developers who lack this taxonomy discover all four experimentally — after shipping. The fix for distraction (reduce top-k, add relevance threshold) makes poisoning worse if applied incorrectly. The fix for confusion (audit instructions) does nothing for clash. Matching the fix to the failure mode saves significant debugging time.
+
+---
+
+## Layer 2: Guided
+
+### Detecting the four failure modes in code
+
+The detection approach is different for each mode. Here is a practical implementation for a RAG pipeline:
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+import hashlib
+
+
+@dataclass
+class ContextAudit:
+    poisoning_risk: bool
+    distraction_score: float   # 0.0 = no distraction, 1.0 = severe
+    confusion_detected: bool
+    clash_detected: bool
+    details: dict
+
+
+def audit_context(
+    conversation_history: list[dict],
+    retrieved_chunks: list[dict],
+    system_prompt: str,
+) -> ContextAudit:
+    return ContextAudit(
+        poisoning_risk=detect_poisoning(conversation_history, retrieved_chunks),
+        distraction_score=compute_distraction_score(retrieved_chunks),
+        confusion_detected=detect_confusion(system_prompt),
+        clash_detected=detect_clash(retrieved_chunks),
+        details={},
+    )
+```
+
+**Poisoning detection** — check whether previous turns contain claims that contradict the current retrieval:
+
+```python
+def detect_poisoning(
+    history: list[dict],
+    current_chunks: list[dict],
+) -> bool:
+    if len(history) < 2:
+        return False
+
+    # Extract assistant claims from prior turns
+    prior_claims = extract_factual_claims(history)
+
+    # Compare against current retrieved content
+    current_content = " ".join(c["text"] for c in current_chunks)
+
+    for claim in prior_claims:
+        if contradicts(claim, current_content):
+            return True
+
+    return False
+
+
+def extract_factual_claims(history: list[dict]) -> list[str]:
+    """
+    Use a fast model to extract declarative statements from prior assistant turns.
+    Returns short, atomic claims for comparison.
+    """
+    assistant_turns = [
+        m["content"] for m in history if m["role"] == "assistant"
+    ]
+    if not assistant_turns:
+        return []
+
+    response = llm.chat(
+        model="fast",
+        system=(
+            "Extract each distinct factual claim from the following text. "
+            "Return one claim per line. Be concise and atomic."
+        ),
+        messages=[{"role": "user", "content": "\n\n".join(assistant_turns[-3:])}],
+        max_tokens=200,
+    )
+    return [line.strip() for line in response.text.strip().split("\n") if line.strip()]
+
+
+def contradicts(claim: str, context: str) -> bool:
+    response = llm.chat(
+        model="fast",
+        system="Answer only YES or NO. Does the context contradict the claim?",
+        messages=[{"role": "user", "content": f"Claim: {claim}\n\nContext: {context[:1000]}"}],
+        max_tokens=5,
+    )
+    return response.text.strip().upper().startswith("YES")
+```
+
+**Distraction detection** — score the average relevance of retrieved chunks against the query:
+
+```python
+def compute_distraction_score(
+    chunks: list[dict],
+    high_relevance_threshold: float = 0.75,
+) -> float:
+    """
+    Returns fraction of chunks below the relevance threshold.
+    A score above 0.5 means more than half the context is noise.
+    """
+    if not chunks:
+        return 0.0
+
+    scores = [c.get("score", 1.0) for c in chunks]
+    below_threshold = sum(1 for s in scores if s < high_relevance_threshold)
+    return below_threshold / len(chunks)
+```
+
+**Confusion detection** — scan the system prompt for conflicting directives:
+
+```python
+CONFLICTING_PAIRS = [
+    ("concise", "comprehensive"),
+    ("formal", "casual"),
+    ("do not mention", "always mention"),
+    ("short", "detailed"),
+    ("never", "always"),
+]
+
+
+def detect_confusion(system_prompt: str) -> bool:
+    """
+    Heuristic: flag system prompts that contain both sides of a known conflicting pair.
+    """
+    lower = system_prompt.lower()
+    for term_a, term_b in CONFLICTING_PAIRS:
+        if term_a in lower and term_b in lower:
+            return True
+    return False
+```
+
+**Clash detection** — check whether retrieved chunks directly contradict each other:
+
+```python
+def detect_clash(chunks: list[dict], sample_size: int = 6) -> bool:
+    """
+    Compare chunk pairs for direct contradictions.
+    Limits to sample_size pairs to avoid O(n^2) cost on large retrieval sets.
+    """
+    import itertools
+
+    candidates = chunks[:sample_size]
+    for chunk_a, chunk_b in itertools.combinations(candidates, 2):
+        if contradicts_chunk(chunk_a["text"], chunk_b["text"]):
+            return True
+    return False
+
+
+def contradicts_chunk(text_a: str, text_b: str) -> bool:
+    response = llm.chat(
+        model="fast",
+        system=(
+            "Do these two passages directly contradict each other on a factual claim? "
+            "Answer YES or NO only."
+        ),
+        messages=[{"role": "user", "content": f"Passage A:\n{text_a}\n\nPassage B:\n{text_b}"}],
+        max_tokens=5,
+    )
+    return response.text.strip().upper().startswith("YES")
+```
+
+### Mitigations per failure mode
+
+```python
+def apply_mitigations(
+    audit: ContextAudit,
+    chunks: list[dict],
+    system_prompt: str,
+) -> tuple[list[dict], str]:
+    """
+    Returns cleaned chunks and cleaned system prompt.
+    """
+    if audit.poisoning_risk:
+        # Clear or summarise conversation history before generating
+        # Do not carry forward prior claims as ground truth
+        system_prompt += (
+            "\n\nIMPORTANT: Base your answer only on the retrieved documents below. "
+            "Do not rely on statements from earlier in this conversation."
+        )
+
+    if audit.distraction_score > 0.5:
+        # Trim to only high-relevance chunks
+        chunks = [c for c in chunks if c.get("score", 1.0) >= 0.75]
+
+    if audit.confusion_detected:
+        # Log for human review — don't silently pass through a confused prompt
+        log_warning("Conflicting instructions detected in system prompt", system_prompt)
+
+    if audit.clash_detected:
+        # Add explicit tie-breaking instruction
+        system_prompt += (
+            "\n\nIf the documents below contain conflicting information, "
+            "state the conflict explicitly and indicate which source is more recent."
+        )
+
+    return chunks, system_prompt
+```
+
+### Before vs After
+
+**Before — no context audit:**
+```python
+def answer(query: str, history: list[dict]) -> str:
+    chunks = retrieve(query, top_k=8)
+    context = format_chunks(chunks)
+    return generate(query, context, history)
+```
+
+**After — audited context:**
+```python
+def answer(query: str, history: list[dict]) -> str:
+    chunks = retrieve(query, top_k=8)
+    audit = audit_context(history, chunks, SYSTEM_PROMPT)
+    chunks, system_prompt = apply_mitigations(audit, chunks, SYSTEM_PROMPT)
+    log_audit(audit)
+    context = format_chunks(chunks)
+    return generate(query, context, history, system_prompt=system_prompt)
+```
+
+The difference is that failures are named, detected, and handled — not silently passed to the model.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why each failure mode is structurally difficult to eliminate
+
+**Poisoning** persists because conversation history is treated as trusted context. LLMs don't maintain a separate "things the assistant said" vs "things retrieved from reliable sources" distinction — it's all tokens. Once a poisoned claim appears in the assistant role, subsequent turns treat it with the same weight as retrieved documents. The structural fix is not to hope the model ignores bad history: it's to distinguish sources architecturally. Grounded systems tag each piece of context with a source type (`retrieved`, `user`, `assistant`) and instruct the model to treat them differently.
+
+**Distraction** persists because retrieval recall and precision trade off against each other. Increasing top-k improves recall (you catch more relevant documents) at the cost of precision (you also include more irrelevant ones). The model's attention is finite: context that takes up 60% of the window but is irrelevant reduces the effective weight of the 40% that matters. Re-ranking (module 2.4) is the principal tool here, but it doesn't eliminate the problem — it shifts the tradeoff. The deeper fix is to improve the specificity of your retrieval index.
+
+**Confusion** persists because system prompts are written by humans over time, and humans don't maintain a global consistency audit of their prompt as they iterate. A prompt that starts clean accumulates conflicting instructions as teams add requirements. The structural fix is treating system prompts as code: version-controlled, reviewed for semantic conflicts before merging, with automated tests against known contradictory cases.
+
+**Clash** persists because the same facts appear in multiple places in real-world document corpora, and they get updated at different times. A price changes in a product page but not in the FAQ. A policy is updated in one document but three others still reference the old version. The structural fix is data lineage: every chunk in the index knows its canonical source, and when the canonical source is updated, all derived chunks are flagged for re-indexing. Without lineage, clash is inevitable at scale.
+
+### Named taxonomy of production failure modes
+
+Beyond the four primary modes, there are second-order variants:
+
+| Variant | Parent mode | Description |
+|---|---|---|
+| **Temporal poisoning** | Poisoning | Outdated document is retrieved; model presents stale facts as current |
+| **Injection poisoning** | Poisoning | Malicious content in a retrieved document attempts to override system instructions (prompt injection) |
+| **Length distraction** | Distraction | A single very long but irrelevant chunk dominates the context window |
+| **Positional distraction** | Distraction | Relevant chunks are placed in the middle of a long context; model attends to start/end preferentially (lost-in-the-middle) |
+| **Role confusion** | Confusion | System prompt instructions are partially repeated in the user message, with different phrasing, causing the model to reconcile two instruction sources |
+| **Schema clash** | Clash | Two retrieved documents use different terminology for the same concept (e.g., "timeout" vs "deadline") |
+
+### Mitigations: structured decision table
+
+| Failure mode | Short-term mitigation | Long-term fix |
+|---|---|---|
+| Poisoning | Add source-type tag to each context block; instruct model to prefer retrieved over prior turns | Maintain a session truth store; re-retrieve at each turn |
+| Distraction | Tighten relevance threshold; reduce top-k; add re-ranker | Improve indexing specificity; contextual retrieval (module 2.7) |
+| Confusion | Audit system prompt on each deploy; automated contradiction check | Treat system prompt as code; semantic conflict tests in CI |
+| Clash | Add tie-breaking instruction; surface the conflict to the user | Data lineage in indexing pipeline; canonical source tracking |
+
+### The detection cost question
+
+Every detection step above involves additional model calls. For high-throughput systems, running a full `audit_context` pass on every request may be cost-prohibitive. A practical tiered approach:
+
+1. **Always run** heuristic-only checks (confusion detection, distraction score from existing chunk scores): zero extra model calls
+2. **Run on a sample** (5–10% of traffic): LLM-based poisoning and clash detection
+3. **Always run on high-stakes queries**: use metadata to flag queries (e.g., involving financial or medical topics) for full audit
+
+This keeps average cost low while maintaining full detection on the requests that matter most.
+
+### Further reading
+
+- [The Lost in the Middle Problem: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172); Liu et al., 2023. Empirical demonstration that models attend preferentially to context at the start and end of long inputs; the foundational reference for positional distraction.
+- [Prompt Injection Attacks Against LLM-Integrated Applications](https://arxiv.org/abs/2302.12173); Greshake et al., 2023. Taxonomy of prompt injection (a variant of context poisoning) with attack and defence patterns.
+- [Not All Contexts Are Created Equal: Better Word Embeddings by Context Sampling](https://aclanthology.org/D19-1426/); Shi et al., 2019. Earlier work on context quality in embedding systems; conceptually relevant to why distraction degrades retrieval.

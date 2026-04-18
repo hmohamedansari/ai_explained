@@ -1,0 +1,76 @@
+{
+  "title": "Reasoning Models and Test-Time Compute — Check your understanding",
+  "moduleId": "1.11",
+  "questions": [
+    {
+      "id": "1.11-q1",
+      "type": "multiple-choice",
+      "question": "Your team is considering switching from a standard LLM to a reasoning model for your customer support classification pipeline. The standard model achieves 84% accuracy. The reasoning model achieves 91% accuracy in your tests. Before making the switch, what metric should you calculate?",
+      "options": [
+        "Token throughput per second, to assess the latency impact on the support queue",
+        "Cost per correct classification for each model, to determine if the accuracy improvement justifies the cost increase",
+        "The model's F1 score broken down by support category, to identify which categories benefit most",
+        "Context window size, to ensure the reasoning model can handle long customer emails"
+      ],
+      "answer": 1,
+      "explanation": "Cost per correct answer is the decisive metric. A 7 percentage point accuracy gain sounds compelling, but if the reasoning model costs 40x more per call, you may be paying $400 to correct what was a $10 problem. F1 breakdowns and latency are secondary considerations — they help you understand the tradeoff, but the primary gate is whether the accuracy improvement is worth the cost at your production volume. Context window is rarely the constraint in classification tasks.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "1.11-q2",
+      "type": "multiple-choice",
+      "question": "You deploy a reasoning model to handle complex pricing calculations. After one month, the API bill is 35x higher than projected. You review the logs and find the model is spending large thinking budgets on straightforward percentage calculations that take humans two seconds. What is the root cause?",
+      "options": [
+        "The reasoning model's RL training causes it to overthink problems it was not trained on",
+        "Reasoning models cannot be used for mathematical tasks — they are designed for language tasks",
+        "There was no task-level routing: the reasoning model received all pricing queries including simple ones that do not benefit from extended thinking",
+        "The thinking budget was set too high in the system prompt, causing the model to maximize token usage"
+      ],
+      "answer": 2,
+      "explanation": "Routing is the critical missing piece. Reasoning models should only receive tasks where extended thinking provides measurable accuracy improvement. Simple percentage calculations are not in that category — they are well within a standard model's capability. Without routing logic to separate hard problems (where reasoning helps) from easy ones (where it adds cost and no value), the reasoning model's high per-token cost applies to every query indiscriminately.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "1.11-q3",
+      "type": "multiple-choice",
+      "question": "A reasoning model produces a confident, detailed chain-of-thought trace for a question about regulatory requirements that changed six months ago. Its final answer cites the old rule as current. What failure mode is this?",
+      "options": [
+        "Reward hacking — the model learned to produce confident-sounding traces regardless of accuracy",
+        "Reasoning budget exhaustion — the model ran out of thinking tokens before reaching the correct answer",
+        "Knowledge gap reasoning — extended thinking cannot compensate for information absent from training data",
+        "Confidence-accuracy mismatch caused by the RL training signal reinforcing verbose outputs"
+      ],
+      "answer": 2,
+      "explanation": "Reasoning models can only reason about what they know. A regulation that changed after the model's training cutoff simply does not exist in its knowledge base — no amount of thinking will surface it. Extended thinking is computation over internal representations, not a mechanism for accessing external or updated information. The confident, detailed trace is a warning sign, not a reliability indicator: fluency in reasoning does not imply access to correct facts.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "1.11-q4",
+      "type": "multiple-choice",
+      "question": "Your team runs complex legal document analysis that currently requires a reasoning model for each document. You need to process 10,000 documents per day. A colleague proposes using the reasoning model to generate a reusable analysis framework once, then running a cheaper model against each document using that framework. What is this pattern and when does it work?",
+      "options": [
+        "This is chain-of-thought prompting — it works when the cheaper model can follow the reasoning framework reliably",
+        "This is the hybrid reasoning-execution pattern: reason once to produce a cached plan, execute with a standard model for each instance. It works when the reasoning task is generic across instances and the plan does not need per-document adaptation.",
+        "This is RAG — the reasoning model produces embeddings that the cheaper model retrieves during analysis",
+        "This pattern does not work because each document requires fresh reasoning to account for its unique content"
+      ],
+      "answer": 1,
+      "explanation": "The hybrid pattern works when the hard reasoning is about the problem structure (how to analyze legal documents) rather than the specific content (what this document says). The reasoning model produces a structured framework once; the cheaper model applies it per document. This reduces reasoning model calls from 10,000/day to 1 (or a small number for different document types). It breaks down when each document requires unique reasoning that cannot be captured in a general framework — in that case, you cannot decouple planning from execution.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "1.11-q5",
+      "type": "multiple-choice",
+      "question": "A reasoning model achieves 94% accuracy on a published math reasoning benchmark. You deploy it to your financial modeling pipeline and observe 71% accuracy on real queries. The research team says the benchmark results are solid. What most likely explains the gap?",
+      "options": [
+        "The model requires a higher thinking budget than was used in your deployment — increase the token budget to match benchmark conditions",
+        "Financial modeling requires real-time data access — the accuracy gap is entirely due to the knowledge cutoff",
+        "Benchmark contamination or distribution shift: the model may have been exposed to benchmark problems during training, and your production queries represent a genuinely different distribution that exposes generalization limits",
+        "The benchmark was measured at 32°C ambient temperature — hardware thermal throttling in your data center reduces accuracy"
+      ],
+      "answer": 2,
+      "explanation": "The gap between benchmark performance and production performance in reasoning models is well-documented and often explained by two factors: benchmark contamination (training data included benchmark problems or similar ones) and distribution shift (your financial queries are structurally different from the math problems the benchmark tests). Both produce inflated benchmark numbers that do not predict real-world accuracy. The correct response is to build your own eval set from representative production queries and benchmark against that. Token budget and knowledge cutoff are secondary considerations for a 23-point gap.",
+      "personas": ["senior", "leader"]
+    }
+  ]
+}

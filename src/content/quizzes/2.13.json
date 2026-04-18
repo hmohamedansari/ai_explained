@@ -1,0 +1,76 @@
+{
+  "title": "Data Engineering for AI Systems — Check your understanding",
+  "moduleId": "2.13",
+  "questions": [
+    {
+      "id": "2.13-q1",
+      "type": "multiple-choice",
+      "question": "Your RAG system's retrieval quality was excellent at launch but has been degrading for two months. Your embedding model, chunk size, and retrieval parameters are unchanged. What is the most likely root cause?",
+      "options": [
+        "The vector store index has become corrupted and needs rebuilding",
+        "The underlying knowledge base has not been re-ingested and the corpus no longer reflects current source documents",
+        "The embedding model's weights have drifted due to fine-tuning by the provider",
+        "Cosine similarity degrades over time as the embedding space becomes saturated"
+      ],
+      "answer": 1,
+      "explanation": "Retrieval quality degradation with no infrastructure changes almost always traces to corpus staleness — the source documents have been updated but the index has not. Embedding models don't drift post-deployment (providers don't change model weights for existing API versions), cosine similarity does not degrade with usage, and index corruption is rare and usually catastrophic rather than gradual.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "2.13-q2",
+      "type": "multiple-choice",
+      "question": "You implement a data contract that validates document schema before ingestion. After deployment, users report that the system confidently gives outdated answers on product pricing. Why didn't your contract catch this?",
+      "options": [
+        "Schema validation only checks structure — it cannot detect semantic staleness or whether facts are current",
+        "The contract validation was not running in production due to a configuration error",
+        "Product pricing documents use a non-standard format that bypasses schema checks",
+        "Schema-valid documents are always safe to ingest regardless of content age"
+      ],
+      "answer": 0,
+      "explanation": "A schema contract checks that fields are present and typed correctly, not that the content is current. A pricing document can be schema-valid but contain prices from three months ago. Detecting staleness requires a freshness contract — checking the updated_at timestamp against a maximum age threshold — which is separate from structural validation. Schema validation is necessary but not sufficient for AI data quality.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "2.13-q3",
+      "type": "multiple-choice",
+      "question": "You want to re-embed only documents that changed since the last ingestion run to reduce embedding API cost. What data structure makes this most efficient?",
+      "options": [
+        "A full copy of the previous corpus stored in object storage for diff comparison",
+        "A content hash store mapping each document ID to a hash of its content at last ingestion",
+        "A timestamp index ordered by last-modified date",
+        "A separate LLM call to classify each document as changed or unchanged"
+      ],
+      "answer": 1,
+      "explanation": "A content hash store is the right tool: hash each document at ingestion time, store the hash, and on the next run compare the current hash against the stored hash. Documents with matching hashes are skipped; documents with different hashes are re-processed. Timestamps are unreliable (systems can update timestamps without changing content, or change content without updating timestamps). Full corpus copies are expensive to store and compare. LLM classification is orders of magnitude more expensive than hash comparison.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "2.13-q4",
+      "type": "multiple-choice",
+      "question": "Your query miss rate — the fraction of queries that retrieve no chunk above the relevance threshold — is stable at 3% for the first six months, then spikes to 18% after a product launch. The corpus ingestion pipeline shows no errors. What is the most likely explanation?",
+      "options": [
+        "The vector store ran out of storage capacity and is dropping chunks silently",
+        "The new product's documentation exists in the source system but the ingestion pipeline does not cover the new document category",
+        "User queries became more adversarial after the product launch, deliberately evading retrieval",
+        "The embedding model was updated by the provider and the existing index is now incompatible"
+      ],
+      "answer": 1,
+      "explanation": "A stable miss rate that spikes after a specific event (product launch) with no pipeline errors is a coverage gap — the new domain is simply not in the corpus. The ingestion pipeline runs successfully on the document categories it knows about, but the new product documentation lives in a path or format that the pipeline does not ingest. This is the most common cause of sudden miss rate spikes after business events. The other options would produce different patterns: storage exhaustion causes failures, not misses; adversarial queries would show different characteristics; embedding model changes would cause a broad gradual degradation, not a spike.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "2.13-q5",
+      "type": "multiple-choice",
+      "question": "You ingest LLM-generated summaries of your source documents alongside the original documents to improve retrieval. Six months later, your system starts confidently repeating a specific factual error across multiple query types. Tracing the error, you find it originated in a hallucinated summary that was ingested and is now being retrieved frequently. Which data engineering principle does this violate?",
+      "options": [
+        "Corpus versioning — you should have kept a snapshot before ingesting summaries",
+        "Content provenance and synthetic contamination control — AI-generated content should be tagged, tracked, and treated with higher scrutiny than primary sources",
+        "Deduplication — the summary duplicated the original document and confused retrieval",
+        "Chunk size consistency — mixing summaries and full documents breaks retrieval ranking"
+      ],
+      "answer": 1,
+      "explanation": "This is the synthetic contamination failure mode: AI-generated content ingested into the retrieval corpus can propagate the model's own hallucinations back to users. The fix is provenance tagging — every chunk should carry metadata about its source type (primary document vs. AI-generated summary). Retrieval pipelines should weight primary sources higher and flag synthetic-source chunks in responses. Corpus versioning would help with rollback but doesn't prevent the problem. Deduplication and chunk size are not the issue here — the hallucinated fact in the summary, not the duplication itself, is the root cause.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

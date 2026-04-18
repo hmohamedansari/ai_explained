@@ -1,0 +1,76 @@
+{
+  "title": "LoRA, QLoRA & PEFT — Check your understanding",
+  "moduleId": "5.10",
+  "questions": [
+    {
+      "id": "5.10-q1",
+      "type": "multiple-choice",
+      "question": "You're fine-tuning a 13B parameter model but your GPU only has 24GB VRAM. Full fine-tuning requires roughly 2× the model size in VRAM. Which approach makes this feasible?",
+      "options": [
+        "LoRA with a rank-4 adapter on the full-precision base model",
+        "QLoRA: quantise the base model to 4-bit and train LoRA adapters in higher precision on top",
+        "Reduce batch size to 1 — this linearly reduces VRAM requirements",
+        "Use gradient checkpointing, which eliminates all VRAM overhead"
+      ],
+      "answer": 1,
+      "explanation": "QLoRA quantises the base model to 4-bit (roughly halving VRAM vs. fp16) and trains only the small LoRA adapter matrices in higher precision. A 13B model in 4-bit takes roughly 8GB, leaving headroom for the adapter, activations, and optimiser state on a 24GB GPU. Standard LoRA on a full-precision 13B base still requires ~26GB+ for the weights alone. Batch size reduction helps but not enough at these scales. Gradient checkpointing trades compute for activation memory, not weight memory.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.10-q2",
+      "type": "multiple-choice",
+      "question": "Your team has trained three LoRA adapters — one for support, one for legal, and one for code generation — all on the same 7B base model. The plan is to serve all three from a single GPU. What is the key advantage of this architecture?",
+      "options": [
+        "Adapters share the base model VRAM, so you pay ~14GB for the base once and only ~80MB extra per adapter",
+        "Adapters can be merged together at serving time to get a multi-task model",
+        "Requests are automatically routed to the correct adapter based on the query content",
+        "LoRA adapters reduce inference latency compared to serving separate fine-tuned models"
+      ],
+      "answer": 0,
+      "explanation": "The multi-adapter pattern's core advantage is VRAM sharing: the 7B base model lives once in GPU memory, and each LoRA adapter adds only a few dozen to a few hundred MB. Serving three separate fine-tuned 7B models would require three times the VRAM. Merging adapters trained on different tasks is not supported — their weight deltas are independent and would interfere. Routing must be implemented externally. LoRA adapters add no inference latency when merged; dynamic loading adds some overhead.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.10-q3",
+      "type": "multiple-choice",
+      "question": "You update your base model from version 1 to version 2 and load your existing LoRA adapter onto it. The model's outputs are degraded and inconsistent. What is the most likely cause?",
+      "options": [
+        "The adapter rank is too low for the new model's architecture",
+        "The adapter was trained against version 1's weights — loading it onto version 2's different weights causes a mismatch that produces incoherent outputs",
+        "Version 2 uses a different tokenizer, so the adapter's embedding layer is misaligned",
+        "LoRA adapters cannot be reused after training — they must be regenerated each time"
+      ],
+      "answer": 1,
+      "explanation": "LoRA adapter matrices encode changes relative to the specific base weights they were trained against. When you load them onto a different set of base weights (version 2), the adapter's corrections are wrong for the new starting point — the combined output is unpredictable. The tokenizer can also change between versions, which is a separate but equally serious issue. Rank is a configuration choice that doesn't change between versions. Adapters can absolutely be reused, but only against the same base model version.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "5.10-q4",
+      "type": "multiple-choice",
+      "question": "You train a LoRA adapter with rank 8 and lora_alpha 8. Training converges but evaluation accuracy plateaus 8 percentage points below your target. A colleague suggests the issue is the alpha configuration. Why?",
+      "options": [
+        "Alpha should equal rank for best results — setting alpha to 16 would fix the issue",
+        "Alpha acts as a scaling factor for the adapter's contribution. With alpha equal to rank (alpha=8, r=8), the adapter's effective learning rate is halved compared to the conventional default of alpha=2r, potentially causing underfitting",
+        "Alpha controls the number of adapter layers, not the learning rate",
+        "Alpha of 8 is too high — it causes the adapter to overpower the base model weights"
+      ],
+      "answer": 1,
+      "explanation": "The LoRA scaling formula is (alpha/r). When alpha equals r, this ratio is 1.0 — the adapter contributes at its face value. The conventional default of alpha = 2r gives a ratio of 2.0, scaling up the adapter's contribution. With alpha = r = 8, the adapter contribution is halved relative to the standard default, which can cause underfitting on complex tasks. Increasing alpha to 16 (or 32) while keeping r=8 is a reasonable first step when adaptation quality is below target.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "5.10-q5",
+      "type": "multiple-choice",
+      "question": "You merge a LoRA adapter onto a 4-bit quantised base model and save the result. Later you notice the merged model produces more errors than the adapter-on-base configuration during validation. What went wrong?",
+      "options": [
+        "Merging is not supported with QLoRA — adapters must always be loaded dynamically",
+        "The adapter was merged onto the quantised (4-bit) weights rather than the full-precision weights, baking quantisation error into the merged model and producing worse output quality",
+        "The merged model requires double the VRAM, causing out-of-memory errors during inference",
+        "Saving a merged model always degrades quality due to floating point rounding"
+      ],
+      "answer": 1,
+      "explanation": "To merge correctly, you should load the base model in fp16 or bf16 (full precision), load the adapter, merge, and save. If you merge onto the 4-bit quantised base, the adapter corrections are applied to already-lossy weights, and the quantisation error is encoded permanently into the merged weights. The original adapter-on-base configuration computed the adapter contribution in higher precision, hiding the quantisation error from the adapter path. Merging is supported with QLoRA — the procedure just requires care about precision.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

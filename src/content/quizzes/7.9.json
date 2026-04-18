@@ -1,0 +1,76 @@
+{
+  "title": "EU AI Act & Governance, Risk, and Compliance — Check your understanding",
+  "moduleId": "7.9",
+  "questions": [
+    {
+      "id": "7.9-q1",
+      "type": "multiple-choice",
+      "question": "Your company uses GPT-4 to power a customer service chatbot for a retail e-commerce site. A lawyer asks whether this is a 'high-risk' AI system under the EU AI Act. What is the correct answer?",
+      "options": [
+        "Yes — GPT-4 is classified as a high-risk model by the EU AI Office",
+        "No — customer service chatbots are classified as limited-risk systems requiring only a transparency obligation to disclose that the user is speaking with AI",
+        "Yes — any AI system using a frontier model is automatically high-risk",
+        "It depends on the country — high-risk classification varies by EU member state"
+      ],
+      "answer": 1,
+      "explanation": "Risk classification is determined by use case, not by the model used. A retail customer service chatbot falls under 'limited risk' — it interacts with users conversationally but does not make consequential decisions about individuals in high-risk sectors (employment, credit, healthcare, law enforcement). The transparency obligation for limited-risk systems is to disclose that the user is interacting with AI. GPT-4 itself is subject to GPAI obligations on OpenAI (the provider), not on companies deploying it. EU AI Act rules are uniform across member states — there is no national variation in risk tiers.",
+      "personas": ["leader"]
+    },
+    {
+      "id": "7.9-q2",
+      "type": "multiple-choice",
+      "question": "Your HR team wants to deploy an AI tool that analyses CV text to rank candidates. What risk tier does this fall under, and what is the primary compliance implication?",
+      "options": [
+        "Minimal risk — automated CV ranking is a standard software feature, not AI in a regulated sense",
+        "High-risk under Annex III — employment and worker management AI requires conformity assessment, bias monitoring, human oversight design, and technical documentation before deployment",
+        "Limited risk — transparency disclosure that AI is involved in ranking is sufficient",
+        "Prohibited — automated hiring decisions are banned under Article 5"
+      ],
+      "answer": 1,
+      "explanation": "AI systems used for recruiting, CV screening, and candidate ranking explicitly fall under Annex III Category 4: Employment, workers management and access to self-employment. This is a high-risk category requiring a full conformity assessment, bias testing across protected characteristics, human oversight mechanisms (a human must be able to review and override rankings), technical documentation, post-market monitoring, and registration in the EU AI database before deployment. This is not a transparency-only obligation. Automated hiring decisions are not prohibited, but they are among the most heavily regulated use cases. Article 5 prohibits social scoring and manipulation, not hiring AI.",
+      "personas": ["leader"]
+    },
+    {
+      "id": "7.9-q3",
+      "type": "multiple-choice",
+      "question": "You deploy the same LLM-based document summarisation tool in two contexts: (A) summarising internal meeting notes, and (B) summarising court evidence for use by judges. How does the risk classification differ?",
+      "options": [
+        "Both are minimal risk — document summarisation is a generic capability regardless of context",
+        "Both are high risk — any AI system used by organisations in the EU requires high-risk compliance",
+        "Context A is minimal risk; Context B is high-risk under the administration of justice category, requiring human oversight and audit logging for every use",
+        "Context A is limited risk requiring transparency disclosure; Context B is prohibited because AI cannot assist in legal proceedings"
+      ],
+      "answer": 2,
+      "explanation": "This is the core principle of use-case-specific classification. The same technical system can have radically different regulatory standing depending on deployment context. Internal meeting note summarisation has no defined regulatory sector and is minimal risk. Summarising court evidence for use by judges falls under Annex III Category 8: Administration of justice and democratic processes — high-risk, requiring human oversight by qualified legal professionals, complete audit logs, and conformity assessment. AI assisting in legal decisions is not prohibited, but it is subject to the most stringent compliance requirements in the Act.",
+      "personas": ["leader"]
+    },
+    {
+      "id": "7.9-q4",
+      "type": "multiple-choice",
+      "question": "The EU AI Act's prohibited AI provisions took effect in February 2025. Which of the following would be prohibited under Article 5?",
+      "options": [
+        "An AI system that recommends products based on past purchases",
+        "An AI tool that analyses employee productivity from keyboard activity and flags low performers to managers",
+        "A real-time biometric surveillance system deployed by law enforcement in a public space without prior judicial authorisation, used to identify suspects in a crowd",
+        "An AI chatbot that uses emotional tone analysis to adapt its communication style"
+      ],
+      "answer": 2,
+      "explanation": "Real-time remote biometric identification in publicly accessible spaces is prohibited under Article 5(1)(h), with very narrow exceptions for specific law enforcement purposes that require prior judicial or equivalent authorisation. An unapproved real-time suspect identification system in a public space falls squarely within this prohibition. Product recommendations are minimal risk. Employee productivity monitoring is potentially high-risk (employment category) but not prohibited — it requires compliance obligations. Emotional tone adaptation by a chatbot is limited risk at most (transparency obligation) and not prohibited.",
+      "personas": ["leader"]
+    },
+    {
+      "id": "7.9-q5",
+      "type": "multiple-choice",
+      "question": "Your organisation is based in the United States and serves no EU customers. You use an AI hiring tool that would be classified as high-risk under the EU AI Act. Do the Act's requirements apply to you?",
+      "options": [
+        "No — the EU AI Act only applies to companies established in the EU",
+        "No — the Act applies based on where the AI system is physically hosted",
+        "Yes — the Act applies to AI systems placed on the EU market or whose output is used in the EU, regardless of where the provider or deployer is located",
+        "Only partially — US companies must comply with transparency obligations but not with conformity assessment requirements"
+      ],
+      "answer": 2,
+      "explanation": "The EU AI Act has extraterritorial reach similar to GDPR. It applies to providers placing AI systems on the EU market, deployers using AI systems in the EU, and providers or deployers located outside the EU whose systems affect persons located in the EU. If your US-based hiring tool screens candidates who are EU residents, or if EU-based job applicants interact with it, the Act's provisions apply. The only way to be out of scope is if the system has no connection to EU persons or the EU market. Companies outside the EU should conduct the same classification exercise as EU companies.",
+      "personas": ["leader"]
+    }
+  ]
+}

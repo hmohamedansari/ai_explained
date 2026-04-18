@@ -1,0 +1,306 @@
+---
+moduleId: "6.11"
+title: "Multimodal Evaluation & Observability"
+description: "Text evals don't transfer. When your pipeline processes images, audio, or video, each modality introduces failure modes that a text judge cannot see. This module covers ground-truth dataset design, judge strategies, and observability instrumentation for non-text pipelines."
+track: "evaluation"
+order: 11
+personas: ["senior", "sre"]
+volatility: "volatile"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 20
+  layer3: 35
+productionGotcha: "Text-based evals do not transfer to multimodal pipelines. An eval suite that passes for a text RAG system gives no signal about whether the vision extraction step is hallucinating or the audio chunking is cutting off mid-sentence. Each modality requires dedicated eval coverage."
+draft: false
+---
+
+## Layer 1: Surface
+
+A multimodal pipeline is a sequence of steps: ingest an image or audio file, extract structured information from it, pass that information to an LLM, produce an output. Each step can fail independently — and your text-based eval can only see the last step.
+
+If the vision extraction step hallucinates a number, the downstream LLM will reason correctly from a wrong premise. Your text eval grades the reasoning, finds it sound, and reports a pass. The pipeline delivered a confidently wrong answer and your eval suite missed it entirely.
+
+**What each modality adds:**
+
+| Modality | Common extraction step | Failure mode invisible to text eval |
+|---|---|---|
+| **Image** | OCR, object detection, layout parsing | Hallucinated text, missed regions, bounding box errors |
+| **Audio** | Transcription (ASR), speaker diarization | Cut-off transcripts, speaker misattribution, homophone errors |
+| **Video** | Frame sampling, temporal segmentation | Key frames missed, action misclassified, wrong timestamp |
+| **Document (PDF)** | Layout extraction, table parsing | Column merging errors, header/body confusion, merged cells lost |
+
+**The three-layer testing pyramid for multimodal systems:**
+
+```
+                   [End-to-end output quality]
+                 — tests the full pipeline together —
+
+         [Modality-specific extraction quality]
+       — tests each extraction step independently —
+
+    [Input quality checks]
+  — validates the raw input is processable —
+```
+
+Most teams only test the top layer. The middle layer is where multimodal failures hide.
+
+> **Production Gotcha:** Text-based evals do not transfer to multimodal pipelines. An eval suite that passes for a text RAG system gives no signal about whether the vision extraction step is hallucinating or the audio chunking is cutting off mid-sentence. Each modality requires dedicated eval coverage.
+
+---
+
+## Layer 2: Guided
+
+### Building a ground-truth dataset for image pipelines
+
+Ground-truth for image evaluation requires human annotation — there's no shortcut. The annotation must target the extraction step, not the final output.
+
+```python
+import json
+import base64
+from pathlib import Path
+
+def encode_image(image_path: str) -> str:
+    with open(image_path, "rb") as f:
+        return base64.standard_b64encode(f.read()).decode("utf-8")
+
+# Ground-truth schema for an invoice extraction pipeline
+INVOICE_ANNOTATION_SCHEMA = {
+    "image_id": "string",
+    "ground_truth": {
+        "vendor_name": "string | null",
+        "invoice_number": "string | null",
+        "total_amount": "float | null",
+        "line_items": [{"description": "string", "amount": "float"}],
+        "date": "string | null",  # ISO 8601
+    },
+    "annotator": "string",
+    "annotated_at": "string",
+    "confidence": "high | medium | low",  # annotator's confidence in their label
+}
+
+def evaluate_extraction(
+    predicted: dict,
+    ground_truth: dict,
+    fields: list[str] = ["vendor_name", "invoice_number", "total_amount"]
+) -> dict:
+    results = {}
+    for field in fields:
+        pred_val = predicted.get(field)
+        true_val = ground_truth.get(field)
+
+        if true_val is None:
+            results[field] = {"status": "skip", "reason": "no_ground_truth"}
+            continue
+
+        if isinstance(true_val, float):
+            # Numeric comparison with tolerance
+            match = pred_val is not None and abs(pred_val - true_val) / true_val < 0.01
+        else:
+            match = str(pred_val).strip() == str(true_val).strip()
+
+        results[field] = {
+            "status": "pass" if match else "fail",
+            "predicted": pred_val,
+            "expected": true_val,
+        }
+
+    passed = sum(1 for r in results.values() if r.get("status") == "pass")
+    total = sum(1 for r in results.values() if r.get("status") != "skip")
+    return {
+        "field_accuracy": round(passed / total, 3) if total > 0 else 0.0,
+        "fields": results,
+    }
+```
+
+### LLM-as-judge for vision outputs
+
+When ground-truth labels don't exist for every case, you need a judge. Vision-capable models can serve as judges for image extraction tasks — but the judge prompt must be modality-specific.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+VISION_JUDGE_PROMPT = """You are evaluating the output of an image extraction system.
+
+Image: [attached]
+Extracted output: {extracted}
+
+Evaluate on three criteria. Score each 1-5:
+1. ACCURACY — Does the extracted text/data match what is visible in the image?
+2. COMPLETENESS — Is anything visible in the image that should have been extracted but was not?
+3. HALLUCINATION — Did the system invent content not present in the image? (5 = no hallucination, 1 = significant hallucination)
+
+Respond with JSON: {{"accuracy": N, "completeness": N, "hallucination": N, "notes": "brief explanation"}}"""
+
+def judge_vision_extraction(image_path: str, extracted_output: dict) -> dict:
+    image_data = encode_image(image_path)
+
+    response = client.messages.create(
+        model="claude-sonnet-4-5",
+        max_tokens=256,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": image_data,
+                    },
+                },
+                {
+                    "type": "text",
+                    "text": VISION_JUDGE_PROMPT.format(extracted=json.dumps(extracted_output, indent=2)),
+                }
+            ],
+        }]
+    )
+
+    try:
+        return json.loads(response.content[0].text)
+    except (json.JSONDecodeError, IndexError):
+        return {"error": "judge_parse_failure", "raw": response.content[0].text}
+```
+
+### Audio pipeline evaluation
+
+Audio failures are different from image failures. The key metric is Word Error Rate (WER) for transcription, plus a completeness check for diarization pipelines.
+
+```python
+def word_error_rate(reference: str, hypothesis: str) -> float:
+    ref_words = reference.lower().split()
+    hyp_words = hypothesis.lower().split()
+
+    # Dynamic programming WER calculation
+    n, m = len(ref_words), len(hyp_words)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if ref_words[i-1] == hyp_words[j-1]:
+                dp[i][j] = dp[i-1][j-1]
+            else:
+                dp[i][j] = 1 + min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1])
+
+    return dp[n][m] / max(len(ref_words), 1)
+
+def evaluate_audio_chunk_coverage(
+    ground_truth_segments: list[dict],  # [{"start": 0.0, "end": 5.2, "text": "..."}]
+    predicted_transcript: str,
+    min_coverage_threshold: float = 0.85
+) -> dict:
+    covered_segments = []
+    for seg in ground_truth_segments:
+        # Check if key phrases from this segment appear in the transcript
+        seg_words = set(seg["text"].lower().split())
+        transcript_words = set(predicted_transcript.lower().split())
+        overlap = len(seg_words & transcript_words) / max(len(seg_words), 1)
+        covered_segments.append({
+            "segment": seg,
+            "overlap": overlap,
+            "covered": overlap >= 0.7
+        })
+
+    coverage_rate = sum(1 for s in covered_segments if s["covered"]) / len(covered_segments)
+    return {
+        "coverage_rate": round(coverage_rate, 3),
+        "below_threshold": coverage_rate < min_coverage_threshold,
+        "uncovered_segments": [s["segment"] for s in covered_segments if not s["covered"]],
+    }
+```
+
+### Per-modality observability instrumentation
+
+Each modality needs its own observability signals. Text latency and token count are not the right metrics for an image pipeline.
+
+```python
+import time
+from dataclasses import dataclass, field
+
+@dataclass
+class MultimodalSpan:
+    modality: str          # "image" | "audio" | "video" | "text"
+    step: str              # "extraction" | "validation" | "generation"
+    started_at: float = field(default_factory=time.time)
+    duration_ms: float = 0.0
+    input_size_bytes: int = 0
+    output_field_count: int = 0
+    hallucination_score: float = 0.0  # 0 = clean, 1 = certain hallucination
+    extraction_confidence: float = 1.0
+    error: str | None = None
+
+    def finish(self):
+        self.duration_ms = (time.time() - self.started_at) * 1000
+
+def instrument_image_extraction(image_path: str, extract_fn) -> tuple[dict, MultimodalSpan]:
+    span = MultimodalSpan(modality="image", step="extraction")
+    span.input_size_bytes = Path(image_path).stat().st_size
+
+    try:
+        result = extract_fn(image_path)
+        span.output_field_count = len([v for v in result.values() if v is not None])
+        span.finish()
+        return result, span
+    except Exception as e:
+        span.error = str(e)
+        span.finish()
+        return {}, span
+```
+
+Emit these spans to your observability stack (Langfuse, Arize Phoenix, or any OpenTelemetry-compatible backend). Alert when `hallucination_score` exceeds a threshold or `extraction_confidence` drops below your baseline.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why text evals fail for multimodal systems
+
+The failure is architectural. A text eval grades the LLM generation step — the last step in the pipeline. It has no visibility into the intermediate steps that fed it. For a text RAG system, the retrieval step is directly measurable (did the right chunk come back?). For a vision pipeline, the extraction step is a black box to the text evaluator: all the text evaluator sees is the final answer, and it has no way to know whether that answer was grounded in accurate vision extraction or confident hallucination.
+
+This is why the testing pyramid matters. You need three independent eval signals:
+
+1. **Input validation**: Is the input processable? (image resolution, audio sample rate, file format)
+2. **Extraction quality**: Does the extraction step produce accurate structured output from the raw input?
+3. **Generation quality**: Given accurate extraction output, does the LLM produce a good answer?
+
+Only signal 3 is visible to a text-only eval suite.
+
+### Drift signals specific to multimodal systems
+
+**OCR model updates.** If you use a managed OCR service and the vendor ships a model update, extraction quality can change overnight. Monitor per-field extraction rate (fraction of documents where each field is successfully extracted) and alert on drops.
+
+**Audio quality distribution shift.** Call centre audio that degrades in quality during peak load, or microphone changes across a user population, shifts the difficulty distribution for your ASR model. Track WER distributions as percentile metrics, not averages.
+
+**Image resolution changes.** A mobile app update that changes how images are captured (different camera API, different compression) can silently degrade extraction quality for all subsequent documents. Track input resolution and file size distributions.
+
+**Cross-modal consistency failures.** In a document pipeline that extracts from both text and embedded images (e.g., a PDF with both typed text and scanned tables), the two extraction paths can produce inconsistent values for the same field. Track cross-modal field agreement as a quality metric.
+
+### Failure taxonomy
+
+**Hallucination at extraction.** The vision model generates plausible text that isn't in the image. Common in low-resolution or partially obscured inputs. The downstream LLM treats it as ground truth.
+
+**Chunking boundary errors.** Audio segmented at the wrong point causes a sentence to be split across two chunks. The first chunk ends mid-sentence; the second chunk starts mid-sentence. Neither is coherent. Both pass individual evaluation as "some text was extracted."
+
+**Modality mismatch.** A model designed for natural images applied to a document scan, or vice versa. Performance metrics look acceptable on aggregate but specific classes of input fail at high rates.
+
+**Silent degradation via third-party update.** A managed OCR or ASR service updates its model on the provider's schedule, not yours. Without baseline monitoring, you discover the degradation through user complaints weeks later.
+
+### Primary sources
+
+- Radford, Alec, et al. "Robust Speech Recognition via Large-Scale Weak Supervision." *Proceedings of ICML*, 2023. The Whisper paper — establishes WER benchmarking methodology and discusses the effect of audio quality distribution on transcription performance.
+- Lewis, Patrick, et al. "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks." *NeurIPS*, 2020. While focused on text RAG, the decomposed evaluation framework (retrieval quality evaluated independently from generation quality) is the direct analogue for multimodal extraction + generation pipelines.
+
+### Further reading
+
+- Cross-reference: Module 9.1 (Vision Pipelines) — architectural patterns for image extraction that directly inform what extraction metrics to track.
+- Cross-reference: Module 9.2 (Audio & Speech) — ASR pipeline design and the chunking strategies that create the boundary error failure mode.
+- Cross-reference: Module 9.4 (Multimodal Safety) — additional quality signals specific to safety-critical multimodal applications.
+- [OpenTelemetry Semantic Conventions for GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/). 2024. Canonical reference for standardised observability attributes across AI pipeline steps, including multimodal spans.

@@ -1,0 +1,247 @@
+---
+moduleId: "5.13"
+title: "Caching & Latency Engineering"
+description: "LLM inference is slow and expensive. Four independent caching layers can cut both — but each operates at a different point in the stack with different invalidation needs. Applying the wrong cache to the wrong layer is worse than no cache at all."
+track: "infrastructure"
+order: 13
+personas: ["sre", "senior"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 20
+  layer3: 35
+productionGotcha: "Semantic caches can return stale responses that were correct when cached but are now wrong. Cache TTL must be set based on how quickly the underlying facts change — not based on storage cost. A semantic cache with no TTL on a RAG system over live data is a correctness hazard, not a cost optimisation."
+draft: false
+---
+
+## Layer 1: Surface
+
+Four distinct caching layers apply to AI systems. They are not interchangeable — each intercepts the request at a different point and requires a different invalidation strategy.
+
+| Cache layer | What it caches | Where it intercepts | Invalidation trigger |
+|---|---|---|---|
+| **Semantic cache** | Final LLM response | Before the LLM call | TTL + source data change |
+| **Response cache** | Exact-match LLM response | Before the LLM call | TTL or explicit eviction |
+| **Retrieval cache** | Retrieved chunks for a query | After embedding, before retrieval | Corpus update |
+| **Prefix (KV) cache** | Attention key-value pairs for shared prompt prefix | Inside the inference server | Model reload |
+
+Most teams implement only response caching (exact-match) and miss the larger savings available from semantic caching and prefix caching. Most teams that implement semantic caching skip TTL and get correctness bugs.
+
+**Latency targets for AI endpoints:**
+
+| Workload | p50 target | p95 target | p99 target |
+|---|---|---|---|
+| Chat (streaming) | First token ≤ 300ms | ≤ 800ms | ≤ 2s |
+| RAG retrieval | ≤ 100ms | ≤ 300ms | ≤ 500ms |
+| Batch classification | ≤ 500ms | ≤ 2s | ≤ 5s |
+| Autonomous agent step | ≤ 2s | ≤ 5s | ≤ 15s |
+
+---
+
+## Layer 2: Guided
+
+### Semantic cache with TTL
+
+A semantic cache stores responses keyed by embedding similarity rather than exact string match. Two queries that mean the same thing hit the same cache entry.
+
+```python
+import hashlib
+import time
+from dataclasses import dataclass, field
+
+import numpy as np
+
+@dataclass
+class SemanticCacheEntry:
+    query_embedding: list[float]
+    response: str
+    created_at: float
+    ttl_seconds: int
+
+    def is_expired(self) -> bool:
+        return time.time() - self.created_at > self.ttl_seconds
+
+
+class SemanticCache:
+    def __init__(self, similarity_threshold: float = 0.92, ttl_seconds: int = 3600):
+        self.threshold = similarity_threshold
+        self.ttl_seconds = ttl_seconds
+        self._entries: list[SemanticCacheEntry] = []
+
+    def get(self, query_embedding: list[float]) -> str | None:
+        self._evict_expired()
+        q = np.array(query_embedding)
+        best_score, best_entry = 0.0, None
+        for entry in self._entries:
+            score = self._cosine(q, np.array(entry.query_embedding))
+            if score > best_score:
+                best_score, best_entry = score, entry
+        if best_score >= self.threshold and best_entry:
+            return best_entry.response
+        return None
+
+    def set(self, query_embedding: list[float], response: str):
+        self._entries.append(
+            SemanticCacheEntry(
+                query_embedding=query_embedding,
+                response=response,
+                created_at=time.time(),
+                ttl_seconds=self.ttl_seconds,
+            )
+        )
+
+    def _evict_expired(self):
+        self._entries = [e for e in self._entries if not e.is_expired()]
+
+    def _cosine(self, a: np.ndarray, b: np.ndarray) -> float:
+        return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-9))
+
+
+def query_with_semantic_cache(
+    query: str,
+    cache: SemanticCache,
+    embed_fn,
+    llm_fn,
+) -> tuple[str, bool]:
+    embedding = embed_fn(query)
+    cached = cache.get(embedding)
+    if cached:
+        return cached, True
+    response = llm_fn(query)
+    cache.set(embedding, response)
+    return response, False
+```
+
+### Prefix (KV) cache — server-side
+
+Prefix caching reuses computed attention keys and values for shared prompt prefixes. If every request to your API starts with the same 2,000-token system prompt, the inference server can compute that prefix once and cache the KV tensors.
+
+vLLM enables this automatically for prefix-sharing workloads. For Anthropic's API, pass the same content with `cache_control: {"type": "ephemeral"}` to activate prompt caching:
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+SYSTEM_PROMPT = "..." * 500  # long shared system prompt
+
+def call_with_prefix_cache(user_message: str) -> str:
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[{"role": "user", "content": user_message}],
+    )
+    return response.content[0].text
+```
+
+Cache hit rates above 80% on the system prompt cut per-request cost by 60–90% for the cached tokens.
+
+### Retrieval cache
+
+Cache the retrieved chunks for a query, not just the final response. This is cheaper than semantic caching (no LLM call) and invalidates cleanly on corpus update:
+
+```python
+import hashlib
+import time
+
+class RetrievalCache:
+    def __init__(self, ttl_seconds: int = 300):
+        self._store: dict[str, tuple[list[str], float]] = {}
+        self.ttl_seconds = ttl_seconds
+
+    def _key(self, query: str, top_k: int) -> str:
+        return hashlib.sha256(f"{query}|{top_k}".encode()).hexdigest()
+
+    def get(self, query: str, top_k: int) -> list[str] | None:
+        key = self._key(query, top_k)
+        entry = self._store.get(key)
+        if entry and time.time() - entry[1] < self.ttl_seconds:
+            return entry[0]
+        return None
+
+    def set(self, query: str, top_k: int, chunks: list[str]):
+        self._store[self._key(query, top_k)] = (chunks, time.time())
+
+    def invalidate_all(self):
+        self._store.clear()
+```
+
+Call `invalidate_all()` on every successful corpus ingestion run.
+
+### Measuring cache effectiveness
+
+```python
+from dataclasses import dataclass, field
+
+@dataclass
+class CacheMetrics:
+    hits: int = 0
+    misses: int = 0
+    latency_saved_ms: list[float] = field(default_factory=list)
+
+    def hit_rate(self) -> float:
+        total = self.hits + self.misses
+        return self.hits / total if total else 0.0
+
+    def avg_latency_saved_ms(self) -> float:
+        return sum(self.latency_saved_ms) / len(self.latency_saved_ms) if self.latency_saved_ms else 0.0
+
+    def report(self) -> str:
+        return (
+            f"Hit rate: {self.hit_rate():.1%} | "
+            f"Avg latency saved: {self.avg_latency_saved_ms():.0f}ms"
+        )
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### Choosing the right similarity threshold for semantic caching
+
+The semantic cache threshold controls the false-positive rate: how often a cached response is returned for a query that is semantically similar but not identical enough to share an answer.
+
+The relationship is non-linear. At threshold 0.95, almost no incorrect responses are returned — but cache hit rate drops to near zero for real-world query variation. At threshold 0.85, hit rates climb but wrong answers start leaking through.
+
+Practical calibration:
+1. Sample 500 recent production queries
+2. For each pair, compute similarity and manually label whether they share an acceptable answer
+3. Find the threshold that maximises true positives while keeping false positives below 1%
+
+For most RAG systems over factual documents, 0.90–0.92 is the right operating range. For creative or conversational queries, semantic caching often provides negative ROI — the query variation is too high to achieve meaningful hit rates, and the false-positive cost (returning a response that doesn't fit) is high.
+
+### Production failure taxonomy
+
+**Correctness staleness**: Semantic cache returns a response that was correct when cached but is now wrong because the underlying facts changed. The TTL was set based on infrastructure cost, not on how quickly the source data changes. Mitigation: separate TTL per data domain — legal content (short), product specs (medium), stable technical docs (long).
+
+**Threshold too low**: Semantically different queries hit the same cache entry because the threshold was set too aggressively for high hit rates. "What is the return policy?" and "How do I return a damaged item?" have high embedding similarity but require different answers. Mitigation: calibrate on production query pairs, not synthetic data.
+
+**Prefix cache invalidation gap**: System prompt changes mid-deployment without restarting the inference server. Old KV cache entries persist for requests that started before the restart, creating inconsistent behaviour within the same deployment. Mitigation: treat system prompt changes as deployments — roll the inference server.
+
+**Cold cache after deployment**: A new deployment clears the cache and the first 10 minutes of production traffic hits full LLM latency. Mitigation: warm the cache on startup by replaying recent high-frequency queries before opening traffic.
+
+**Retrieval cache and corpus lag**: Retrieval cache is not invalidated immediately after corpus ingestion completes. For 5–10 minutes after a corpus update, old chunks are served. For time-sensitive data (breaking news, live prices), this lag is unacceptable. Mitigation: set retrieval cache TTL to match ingestion frequency, or use event-driven invalidation triggered by ingestion completion.
+
+### Latency SLO design
+
+SLOs for AI systems require different thinking than traditional web services because the latency distribution is multimodal:
+- Cache hits cluster at 5–50ms
+- Retrieval without cache hits at 50–200ms
+- LLM generation spans 200ms to several seconds depending on output length
+
+Measuring p95 across all requests mixes these populations and obscures what is actually happening. The right approach: measure SLOs separately for cache hits, cache misses with retrieval, and full LLM generation. Alert on the miss path SLO separately from the cache hit path.
+
+### Further reading
+
+- [vLLM: Efficient Memory Management for Large Language Model Serving with PagedAttention](https://arxiv.org/abs/2309.06180); Kwon et al., 2023. Explains prefix KV caching mechanics and the PagedAttention allocator that makes it practical.
+- [GPTCache: A Data or Not Data, an LLM-based Cache for Chatbot Systems](https://arxiv.org/abs/2306.06376); Bang et al., 2023. Architecture and evaluation of semantic caching for LLM systems; includes threshold sensitivity analysis.
+- [Anthropic prompt caching documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching); Anthropic, 2024. Implementation guide for ephemeral prefix caching in the Claude API.

@@ -1,0 +1,76 @@
+{
+  "title": "Cognitive Architectures — Check your understanding",
+  "moduleId": "4.9",
+  "questions": [
+    {
+      "id": "4.9-q1",
+      "type": "multiple-choice",
+      "question": "Your team is building a research agent that investigates a company by searching the web, reading pages, and following up on leads it discovers. Each search result changes what the agent should look at next. Which cognitive architecture fits best?",
+      "options": [
+        "Plan-and-Execute, because it generates a structured research plan upfront and systematically works through it",
+        "Reflexion, because the agent can self-evaluate each finding and revise its conclusions",
+        "ReAct, because the agent needs to decide what to do after each observation rather than following a predetermined plan",
+        "Plan-and-Execute with replanning, because replanning after each step is equivalent to ReAct but more organised"
+      ],
+      "answer": 2,
+      "explanation": "ReAct is the right fit here because the next action genuinely depends on what the previous search returned — the agent cannot know in advance which pages to visit. Plan-and-Execute would generate a plan before seeing any results, which is a poor fit for discovery tasks where early findings redirect the investigation. Reflexion adds a retry loop for tasks with a verifiable success signal — research doesn't have one. Plan-and-Execute with replanning converges toward ReAct but with more latency and orchestration complexity.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.9-q2",
+      "type": "multiple-choice",
+      "question": "You deploy a Plan-and-Execute agent to handle customer onboarding. The planner's step 2 assumes the customer has a verified email, but step 1 (email verification) failed silently — the API returned 200 but did not actually send the email. The agent completes all 8 steps and reports success. What went wrong architecturally?",
+      "options": [
+        "The model hallucinated the step 1 result; Reflexion would have caught this by self-evaluating each step",
+        "Plan-and-Execute without a replanning loop cannot revise its plan when a step produces unexpected results, so it continued executing a plan that was already invalid",
+        "The model ran out of context window space and lost the step 1 result before reaching step 2",
+        "Plan-and-Execute is not suited for tasks with external API calls; ReAct should have been used instead"
+      ],
+      "answer": 1,
+      "explanation": "This is the classic Plan-and-Execute failure mode: the plan was generated before execution started, and without a replanning step, the agent had no mechanism to check whether the preconditions for each step were still valid. When step 1 failed silently, steps 2-8 proceeded on a faulty assumption. ReAct would have seen the step 1 result and reconsidered before proceeding — but a well-implemented Plan-and-Execute with a postcondition verifier or replanning hook would have caught it too. The problem is not the architecture family; it is the missing replanning loop.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.9-q3",
+      "type": "multiple-choice",
+      "question": "You implement Reflexion for a code-generation agent. After three attempts, the agent's code still fails the unit tests. You inspect the reflections and find they all say 'the function needs to handle edge cases better' — the same vague diagnosis each time. What is the root cause?",
+      "options": [
+        "Reflexion requires at least 5 attempts to converge; 3 is not enough",
+        "The self-critic is not grounded — without being required to cite specific failing test cases, it generates abstract diagnoses that do not lead to targeted fixes",
+        "The model used for reflection should be different from the model used for code generation; using the same model causes self-bias",
+        "Reflexion only works for multiple-choice tasks; code generation requires a gradient-based learning approach instead"
+      ],
+      "answer": 1,
+      "explanation": "The problem is that the self-critic is producing unfalsifiable, abstract diagnoses that give the next attempt no specific direction. Reflexion's effectiveness depends entirely on the quality of the reflection — vague reflections produce vague corrections. Requiring the critic to cite specific failing tests and specific lines of code forces it to ground its diagnosis, which produces actionable reflections. More attempts with the same bad reflection loop will not help. Using a different judge model is worth trying but does not address the grounding problem.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.9-q4",
+      "type": "multiple-choice",
+      "question": "An agent handles tasks across multiple sessions over weeks. Users report that the agent repeats questions it already asked in previous sessions and seems unaware of decisions made earlier. The in-session behaviour is fine. What is the most direct fix?",
+      "options": [
+        "Increase the max_iterations limit so the agent has more steps to recall earlier context",
+        "Switch from ReAct to Plan-and-Execute so the agent generates a plan that includes reviewing previous sessions",
+        "Add an external memory layer — a vector store for past observations and a KV store for structured facts — and inject relevant memories at the start of each session",
+        "Increase the model's context window so it can hold more session history"
+      ],
+      "answer": 2,
+      "explanation": "The problem is in-context memory: the agent's memory does not persist across sessions. Increasing max_iterations or context window size does not help because the previous session's context is gone entirely — it was never stored anywhere. The fix is external memory: store key observations and decisions in a vector store (for semantic retrieval) and a KV store (for structured facts), then retrieve and inject relevant memories at the start of each new session. Switching architectures does not solve the persistence problem.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "4.9-q5",
+      "type": "multiple-choice",
+      "question": "You benchmark ReAct and Plan-and-Execute on two tasks: (A) generating a software module with defined input/output contracts and known subtasks (write tests, implement, document), and (B) debugging a production incident where the cause is unknown and each diagnostic step reveals new information. What result should you expect?",
+      "options": [
+        "ReAct outperforms Plan-and-Execute on both tasks because adaptability is always more valuable than upfront planning",
+        "Plan-and-Execute outperforms ReAct on both tasks because structured plans produce more consistent outputs",
+        "Plan-and-Execute performs better on task A; ReAct performs better on task B",
+        "The architectures perform equivalently; the bottleneck is model quality, not architecture"
+      ],
+      "answer": 2,
+      "explanation": "Task A has known, stable subtasks where the order is understood upfront — Plan-and-Execute can generate a good plan before execution starts, and the parallel execution potential is a latency advantage. Task B is a discovery task: each diagnostic result changes what to check next, and no upfront plan can account for findings that haven't been made yet. ReAct's step-by-step adaptation is a direct match for this. Architecture choice matters most when task structure is mismatched — using Plan-and-Execute for incident debugging or ReAct for well-understood coding workflows both incur real costs.",
+      "personas": ["senior"]
+    }
+  ]
+}

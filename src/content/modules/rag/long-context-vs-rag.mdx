@@ -1,0 +1,242 @@
+---
+moduleId: "2.12"
+title: "Long-Context vs RAG Decision Framework"
+description: "Models with million-token context windows seem to make RAG obsolete. They don't. The decision between long-context, RAG, and hybrid depends on update frequency, query pattern, cost ceiling, and latency SLO — not just how large your documents are."
+track: "rag"
+order: 12
+personas: ["senior", "leader"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Long context windows have reached 1M+ tokens but performance degrades non-linearly — especially in the middle of long inputs. A 500K token context is not simply better than a well-designed RAG pipeline. The decision depends on update frequency, query pattern, cost ceiling, and latency SLO."
+draft: false
+---
+
+## Layer 1: Surface
+
+Three architectures compete for "how do we get the right information to the model":
+
+**Pure long-context:** stuff everything into the prompt. No retrieval infrastructure.
+
+**Pure RAG:** index the corpus, retrieve the relevant subset, build a focused context window.
+
+**Hybrid:** load a fixed anchor of critical content into context, then RAG for variable queries on top.
+
+The promise of long-context models is seductive: if you can fit all 500 pages of your documentation into a single prompt, why build and maintain a retrieval pipeline? The answer is that large contexts don't perform linearly — and they cost accordingly.
+
+### Decision tree
+
+```
+Does your entire corpus fit in the context window?
+├── No (corpus > 1M tokens or growing without bound)
+│   └── Use RAG or Hybrid
+└── Yes
+    ├── Does the corpus change frequently? (daily or more)
+    │   ├── Yes → RAG (re-indexing is cheaper than regenerating prompts)
+    │   └── No
+    │       ├── Are queries latency-sensitive? (SLO < 5 seconds)
+    │       │   ├── Yes → RAG (retrieval is faster than full-context inference)
+    │       │   └── No
+    │       │       └── Is cost a constraint?
+    │       │           ├── Yes → RAG (long context costs more per query)
+    │       │           └── No → Long-context (simpler, no infra)
+    └── Are queries "needle in a haystack" (single precise fact)?
+        ├── Yes → RAG outperforms long-context (lost-in-the-middle)
+        └── No → Long-context or Hybrid
+```
+
+### When each pattern wins
+
+| Pattern | Wins when | Loses when |
+|---|---|---|
+| **Pure long-context** | Corpus fits in window, changes rarely, queries need full-document synthesis | Corpus grows or updates frequently; cost ceiling is tight; latency SLO is strict |
+| **Pure RAG** | Corpus is large or grows continuously; queries are focused; latency matters | Queries need reasoning across many documents simultaneously; corpus is too dynamic to index reliably |
+| **Hybrid** | A stable core document set + dynamic supplementary corpus; synthesis + retrieval both needed | Complexity is a constraint; team can't operate two systems |
+
+### Production Gotcha
+
+> **Common Gotcha:** Long context windows have reached 1M+ tokens but performance degrades non-linearly — especially for information in the middle of long inputs. A 500K token context is not simply better than a well-designed RAG pipeline. The decision depends on update frequency, query pattern, cost ceiling, and latency SLO.
+
+---
+
+## Layer 2: Guided
+
+### The lost-in-the-middle problem: concrete numbers
+
+Liu et al. (2023) showed that retrieval accuracy for a target document degrades significantly when that document is placed in the middle of a long context. The performance at position 0 (start) and position N (end) is much higher than at position N/2 (middle). In a 100-document context:
+
+- Document at position 1 (start): ~90% accuracy
+- Document at position 50 (middle): ~55–60% accuracy
+- Document at position 100 (end): ~85% accuracy
+
+This is not a failure of the model; it is a documented attention pattern. RAG explicitly controls which content reaches the model, ensuring the most relevant content is positioned at the start. Long-context cannot make this guarantee.
+
+### Worked cost calculation: 1M document corpus
+
+Assume: 1,000 documents × 1,000 tokens each = 1M tokens total. You receive 10,000 queries per day.
+
+**Scenario A: Pure long-context (stuff the full corpus into every prompt)**
+
+```
+Input tokens per query  = 1,000,000 (corpus) + 200 (system) + 50 (query) = 1,050,250
+Output tokens per query = 500 (typical response)
+
+Daily input tokens  = 10,000 × 1,050,250 = 10.5B tokens
+Daily output tokens = 10,000 × 500 = 5M tokens
+
+# Using a hypothetical frontier model at $5/MTok input, $20/MTok output:
+Daily input cost   = (10,500,000,000 / 1,000,000) × $5    = $52,500
+Daily output cost  = (5,000,000 / 1,000,000) × $20        = $100
+Daily total        = $52,600
+
+Monthly cost       ≈ $1,578,000
+```
+
+**Scenario B: Pure RAG (retrieve top-5 chunks of 200 tokens each)**
+
+```
+Input tokens per query  = 5 × 200 (chunks) + 500 (system) + 50 (query) = 1,550
+Output tokens per query = 500
+
+Daily input tokens  = 10,000 × 1,550 = 15.5M tokens
+Daily output tokens = 10,000 × 500 = 5M tokens
+
+Daily input cost   = (15,500,000 / 1,000,000) × $5   = $77.50
+Daily output cost  = (5,000,000 / 1,000,000) × $20   = $100
+Daily total        = $177.50
+
+Plus indexing infra: ~$200/month (managed vector DB at this scale)
+Monthly cost       ≈ $5,520
+```
+
+**Scenario C: Hybrid (200K anchor context + RAG for dynamic queries)**
+
+```
+Anchor corpus: your 50 most critical documents = 50,000 tokens (fixed)
+RAG supplement: top-3 dynamic chunks = 600 tokens
+
+Input per query = 50,000 + 600 + 500 + 50 = 51,150 tokens
+Daily input tokens = 10,000 × 51,150 = 511.5M tokens
+
+Daily input cost   = (511,500,000 / 1,000,000) × $5 = $2,557.50
+Daily output cost  = $100
+Daily total        = $2,657.50
+
+Monthly cost       ≈ $79,800
+```
+
+**Summary table:**
+
+| Architecture | Monthly cost | Query latency | Update cost |
+|---|---|---|---|
+| Pure long-context | ~$1,578,000 | High (1M+ tokens to process) | Low (no indexing) |
+| Pure RAG | ~$5,520 | Low (1,550 tokens to process) | Low (incremental indexing) |
+| Hybrid | ~$79,800 | Medium (51K tokens to process) | Medium (anchor re-embed + incremental) |
+
+These numbers use illustrative pricing; verify current model pricing before making decisions. The ratio between options is more stable than the absolute figures.
+
+### Key variables in the decision
+
+```python
+def choose_architecture(
+    corpus_size_tokens: int,
+    max_context_window: int,
+    update_frequency: str,      # "hourly" | "daily" | "weekly" | "rarely"
+    latency_slo_seconds: float,
+    monthly_cost_ceiling: float,
+    query_type: str,            # "needle_in_haystack" | "synthesis" | "mixed"
+) -> str:
+
+    # 1. Does it fit?
+    fits_in_context = corpus_size_tokens <= max_context_window * 0.7
+
+    # 2. Cost check for long-context (rough: input_tokens × $5/MTok × 10K queries/day × 30 days)
+    long_context_monthly = (corpus_size_tokens / 1_000_000) * 5 * 10_000 * 30
+
+    if not fits_in_context:
+        return "rag"
+
+    if long_context_monthly > monthly_cost_ceiling:
+        return "rag"
+
+    if update_frequency in ("hourly", "daily"):
+        return "rag"
+
+    if latency_slo_seconds < 5.0 and corpus_size_tokens > 50_000:
+        return "rag"
+
+    if query_type == "needle_in_haystack":
+        return "rag"
+
+    if query_type == "synthesis" and fits_in_context and update_frequency == "rarely":
+        return "long_context"
+
+    return "hybrid"
+```
+
+### Prompt caching: the long-context cost modifier
+
+When the same large context is reused across many queries, prompt caching dramatically changes the economics. A 500K-token prompt that is cached and shared across 1,000 queries in a short window costs only the first write; subsequent reads are 80–90% cheaper depending on the provider.
+
+The implication: pure long-context becomes much more cost-competitive for:
+- Static or slowly-changing corpora
+- High query volume against the same document set
+- Use cases where the same system prompt + context is reused (shared tenant, not per-user)
+
+For per-user contexts (different documents per user, different session context), caching benefits diminish significantly — the cache key rarely hits. RAG remains cheaper for per-user retrieval patterns.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why long-context performance degrades: attention mechanism limits
+
+The attention mechanism in transformer models computes pairwise relationships between all tokens in the context. The computational complexity is theoretically O(n²) for standard attention, though efficient attention variants (FlashAttention, sliding window attention) reduce this in practice. But the approximations that make long contexts tractable also degrade recall quality.
+
+Empirically, the degradation pattern is consistent across models: recall drops for content in the middle of the context window, and the magnitude of the drop increases with context length. This is not a solvable software bug — it is a consequence of the geometry of how attention distributes over long sequences.
+
+**Why RAG doesn't have this problem:** RAG constructs a focused context from retrieved chunks. If retrieval is accurate, the model sees 1,500–5,000 tokens of highly relevant content, all near the start of the prompt. The lost-in-the-middle failure mode doesn't apply because there is no middle — the context is short enough that attention covers it uniformly.
+
+### Quadratic cost and why it matters at scale
+
+Even with efficient attention implementations, inference cost scales super-linearly with context length. A 100K token context doesn't cost 10× a 10K token context — it costs approximately 10–50× in inference compute, depending on hardware and model architecture.
+
+The practical consequence: at scale, every doubling of average context length roughly quadruples the compute cost of inference. This is why the RAG vs long-context decision is primarily an economics decision at high query volumes, not a capability decision.
+
+### The update frequency problem
+
+Long-context systems don't have an update mechanism — if the context changes, you update the prompt. For static corpora this is fine. For corpora that change daily or hourly, maintaining a current long-context prompt requires:
+
+1. Re-preparing the full prompt on each update (compute cost)
+2. Distributing the updated prompt to all inference instances (operational cost)
+3. Managing prompt versions across in-flight requests (coordination cost)
+
+RAG sidesteps this: indexing is incremental, a new document doesn't require re-indexing the whole corpus, and updates propagate as soon as the new chunk is indexed. For high-update-frequency corpora, this operational difference makes RAG the only practical choice regardless of context window size.
+
+### Hybrid: the right default for complex systems
+
+In practice, the hybrid pattern resolves most of the tension:
+- **Anchor context** (long-context): a curated set of always-relevant documents, policies, or system-level knowledge that every query needs
+- **RAG supplement** (dynamic): query-specific content retrieved per request
+
+The anchor context can be cached aggressively (it changes rarely). The RAG layer handles everything that changes or is query-specific. This pattern is increasingly common in enterprise deployments because it combines the synthesis quality of long-context for the core corpus with the economics and freshness of RAG for the dynamic layer.
+
+### Named failure modes
+
+| Failure | Pattern | Cause |
+|---|---|---|
+| **Haystack miss** | Long-context | Target information in middle of long prompt; attention weight insufficient |
+| **Stale context** | Long-context | Corpus updated but prompt not refreshed |
+| **Retrieval miss** | RAG | Correct document not retrieved; query phrasing doesn't match chunk phrasing |
+| **Cache miss overflow** | Hybrid | Anchor context changes frequently, invalidating cache on every update |
+| **Budget exhaustion** | Hybrid | Anchor too large, leaves insufficient tokens for RAG supplement |
+
+### Further reading
+
+- [Lost in the Middle: How Language Models Use Long Contexts](https://arxiv.org/abs/2307.03172); Liu et al., 2023. Foundational empirical study of retrieval accuracy across context positions; the primary source for the lost-in-the-middle phenomenon.
+- [In-Context Learning with Long-Context Models: An In-Depth Exploration](https://arxiv.org/abs/2405.00200); Bertsch et al., 2024. Examines when and why long-context models underperform retrieval-augmented approaches.
+- [Prompt Cache: Modular Attention Reuse for Low-Latency Inference](https://arxiv.org/abs/2311.04934); Gim et al., 2023. Technical description of prompt caching mechanisms and their impact on inference cost for repeated long contexts.

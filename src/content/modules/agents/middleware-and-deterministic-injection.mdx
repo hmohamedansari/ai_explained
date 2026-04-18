@@ -1,0 +1,358 @@
+---
+moduleId: "4.11"
+title: "Middleware and Deterministic Injection"
+description: "LLM reasoning is powerful but unreliable for things you can formally specify. Middleware lets you enforce hard rules deterministically — input normalisation, output validation, routing — while leaving everything else to the model. This module covers where to draw that line and how to implement it."
+track: "agents"
+order: 11
+personas: ["senior"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 16
+  layer3: 30
+productionGotcha: "Middleware that is too restrictive becomes a reliability crutch that prevents the LLM from handling edge cases. Middleware that is too permissive provides false confidence. The right boundary is: deterministic checks for things you can formally specify; LLM reasoning for everything else."
+draft: false
+---
+
+## Layer 1: Surface
+
+Every production agent system has two layers working together: the LLM that reasons and decides, and deterministic code that enforces constraints the LLM should not be trusted to maintain on its own.
+
+Middleware lives between the application and the LLM. It runs before the model sees the input (preprocessing), after the model produces output (postprocessing), and sometimes between steps in a multi-step flow (inter-step hooks). None of this requires model inference — it is ordinary code.
+
+**Where to use deterministic middleware vs. LLM reasoning:**
+
+| Use deterministic middleware for | Use LLM reasoning for |
+|---|---|
+| Validating structured output schema | Deciding what format to use |
+| Routing by user tier, region, or feature flag | Classifying ambiguous intent |
+| Sanitising PII before sending to the model | Understanding context around PII |
+| Rate limiting and budget enforcement | Estimating task complexity |
+| Blocking known-bad input patterns | Deciding whether an unusual request is safe |
+| Normalising date/time/currency formats | Interpreting ambiguous time references |
+
+The heuristic: if you can write a unit test for it with a deterministic expected output, it belongs in middleware. If the right answer depends on context you cannot enumerate upfront, it belongs in the model.
+
+> **Production gotcha:** Middleware that is too restrictive becomes a reliability crutch that prevents the LLM from handling edge cases. Middleware that is too permissive provides false confidence. The right boundary is: deterministic checks for things you can formally specify; LLM reasoning for everything else.
+
+---
+
+## Layer 2: Guided
+
+### The middleware stack
+
+A production agent middleware stack typically has four layers:
+
+```
+Request → [Input normalisation] → [Router] → [LLM] → [Output validation] → [Post-processing] → Response
+```
+
+Here is a concrete implementation:
+
+```python
+from dataclasses import dataclass
+from typing import Any
+import re
+import json
+
+@dataclass
+class AgentRequest:
+    user_id: str
+    session_id: str
+    message: str
+    metadata: dict
+
+@dataclass
+class AgentResponse:
+    content: str
+    metadata: dict
+    blocked: bool = False
+    block_reason: str = ""
+
+
+class AgentMiddlewareStack:
+    def __init__(self, llm_client, tools: list[dict]):
+        self.llm = llm_client
+        self.tools = tools
+        self.budget_tracker = BudgetTracker()
+
+    def process(self, request: AgentRequest) -> AgentResponse:
+        # Layer 1: input normalisation — always runs
+        normalised = self.normalise_input(request)
+        if normalised.blocked:
+            return normalised
+
+        # Layer 2: routing — decides which model/path to use
+        route = self.route(normalised)
+
+        # Layer 3: LLM call — only reasoning happens here
+        raw_response = self.call_llm(normalised, route)
+
+        # Layer 4: output validation — always runs
+        validated = self.validate_output(raw_response, route)
+
+        # Layer 5: post-processing — formatting, logging
+        return self.post_process(validated, request)
+
+    def normalise_input(self, request: AgentRequest) -> AgentResponse:
+        message = request.message.strip()
+
+        # Hard block: empty input
+        if not message:
+            return AgentResponse(content="", blocked=True, block_reason="empty_input", metadata={})
+
+        # Hard block: over budget
+        if not self.budget_tracker.has_budget(request.user_id):
+            return AgentResponse(content="", blocked=True, block_reason="budget_exceeded", metadata={})
+
+        # Normalise: strip known PII patterns before sending to model
+        message = self.redact_pii(message)
+
+        # Normalise: convert locale-specific date formats to ISO 8601
+        message = self.normalise_dates(message)
+
+        # Return as a passthrough response (not actually a response, just carrying the message)
+        return AgentResponse(content=message, metadata={"normalised": True})
+
+    def route(self, normalised: AgentResponse) -> dict:
+        message = normalised.content.lower()
+
+        # Deterministic routing rules — no model inference
+        if any(kw in message for kw in ["urgent", "critical", "p0", "outage"]):
+            return {"model": "fast", "max_tokens": 1024, "priority": "high"}
+
+        if len(message) < 50 and "?" in message:
+            return {"model": "small", "max_tokens": 512, "priority": "normal"}
+
+        return {"model": "balanced", "max_tokens": 4096, "priority": "normal"}
+
+    def call_llm(self, normalised: AgentResponse, route: dict) -> dict:
+        response = self.llm.chat(
+            model=route["model"],
+            messages=[{"role": "user", "content": normalised.content}],
+            tools=self.tools,
+            max_tokens=route["max_tokens"],
+        )
+        return {"response": response, "route": route}
+
+    def validate_output(self, raw: dict, route: dict) -> AgentResponse:
+        response = raw["response"]
+
+        # If the model was asked to produce structured output, validate the schema
+        if route.get("require_json"):
+            try:
+                parsed = json.loads(response.text)
+                if not self.validate_schema(parsed, route["schema"]):
+                    return AgentResponse(
+                        content="",
+                        blocked=True,
+                        block_reason="schema_validation_failed",
+                        metadata={"raw": response.text}
+                    )
+            except json.JSONDecodeError:
+                return AgentResponse(
+                    content="",
+                    blocked=True,
+                    block_reason="invalid_json",
+                    metadata={"raw": response.text}
+                )
+
+        return AgentResponse(content=response.text, metadata={"route": route})
+
+    def post_process(self, validated: AgentResponse, original: AgentRequest) -> AgentResponse:
+        if validated.blocked:
+            return validated
+
+        # Structured logging for every response
+        self.log_interaction(original, validated)
+
+        # Update budget tracker
+        self.budget_tracker.record_usage(original.user_id)
+
+        return validated
+
+    def redact_pii(self, text: str) -> str:
+        # Email addresses
+        text = re.sub(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', '[EMAIL]', text)
+        # US phone numbers
+        text = re.sub(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', '[PHONE]', text)
+        # US SSN
+        text = re.sub(r'\b\d{3}-\d{2}-\d{4}\b', '[SSN]', text)
+        return text
+
+    def normalise_dates(self, text: str) -> str:
+        # Convert MM/DD/YYYY to YYYY-MM-DD
+        def replace_date(match):
+            m, d, y = match.group(1), match.group(2), match.group(3)
+            return f"{y}-{m.zfill(2)}-{d.zfill(2)}"
+        return re.sub(r'\b(\d{1,2})/(\d{1,2})/(\d{4})\b', replace_date, text)
+```
+
+### Inter-step hooks: middleware between agent steps
+
+In a multi-step agent, you can inject middleware between the action and the observation — catching problems before they propagate:
+
+```python
+def run_agent_with_hooks(goal: str, tools: dict, middleware: AgentMiddlewareStack) -> str:
+    messages = [{"role": "user", "content": goal}]
+
+    for step in range(20):
+        response = llm.chat(messages=messages, tools=list(tools.values()))
+
+        if response.stop_reason == "end_turn":
+            # Validate the final output before returning
+            final = middleware.validate_output({"response": response}, route={})
+            if final.blocked:
+                return f"Output validation failed: {final.block_reason}"
+            return response.text
+
+        # Execute tool call
+        tool_call = response.tool_calls[0]
+        tool_name = tool_call.name
+        tool_args = tool_call.input
+
+        # Pre-execution hook: validate tool arguments deterministically
+        validation_error = validate_tool_args(tool_name, tool_args)
+        if validation_error:
+            # Inject the error as the observation — model sees what it did wrong
+            observation = f"Error: invalid arguments for {tool_name}: {validation_error}"
+        else:
+            observation = tools[tool_name](**tool_args)
+
+        # Post-execution hook: check the observation for known error patterns
+        if is_known_transient_error(observation):
+            # Retry once before letting the model see the error
+            observation = tools[tool_name](**tool_args)
+
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": [{"type": "tool_result", "content": observation}]})
+
+    return "Max steps reached."
+
+
+def validate_tool_args(tool_name: str, args: dict) -> str | None:
+    """Returns an error message if args are invalid, None if valid."""
+    validators = {
+        "search_web": lambda a: None if "query" in a and len(a["query"]) > 0 else "query required",
+        "write_file": lambda a: None if "path" in a and "content" in a else "path and content required",
+        "run_sql": lambda a: "INSERT/UPDATE/DELETE not allowed" if any(
+            kw in a.get("query", "").upper() for kw in ["INSERT", "UPDATE", "DELETE", "DROP"]
+        ) else None,
+    }
+    validator = validators.get(tool_name)
+    return validator(args) if validator else None
+```
+
+The `validate_tool_args` function is a deterministic gate: before any tool executes, the middleware checks whether the arguments are structurally valid and whether the operation is permitted. This catches a large class of errors without a model call.
+
+### Before vs. after: what middleware changes
+
+**Without middleware** (naive implementation):
+
+```python
+# No input validation, no output validation, no routing
+def naive_agent(message: str) -> str:
+    response = llm.chat(messages=[{"role": "user", "content": message}])
+    return response.text
+```
+
+Problems: empty inputs succeed, PII goes to the model, budgets are not enforced, structured output is never validated, and there is no audit trail.
+
+**With middleware** (production implementation):
+
+```python
+def production_agent(request: AgentRequest) -> AgentResponse:
+    stack = AgentMiddlewareStack(llm_client=llm, tools=TOOLS)
+    return stack.process(request)
+```
+
+Same call surface, same LLM reasoning in the middle — but with deterministic control at the edges. The LLM does not handle things it should not be trusted to handle.
+
+---
+
+## Layer 3: Deep Dive
+
+### Why middleware belongs at the orchestration layer
+
+This module covers middleware at the orchestration layer — the code that wraps and controls the agent's execution. This is distinct from output-layer guardrails (classifiers that scan model outputs for policy violations) and from system prompts (instructions baked into the model's context).
+
+The distinction matters because the failure modes are different:
+
+- **System-prompt instructions** can be ignored, overridden by adversarial inputs, or lost in long contexts. They are not enforcement — they are suggestions with good compliance rates.
+- **Output-layer guardrails** catch problems after the model has already done the work. They cannot prevent the model from calling a dangerous tool or accumulating bad state mid-execution.
+- **Orchestration-layer middleware** runs before and after each model call, before and after each tool execution. It enforces constraints in code, not in prompts.
+
+All three layers are complementary. Orchestration-layer middleware is the one that gives you actual guarantees.
+
+### The boundary problem
+
+The most common middleware design error is drawing the wrong boundary between what is deterministic and what is modeled. Two failure modes:
+
+**Over-determinism:** The middleware tries to handle too much. A routing rule based on keyword matching routes "urgent request for non-critical report" to the high-priority path because "urgent" is in the message. A regex-based intent classifier sends "how do I cancel my subscription?" to the billing flow and "how do I cancel a meeting?" to the calendar flow — until a user asks "how do I cancel my subscription to the meeting notifications?" The rule breaks on an edge case the rule author did not anticipate.
+
+**Under-determinism:** The middleware trusts the model to enforce things it should not. "Include a JSON block in your response" is not validation — it is a request. A model that is interrupted, confused, or adversarially prompted will omit the JSON block, and without output validation, the application will crash or silently corrupt data.
+
+The correct boundary is determined by one question: *can I write a complete specification for the correct behaviour?* If yes, use deterministic code. If the specification has holes — "it depends on context" or "usually, but..." — use the model.
+
+### Named failure modes
+
+**Middleware bypass via tool call:** An agent that can call tools can sometimes achieve the same effect as a blocked direct action by combining two permitted tool calls. Example: a middleware blocks direct file deletion, but the agent calls `rename_file(src, "/tmp/trash")` followed by `clear_tmp()`. Test your middleware against common indirect paths, not just direct ones.
+
+**Validation feedback loop:** When output validation fails, some implementations retry the LLM call automatically. If the validation failure is systematic — the model cannot produce valid output for this input class — the retry loop runs until the budget is exhausted or the timeout fires. Always cap validation retries at 2-3 and escalate rather than loop.
+
+**PII laundering through the model:** Redacting PII before sending to the model is correct. But if the model's response includes reconstructed PII — it inferred an email address from context clues — and your post-processing does not re-scan the output, PII exits through the response. Apply PII redaction to both input and output.
+
+**Stale routing rules:** Routing rules based on feature flags or user tiers are correct at deployment time. After three months of product changes, the routing logic may route users to deprecated paths or miss new tier structures. Treat routing rules as code with tests — not as static configuration.
+
+**Silent pass-through on middleware errors:** If the middleware itself throws an exception, naive implementations fall through to the model call as if middleware did not exist. Always design middleware to fail closed: a middleware error should block the request, not pass it through.
+
+### Composing middleware as a pipeline
+
+For systems with many middleware steps, a pipeline pattern is more maintainable than a single class:
+
+```python
+from typing import Protocol
+
+class Middleware(Protocol):
+    def process(self, request: AgentRequest, next_handler) -> AgentResponse:
+        ...
+
+class PipelineRunner:
+    def __init__(self, middlewares: list[Middleware], terminal: callable):
+        self.middlewares = middlewares
+        self.terminal = terminal
+
+    def run(self, request: AgentRequest) -> AgentResponse:
+        def build_chain(index: int):
+            if index >= len(self.middlewares):
+                return self.terminal
+            middleware = self.middlewares[index]
+            next_handler = build_chain(index + 1)
+            return lambda req: middleware.process(req, next_handler)
+
+        return build_chain(0)(request)
+
+# Usage
+pipeline = PipelineRunner(
+    middlewares=[
+        PIIRedactionMiddleware(),
+        BudgetEnforcementMiddleware(budget_tracker),
+        RoutingMiddleware(routing_rules),
+        OutputValidationMiddleware(schema_registry),
+        AuditLoggingMiddleware(logger),
+    ],
+    terminal=LLMCallHandler(llm_client, tools)
+)
+
+response = pipeline.run(request)
+```
+
+Each middleware is independently testable, independently replaceable, and independently configurable. Adding a new middleware step — say, a latency circuit breaker — does not touch existing middleware code.
+
+### Further reading
+
+- [Guardrails AI Documentation](https://docs.guardrailsai.com/); Guardrails AI, 2024. Practical reference for structured output validation and output correction patterns; the validator design maps well to the output validation layer described here.
+- [Building Trustworthy AI Systems: A Framework for LLM Application Security](https://arxiv.org/abs/2406.04307); Perez et al., 2024. Covers the layered defence model for LLM applications, including orchestration-layer controls.
+- [OWASP Top 10 for Large Language Model Applications](https://owasp.org/www-project-top-10-for-large-language-model-applications/); OWASP, 2025. The prompt injection and insecure output handling entries are directly relevant to middleware design.

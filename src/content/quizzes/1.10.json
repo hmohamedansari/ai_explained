@@ -1,0 +1,76 @@
+{
+  "title": "Multimodal AI — Check your understanding",
+  "moduleId": "1.10",
+  "questions": [
+    {
+      "id": "1.10-q1",
+      "type": "multiple-choice",
+      "question": "Your team is building a pipeline that processes 50,000 scanned invoices per day. Most invoices are clean printed text, but about 10% contain handwritten notes or embedded charts. What is the most cost-effective architecture?",
+      "options": [
+        "Send every invoice page through a vision model to ensure consistent extraction quality",
+        "Use OCR for all pages since it is cheaper, and accept lower accuracy on the handwritten and chart pages",
+        "Route clean text pages through OCR and route pages with handwriting or charts to a vision model",
+        "Transcribe each invoice with audio transcription, then process the transcript"
+      ],
+      "answer": 2,
+      "explanation": "Routing by modality complexity is the right pattern: OCR handles clean printed text cheaply and accurately, while vision models handle the 10% of pages where layout, handwriting, or visual content matters. Sending all 50,000 pages through a vision model would cost 10x more for no improvement on the clean majority. OCR-only loses accuracy on the cases that specifically need vision. Audio transcription is not relevant to document images.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.10-q2",
+      "type": "multiple-choice",
+      "question": "A user uploads a PDF to your document Q&A system. Your pipeline extracts text with OCR, passes it through your input filters, then answers questions. A security researcher reports that a malicious image embedded in page 3 caused the system to output sensitive internal instructions. What happened?",
+      "options": [
+        "The OCR step was misconfigured and extracted text from the image instead of ignoring it",
+        "The PDF parser exposed the raw image bytes to the model, bypassing OCR entirely",
+        "The vision model read adversarial text from the embedded image that OCR missed, and the model acted on those instructions",
+        "The input filters failed to catch a text-based injection in the OCR output"
+      ],
+      "answer": 2,
+      "explanation": "This is a cross-modal prompt injection: the image contains text (possibly low-contrast or styled to evade OCR) that a vision model reads as instructions. Because the text-based input filters only saw the OCR output — which missed the image text — the adversarial instructions bypassed all defenses. OCR is not a sanitizer for vision model inputs. Any pipeline that accepts documents and processes images with a vision model must treat image-derived content as untrusted, just like user-submitted text.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.10-q3",
+      "type": "multiple-choice",
+      "question": "You are building a customer support system that handles audio call recordings. You need to extract the customer's stated issue and classify it by category. Which architecture is most appropriate for production today?",
+      "options": [
+        "Send the raw audio directly to a vision-language model with a classification prompt",
+        "Transcribe the audio with a dedicated speech-to-text model, then classify the transcript with a text LLM",
+        "Use a multimodal embedding model to embed the audio and retrieve the closest category from a vector database",
+        "Convert the audio waveform to a spectrogram image and send it to a vision model"
+      ],
+      "answer": 1,
+      "explanation": "The transcription pipeline (audio → text → LLM) is the production-standard approach for the vast majority of audio classification tasks. It gives you an auditable transcript as an artifact, lets you use any text-based model for classification, and is cheaper than native audio input. Native audio-in models exist but are not yet the default choice for production classification pipelines. Spectrogram images would lose semantic content that transcription preserves.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.10-q4",
+      "type": "multiple-choice",
+      "question": "You are estimating the monthly API cost for a pipeline that processes 5,000 product images per day, sending each image to a vision model with a short text prompt. You benchmark one image call at $0.004. Your estimate is 5,000 × $0.004 × 30 = $600/month. A colleague says the real cost will be higher. Why?",
+      "options": [
+        "Vision API calls are billed per image, not per token, so the formula should use a higher per-image rate",
+        "High-resolution images tokenize into thousands of tile-tokens each, so larger images cost proportionally more — your benchmark image may have been small",
+        "The model charges extra for images that contain human faces due to privacy processing overhead",
+        "Vision models require more GPU memory, so the provider charges a memory surcharge on top of token costs"
+      ],
+      "answer": 1,
+      "explanation": "Image cost scales with resolution because providers tile images into fixed-size chunks and charge per tile. A 512×512 benchmark image and a 2048×2048 product photo are not the same cost — the high-res image may generate 16x more tile-tokens. Your benchmark must use representative images from your actual dataset. Memory surcharges and face-detection fees are not standard billing mechanisms; the cost model is token-based, just with image-derived tokens.",
+      "personas": ["junior", "senior", "sre"]
+    },
+    {
+      "id": "1.10-q5",
+      "type": "multiple-choice",
+      "question": "A vision model in your pipeline is performing poorly on a proprietary CAD diagram format your team uses internally. The same model handles standard architecture diagrams well. What best explains this and what should you do?",
+      "options": [
+        "The model's image encoder has a bug with vector graphics — switch to a raster PNG export",
+        "CAD files require lossless compression — re-export at higher DPI to improve accuracy",
+        "The model's visual understanding is limited to patterns seen in training data; a diagram type absent from training will have degraded performance. Fine-tuning or adding textual annotation to the images is the mitigation.",
+        "Multimodal models cannot process engineering diagrams — use OCR to extract the dimension annotations instead"
+      ],
+      "answer": 2,
+      "explanation": "Vision models learn visual patterns from training data. A proprietary CAD format that was not represented in training will produce unreliable outputs — not because the model is broken, but because it has no learned representation for that diagram type. The practical mitigations are: add descriptive text labels to the diagrams before sending them (annotating what each element means), or fine-tune the model on representative examples. DPI and compression format are rarely the cause of semantic understanding failures.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+---
+moduleId: "6.10"
+title: "Evaluating the Evaluator"
+description: "Your eval suite is only useful if it tracks what 'good' actually means — and that definition shifts as your product evolves. This module covers the meta-loop most teams skip: validating that your judges, metrics, and test cases remain calibrated to real quality, not just to themselves."
+track: "evaluation"
+order: 10
+personas: ["senior"]
+volatility: "stable"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 18
+  layer3: 30
+productionGotcha: "Your eval suite can silently drift out of alignment with what 'good' means as your product evolves. Without a process to evaluate the evaluator, you can have a green CI dashboard while product quality degrades."
+draft: false
+---
+
+## Layer 1: Surface
+
+Passing your eval suite is not the same as shipping good software. It means your system matches the expectations encoded in your eval suite — and those expectations can go stale.
+
+Three things drift simultaneously in a live AI product:
+
+1. **Your judge model** updates silently. A newer version of the same model may score outputs differently than the version you calibrated against, shifting your entire score distribution with no code change on your part.
+2. **Your eval set** reflects a past version of the product. The queries, edge cases, and "golden" outputs in your test set were written when the product was younger. As features evolve, the test set becomes a museum.
+3. **Your metrics** can inflate without quality improving. If your LLM judge learns to prefer a particular writing style that your system now reliably produces, scores go up even if users are getting worse answers.
+
+The result is **metric score inflation**: your eval suite shows improvement while the product stagnates or regresses. A green CI board becomes a liability instead of a signal.
+
+**Signs your evaluator has drifted:**
+
+| Signal | What it means |
+|---|---|
+| Eval scores trending up, user satisfaction flat | Metrics have diverged from quality |
+| Score distribution compresses (all outputs scoring 4–4.2 on a 5-point scale) | Judge is miscalibrated or ceiling-bumped |
+| Scores unchanged after a regression you can see manually | Test set has coverage gaps |
+| Scores drop after a judge model update with no product change | Judge was the variable, not the product |
+
+> **Production Gotcha:** Your eval suite can silently drift out of alignment with what "good" means as your product evolves. Without a process to evaluate the evaluator, you can have a green CI dashboard while product quality degrades.
+
+---
+
+## Layer 2: Guided
+
+### Detecting judge model drift
+
+When a judge model is updated — either because you upgrade it, or because a provider silently ships a new version — your score distribution can shift. The fix is to version-pin your judge and run a canary comparison before upgrading.
+
+```python
+import anthropic
+from scipy import stats
+
+client = anthropic.Anthropic()
+
+JUDGE_PROMPT = """You are evaluating the quality of an AI assistant's response.
+
+Question: {question}
+Response: {response}
+
+Score from 1-5 where:
+1 = Incorrect or unhelpful
+3 = Partially correct, missing key details
+5 = Accurate, complete, appropriately concise
+
+Return only the integer score."""
+
+def score_with_model(model: str, question: str, response: str) -> int:
+    result = client.messages.create(
+        model=model,
+        max_tokens=10,
+        messages=[{
+            "role": "user",
+            "content": JUDGE_PROMPT.format(question=question, response=response)
+        }]
+    )
+    try:
+        return int(result.content[0].text.strip())
+    except ValueError:
+        return -1  # flag parsing failures
+
+def detect_judge_drift(
+    eval_set: list[dict],
+    current_judge: str,
+    candidate_judge: str,
+    significance_threshold: float = 0.05,
+) -> dict:
+    current_scores = []
+    candidate_scores = []
+
+    for item in eval_set:
+        q, r = item["question"], item["response"]
+        current_scores.append(score_with_model(current_judge, q, r))
+        candidate_scores.append(score_with_model(candidate_judge, q, r))
+
+    t_stat, p_value = stats.ttest_rel(current_scores, candidate_scores)
+    mean_shift = sum(candidate_scores) / len(candidate_scores) - sum(current_scores) / len(current_scores)
+
+    return {
+        "current_mean": round(sum(current_scores) / len(current_scores), 3),
+        "candidate_mean": round(sum(candidate_scores) / len(candidate_scores), 3),
+        "mean_shift": round(mean_shift, 3),
+        "p_value": round(p_value, 4),
+        "significant_drift": p_value < significance_threshold,
+        "recommendation": "Hold upgrade and re-calibrate" if (p_value < significance_threshold and abs(mean_shift) > 0.2) else "Safe to upgrade"
+    }
+```
+
+Run this canary check before you upgrade a judge model. A statistically significant mean shift with no product change means the judge changed, not the product.
+
+### Checking for metric inflation
+
+Metric inflation is when scores trend upward over time while real quality stays flat. You detect it by periodically comparing your eval scores against independent ground truth — human labels or curated gold examples with known quality.
+
+```python
+import json
+from datetime import datetime, timedelta
+
+class MetricInflationDetector:
+    def __init__(self, history_path: str = "eval_history.json"):
+        self.history_path = history_path
+        try:
+            with open(history_path) as f:
+                self.history = json.load(f)
+        except FileNotFoundError:
+            self.history = []
+
+    def record_run(self, date: str, eval_score: float, human_score: float):
+        self.history.append({
+            "date": date,
+            "eval_score": eval_score,
+            "human_score": human_score,
+        })
+        with open(self.history_path, "w") as f:
+            json.dump(self.history, f, indent=2)
+
+    def detect_inflation(self, window_days: int = 90) -> dict:
+        if len(self.history) < 4:
+            return {"status": "insufficient_data"}
+
+        recent = self.history[-window_days // 7:]  # approximate: one entry per week
+
+        eval_trend = self._linear_slope([r["eval_score"] for r in recent])
+        human_trend = self._linear_slope([r["human_score"] for r in recent])
+
+        divergence = eval_trend - human_trend
+        inflated = eval_trend > 0.05 and human_trend < 0.01
+
+        return {
+            "eval_trend_per_week": round(eval_trend, 4),
+            "human_trend_per_week": round(human_trend, 4),
+            "divergence": round(divergence, 4),
+            "inflation_detected": inflated,
+            "action": "Audit eval suite — scores rising without human quality improvement" if inflated else "Within normal range"
+        }
+
+    def _linear_slope(self, values: list[float]) -> float:
+        n = len(values)
+        if n < 2:
+            return 0.0
+        x_mean = (n - 1) / 2
+        y_mean = sum(values) / n
+        numerator = sum((i - x_mean) * (v - y_mean) for i, v in enumerate(values))
+        denominator = sum((i - x_mean) ** 2 for i in range(n))
+        return numerator / denominator if denominator else 0.0
+```
+
+### The quarterly eval audit
+
+A quarterly audit catches drift that slow-moving metrics miss. The process:
+
+```python
+AUDIT_CHECKLIST = {
+    "judge_model_version": {
+        "question": "Is the judge model version-pinned and documented?",
+        "action_if_no": "Pin to a specific version. Document in eval config.",
+    },
+    "gold_set_freshness": {
+        "question": "Have any 'golden' outputs been reviewed by a human in the last 90 days?",
+        "action_if_no": "Re-label a sample of 20 gold examples with current guidelines.",
+    },
+    "coverage_gap_check": {
+        "question": "Do test cases cover features launched in the last quarter?",
+        "action_if_no": "Add 5-10 test cases per new feature or workflow change.",
+    },
+    "score_distribution_check": {
+        "question": "Is the score distribution spread (not clustering at top of scale)?",
+        "action_if_no": "Recalibrate scoring rubric or add harder adversarial cases.",
+    },
+    "human_concordance": {
+        "question": "Does the eval score correlate with recent human feedback or support tickets?",
+        "action_if_no": "Sample 30 cases from user complaints and compare to eval scores.",
+    },
+}
+
+def run_audit(eval_config: dict) -> list[dict]:
+    findings = []
+    for check_id, check in AUDIT_CHECKLIST.items():
+        # In practice: each check is a function that queries your config/data
+        passed = eval_config.get(check_id, False)
+        if not passed:
+            findings.append({
+                "check": check_id,
+                "question": check["question"],
+                "action": check["action_if_no"],
+                "severity": "high" if check_id in ["judge_model_version", "human_concordance"] else "medium"
+            })
+    return findings
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### Why evaluators drift even without code changes
+
+The root cause is that LLM judges are not stateless oracles — they are models with their own training distribution, biases, and update schedule. Three structural reasons they drift:
+
+**Judge model updates.** Most providers update models on a rolling basis without bumping the model ID in all contexts (e.g., date-versioned vs. alias IDs). If you use an alias like `gpt-4o` without pinning a specific snapshot, the underlying model can change underneath you. Anthropic's Claude date-versioned IDs (e.g., `claude-sonnet-4-5-20251022`) are more stable, but even these receive weight updates within a version window.
+
+**Eval set label drift.** Human-annotated gold labels encode the standards of the moment they were written. A gold label written when your product was an internal beta may describe a lower quality bar than what your current users expect. Without label refreshes, your eval suite rewards shipping to a past standard.
+
+**Self-referential inflation.** If you use the same model family for generation and judging, and your system prompt is tuned to produce outputs in the style that model's training prefers, the judge will progressively reward your system's outputs more highly. The generator and judge are optimising toward each other, not toward user quality.
+
+### Failure taxonomy
+
+**Ceiling bunching.** All outputs score 4–4.5 on a 5-point scale. The distribution compresses. This means either the rubric is too forgiving or the eval set is too easy. Add adversarial cases specifically designed to fail at the current quality bar.
+
+**Coverage blindness.** Eval suite scores are high for existing features but new features have zero test coverage. A new feature ships, breaks in ways your metrics don't measure, and you discover it through user complaints rather than CI failures.
+
+**Annotation lag.** Guidelines for reviewers update after a product change, but existing labels are not retroactively updated. New cases are labelled to a new standard; old cases reflect the old standard. The training signal is inconsistent.
+
+**Judge fragility under prompt changes.** A small change to the judge's system prompt — tightening the rubric, adding a new criterion — changes scores on all historical cases. Without versioning the judge prompt alongside the eval, you lose the ability to compare runs across time.
+
+### Primary sources
+
+- Zheng, Lianmin, et al. "Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena." *Advances in Neural Information Processing Systems* 36 (2023). Foundational study documenting position bias, verbosity bias, and self-preference bias in LLM judges. The quantitative evidence for why judge validation is necessary.
+- Ribeiro, Marco Tulio, et al. "Beyond Accuracy: Behavioral Testing of NLP Models with CheckList." *Proceedings of ACL*, 2020. Introduces the concept of behavioural test suites as a complement to aggregate metrics — the framework behind structured eval coverage analysis.
+
+### Further reading
+
+- Shankar, Shreya, et al. ["Who Validates the Validators? Aligning LLM-Assisted Evaluation of LLM Outputs with Human Preferences."](https://arxiv.org/abs/2404.12272) arXiv, 2024. Empirical analysis of where LLM evaluators diverge from human judgement and how to detect it.
+- Guo, Zishan, et al. ["Evaluating Large Language Models: A Comprehensive Survey."](https://arxiv.org/abs/2310.19736) arXiv, 2023. Taxonomy of eval approaches and their failure modes — useful for understanding the design space.

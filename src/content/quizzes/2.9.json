@@ -1,0 +1,76 @@
+{
+  "title": "Context Failure Taxonomy — Check your understanding",
+  "moduleId": "2.9",
+  "questions": [
+    {
+      "id": "2.9-q1",
+      "type": "multiple-choice",
+      "question": "A user asks your RAG assistant about your company's return policy. In turn 1, the model retrieves an outdated chunk and states a 14-day return window. In turns 2 and 3, the user asks follow-up questions. By turn 4, the model is firmly asserting the 14-day window even though the current policy chunk (also retrieved) says 30 days. Which failure mode is this?",
+      "options": [
+        "Clash — two retrieved chunks disagree on the policy duration",
+        "Distraction — irrelevant chunks are drowning out the correct policy chunk",
+        "Poisoning — a wrong claim from an earlier turn is being treated as ground truth in subsequent turns",
+        "Confusion — the system prompt gives ambiguous instructions about which policy to apply"
+      ],
+      "answer": 2,
+      "explanation": "This is poisoning: a wrong claim made by the assistant in turn 1 (from a stale retrieved chunk) compounds across subsequent turns because conversation history is treated as trusted context. Clash would require two simultaneously retrieved chunks to disagree; distraction would manifest as the model ignoring the relevant chunk rather than building on a prior wrong answer; confusion would show up as inconsistent formatting or tone, not a compounding factual error.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.9-q2",
+      "type": "multiple-choice",
+      "question": "Your system retrieves 8 chunks per query. You notice the model consistently ignores the two highest-relevance chunks and answers from lower-relevance ones. Your relevance scores show 6 of the 8 chunks score below 0.5. What failure mode explains this, and what is the most direct fix?",
+      "options": [
+        "Clash — conflicting chunks are causing the model to pick a random answer; fix by deduplicating the index",
+        "Distraction — noise volume is overwhelming the signal; fix by tightening the relevance threshold to filter low-scoring chunks before passing to the model",
+        "Confusion — the grounding instruction is not strong enough; fix by repeating it in the user message",
+        "Poisoning — prior turns have established incorrect context; fix by clearing conversation history"
+      ],
+      "answer": 1,
+      "explanation": "Six out of eight chunks scoring below 0.5 is the signature of distraction: the model's effective attention is diluted by noise. The fix is to filter at a relevance threshold before context assembly — only chunks above the threshold pass to the model. Clash requires contradictory content in the retrieved chunks, not just low relevance. Confusion is about instruction ambiguity, not chunk quality. Poisoning requires prior assistant turns introducing wrong claims.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.9-q3",
+      "type": "multiple-choice",
+      "question": "You retrieve two chunks about your SLA uptime guarantee. Chunk A (from the product page, updated last week) says '99.9% uptime.' Chunk B (from a legacy FAQ, last updated 18 months ago) says '99.5% uptime.' The model sometimes cites one, sometimes the other, with no consistent pattern. Which failure mode is this, and what is the long-term structural fix?",
+      "options": [
+        "Poisoning — the FAQ chunk is poisoning the context with stale data; fix by clearing conversation history between sessions",
+        "Confusion — the system prompt does not specify which document to trust; fix by adding trust ranking to the prompt",
+        "Clash — two retrieved chunks contain directly contradictory facts; long-term fix is data lineage so updating the canonical source propagates to all derived chunks in the index",
+        "Distraction — the legacy FAQ chunk is irrelevant noise; fix by raising the relevance threshold"
+      ],
+      "answer": 2,
+      "explanation": "Two retrieved chunks stating different uptime percentages is a textbook clash. The model's non-deterministic output (sometimes citing one, sometimes the other) is the hallmark symptom. The short-term mitigation is adding a tie-breaking instruction; the long-term fix is data lineage — when the product page is updated, all chunks in the index derived from or referencing the same fact are flagged for re-indexing. Poisoning requires the error to have entered via a prior assistant turn, not simultaneous retrieval.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.9-q4",
+      "type": "multiple-choice",
+      "question": "Your system prompt has grown to 2,400 tokens over six months as different teams added requirements. You notice the model behaves inconsistently: sometimes it gives brief answers, sometimes long ones, on equivalent queries. Which failure mode is most likely, and how do you confirm it?",
+      "options": [
+        "Clash — retrieved chunks have started contradicting each other as the knowledge base grew; confirm by running the clash detection heuristic on retrieved chunks",
+        "Confusion — conflicting instructions have accumulated in the system prompt; confirm by scanning the prompt for contradictory directive pairs such as 'concise' and 'comprehensive'",
+        "Distraction — the long system prompt is consuming too much of the context window; confirm by measuring chunk count received vs chunk count used",
+        "Poisoning — conversation history is growing and earlier turns are overriding current instructions; confirm by clearing history and checking if behaviour stabilises"
+      ],
+      "answer": 1,
+      "explanation": "Inconsistent behaviour (brief vs verbose on equivalent queries) with no external variable except the system prompt is the signature of confusion — conflicting directives accumulating over time. Confirming it by scanning for contradictory pairs ('concise'/'comprehensive', 'brief'/'detailed') is the correct diagnostic. Clash requires retrieved chunks to disagree on facts, not prompt-level directives. Distraction would show up as wrong-topic answers, not length inconsistency. Poisoning requires compounding errors across turns, not stateless per-query inconsistency.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "2.9-q5",
+      "type": "multiple-choice",
+      "question": "You want to run full context auditing (including LLM-based poisoning and clash detection) on production traffic, but the added cost per request would double your inference bill. What is the most principled approach to maintaining detection coverage without doubling cost?",
+      "options": [
+        "Run full auditing only on the first turn of each session and skip subsequent turns, since poisoning only occurs in multi-turn conversations",
+        "Disable LLM-based detection entirely and rely only on heuristic checks; LLM-based detection is not reliable enough to justify the cost",
+        "Run heuristic-only checks on all requests (zero extra model calls), LLM-based detection on a random sample (5–10% of traffic), and full auditing on metadata-flagged high-stakes queries",
+        "Replace LLM-based detection with a fine-tuned classifier trained on examples of each failure mode, then deploy the classifier for all requests"
+      ],
+      "answer": 2,
+      "explanation": "A tiered approach is the correct answer: heuristic checks (conflict keyword scanning, relevance score thresholds) cost nothing extra and run on all requests; LLM-based detection runs on a statistical sample sufficient for monitoring; full auditing is reserved for queries flagged as high-stakes by metadata. Auditing only the first turn misses poisoning that develops across a long session. Disabling LLM-based detection means you will miss clash and poisoning that heuristics cannot catch. A fine-tuned classifier is a valid long-term investment but is not immediately deployable and introduces a new model to maintain.",
+      "personas": ["senior"]
+    }
+  ]
+}

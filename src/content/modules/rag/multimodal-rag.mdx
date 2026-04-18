@@ -1,0 +1,418 @@
+---
+moduleId: "2.11"
+title: "Multimodal RAG"
+description: "Text-only RAG misses the majority of enterprise knowledge: diagrams, slide decks, scanned documents, recorded meetings, product images. Multimodal RAG extends retrieval to images and audio, but each modality requires different chunking, indexing, and context assembly strategies."
+track: "rag"
+order: 11
+personas: ["senior"]
+volatility: "volatile"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Multimodal RAG requires fundamentally different chunking strategies — images cannot be split mid-image, and a single high-resolution image may consume as many tokens as several pages of text when passed to a vision model. Budget your context window per modality before designing the pipeline."
+draft: false
+---
+
+## Layer 1: Surface
+
+Standard RAG indexes text. But a typical engineering organisation's knowledge lives in slide decks, architecture diagrams, recorded standups, and annotated screenshots. If you can't retrieve from those, you have a text-only system serving a multimodal world.
+
+Multimodal RAG extends the retrieval pipeline to handle at least two additional modalities:
+
+| Modality | Indexing approach | Retrieval mechanism |
+|---|---|---|
+| **Text** | Embed text chunks | Dense vector similarity |
+| **Images** | CLIP embeddings or caption text | Cross-modal or text-to-image similarity |
+| **Audio** | Transcribe (Whisper or equivalent), then treat as text | Text-based retrieval on transcript chunks |
+| **Video** | Keyframe extraction + audio transcription | Combined image/text retrieval |
+
+The core insight: each modality needs its own chunking strategy and its own embedding approach. Trying to force images through a text chunking pipeline, or audio through an image pipeline, produces poor retrieval.
+
+### The context budget problem
+
+A 1024×768 image passed to a vision-capable model typically consumes 700–2,000 tokens depending on the model and detail level. At top-k=5 with images, you may consume 5,000–10,000 tokens on images alone — before the user's question and the system prompt. This is not a retrieval problem; it is a context assembly problem. You need explicit token budgets per modality.
+
+### Production Gotcha
+
+> **Common Gotcha:** Multimodal RAG requires fundamentally different chunking strategies — images cannot be split mid-image, and a single high-resolution image may consume as many tokens as several pages of text when passed to a vision model. Budget your context window per modality before designing the pipeline.
+
+---
+
+## Layer 2: Guided
+
+> **Note:** The library versions shown below (Pillow, openai-whisper, open-clip-torch) were current as of April 2026. Verify versions before use — multimodal tooling evolves rapidly.
+
+### Image indexing: CLIP embeddings + caption fallback
+
+The two approaches to image retrieval are not mutually exclusive:
+
+1. **CLIP embeddings**: embed both the image and the query text into a shared latent space. Retrieval: find images whose CLIP embeddings are close to the query CLIP text embedding. No intermediate text required.
+2. **Caption pipeline**: use a vision model to generate a text caption for each image, then embed the caption as text. Retrieval: standard text-to-text similarity against caption embeddings.
+
+CLIP is faster at retrieval and preserves visual detail. Captions enable more nuanced semantic matching (you can describe what's *in* an image in ways CLIP can't match). The best systems use both.
+
+```python
+import open_clip
+import torch
+from PIL import Image
+import io
+import base64
+
+
+def embed_image_clip(image_bytes: bytes, model_name: str = "ViT-B-32") -> list[float]:
+    """
+    Generate a CLIP embedding for an image.
+    open_clip supports many CLIP variants — verify model availability.
+    """
+    model, _, preprocess = open_clip.create_model_and_transforms(
+        model_name,
+        pretrained="openai",
+    )
+    model.eval()
+
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    image_tensor = preprocess(image).unsqueeze(0)
+
+    with torch.no_grad():
+        embedding = model.encode_image(image_tensor)
+        embedding = embedding / embedding.norm(dim=-1, keepdim=True)
+
+    return embedding.squeeze().tolist()
+
+
+def embed_text_clip(text: str, model_name: str = "ViT-B-32") -> list[float]:
+    """
+    Generate a CLIP embedding for a text query.
+    Use the same model as embed_image_clip to stay in the same embedding space.
+    """
+    model, _, _ = open_clip.create_model_and_transforms(
+        model_name,
+        pretrained="openai",
+    )
+    tokenizer = open_clip.get_tokenizer(model_name)
+    model.eval()
+
+    tokens = tokenizer([text])
+    with torch.no_grad():
+        embedding = model.encode_text(tokens)
+        embedding = embedding / embedding.norm(dim=-1, keepdim=True)
+
+    return embedding.squeeze().tolist()
+
+
+def generate_image_caption(image_bytes: bytes, vision_client) -> str:
+    """
+    Generate a descriptive caption for an image using a vision-capable model.
+    Used as a fallback and for hybrid indexing.
+    """
+    b64_image = base64.b64encode(image_bytes).decode("utf-8")
+
+    response = vision_client.chat(
+        model="your-preferred-vision-model",
+        system=(
+            "Generate a factual, detailed caption for this image. "
+            "Describe all text visible, all diagrams and their labels, "
+            "and any quantitative information shown. Be precise."
+        ),
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": b64_image}},
+                {"type": "text", "text": "Describe this image in detail."}
+            ]
+        }],
+        max_tokens=300,
+    )
+    return response.text
+
+
+def index_image(
+    image_bytes: bytes,
+    image_id: str,
+    source_document: str,
+    page_number: int | None,
+    vector_store,
+    vision_client,
+) -> dict:
+    """
+    Index an image with both CLIP embedding and caption text embedding.
+    Stores the original image bytes for later retrieval.
+    """
+    clip_embedding = embed_image_clip(image_bytes)
+    caption = generate_image_caption(image_bytes, vision_client)
+    caption_embedding = embed_text(caption)     # standard text embedding
+
+    metadata = {
+        "image_id": image_id,
+        "source_document": source_document,
+        "page_number": page_number,
+        "caption": caption,
+        "modality": "image",
+        "image_bytes_b64": base64.b64encode(image_bytes).decode("utf-8"),
+    }
+
+    vector_store.upsert(id=f"{image_id}-clip", vector=clip_embedding, payload=metadata)
+    vector_store.upsert(id=f"{image_id}-caption", vector=caption_embedding, payload=metadata)
+
+    return {"id": image_id, "caption": caption}
+```
+
+### Audio indexing: transcription + chunked text
+
+Audio is indexed as text. The pipeline: audio file → transcription → time-stamped chunks → text embeddings. The timestamps are metadata that allows you to surface the exact segment of audio when retrieved.
+
+```python
+import whisper
+import math
+
+
+def transcribe_audio(audio_path: str, model_size: str = "base") -> list[dict]:
+    """
+    Transcribe audio to word-level timestamps using Whisper.
+    Returns a list of segments: [{start, end, text}]
+    Verify whisper package version before use.
+    """
+    model = whisper.load_model(model_size)
+    result = model.transcribe(audio_path, word_timestamps=True)
+    return result["segments"]
+
+
+def chunk_transcript(
+    segments: list[dict],
+    chunk_duration_seconds: float = 30.0,
+    overlap_seconds: float = 5.0,
+) -> list[dict]:
+    """
+    Group transcript segments into time-windowed chunks.
+    Unlike text chunking, you cannot split mid-sentence arbitrarily —
+    chunk boundaries should fall at natural sentence pauses.
+    """
+    chunks = []
+    current_chunk_segments = []
+    chunk_start = 0.0
+
+    for seg in segments:
+        current_chunk_segments.append(seg)
+
+        if seg["end"] - chunk_start >= chunk_duration_seconds:
+            chunk_text = " ".join(s["text"].strip() for s in current_chunk_segments)
+            chunks.append({
+                "text": chunk_text,
+                "start_seconds": chunk_start,
+                "end_seconds": seg["end"],
+                "segment_count": len(current_chunk_segments),
+            })
+
+            overlap_segments = [
+                s for s in current_chunk_segments if s["start"] >= seg["end"] - overlap_seconds
+            ]
+            current_chunk_segments = overlap_segments
+            chunk_start = overlap_segments[0]["start"] if overlap_segments else seg["end"]
+
+    if current_chunk_segments:
+        chunk_text = " ".join(s["text"].strip() for s in current_chunk_segments)
+        chunks.append({
+            "text": chunk_text,
+            "start_seconds": chunk_start,
+            "end_seconds": current_chunk_segments[-1]["end"],
+            "segment_count": len(current_chunk_segments),
+        })
+
+    return chunks
+
+
+def index_audio(
+    audio_path: str,
+    audio_id: str,
+    source_metadata: dict,
+    vector_store,
+) -> list[str]:
+    """
+    Transcribe, chunk, embed, and store an audio file.
+    Returns list of chunk IDs.
+    """
+    segments = transcribe_audio(audio_path)
+    chunks = chunk_transcript(segments)
+    chunk_ids = []
+
+    for i, chunk in enumerate(chunks):
+        chunk_id = f"{audio_id}-chunk-{i}"
+        embedding = embed_text(chunk["text"])
+        vector_store.upsert(
+            id=chunk_id,
+            vector=embedding,
+            payload={
+                **chunk,
+                "audio_id": audio_id,
+                "modality": "audio",
+                "source": source_metadata,
+            },
+        )
+        chunk_ids.append(chunk_id)
+
+    return chunk_ids
+```
+
+### Cross-modal retrieval and context assembly
+
+```python
+def multimodal_retrieve(
+    query: str,
+    vector_store,
+    top_k_text: int = 4,
+    top_k_images: int = 2,
+    top_k_audio: int = 2,
+) -> dict:
+    """
+    Retrieve across modalities with per-modality token budgets.
+    Text: ~300 tokens/chunk. Images: ~1000 tokens each. Audio: ~300 tokens/chunk.
+    """
+    query_embedding = embed_text(query)
+    query_clip = embed_text_clip(query)
+
+    text_results = vector_store.search(
+        vector=query_embedding,
+        top_k=top_k_text,
+        filters={"modality": "text"},
+    )
+
+    caption_results = vector_store.search(
+        vector=query_embedding,
+        top_k=top_k_images,
+        filters={"modality": "image"},
+    )
+
+    clip_results = vector_store.search(
+        vector=query_clip,
+        top_k=top_k_images,
+        filters={"modality": "image"},
+    )
+
+    seen_image_ids = set()
+    image_results = []
+    for r in caption_results + clip_results:
+        img_id = r["payload"]["image_id"]
+        if img_id not in seen_image_ids:
+            seen_image_ids.add(img_id)
+            image_results.append(r)
+
+    audio_results = vector_store.search(
+        vector=query_embedding,
+        top_k=top_k_audio,
+        filters={"modality": "audio"},
+    )
+
+    return {
+        "text": text_results,
+        "images": image_results[:top_k_images],
+        "audio": audio_results,
+    }
+
+
+def assemble_multimodal_context(
+    results: dict,
+    query: str,
+) -> list[dict]:
+    """
+    Build a message list with mixed text and image content blocks.
+    Images are included inline; audio is represented by transcript excerpts.
+    """
+    content_blocks = []
+
+    for i, r in enumerate(results["text"]):
+        content_blocks.append({
+            "type": "text",
+            "text": f"[Text document {i+1} — {r['payload']['source']}]\n{r['payload']['text']}"
+        })
+
+    for i, r in enumerate(results["images"]):
+        img_b64 = r["payload"]["image_bytes_b64"]
+        content_blocks.append({
+            "type": "text",
+            "text": f"[Image {i+1} — {r['payload']['source_document']}]\nCaption: {r['payload']['caption']}"
+        })
+        content_blocks.append({
+            "type": "image",
+            "source": {"type": "base64", "media_type": "image/jpeg", "data": img_b64}
+        })
+
+    for i, r in enumerate(results["audio"]):
+        start = r["payload"]["start_seconds"]
+        end = r["payload"]["end_seconds"]
+        content_blocks.append({
+            "type": "text",
+            "text": (
+                f"[Audio transcript excerpt {i+1} — "
+                f"{r['payload']['source']['title']} "
+                f"({start:.0f}s–{end:.0f}s)]\n{r['payload']['text']}"
+            )
+        })
+
+    content_blocks.append({"type": "text", "text": f"Question: {query}"})
+    return content_blocks
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### Why image chunking is fundamentally different
+
+Text chunking has one constraint: preserve semantic units (sentences, paragraphs). Image chunking has a different problem: an image is an atomic unit that cannot be meaningfully divided. A diagram split in half is not two half-diagrams — it's two broken images.
+
+This means image retrieval works differently from text retrieval in a structural sense:
+
+- **Text**: chunk at ingestion, retrieve chunks, assemble subset
+- **Images**: embed whole images (or generate whole-image captions), retrieve whole images, select a subset
+
+The consequence is that image granularity is fixed at the image level. If a slide deck has 40 slides and you retrieve the top-5, you get 5 whole slides — you can't retrieve a sub-region of one slide. For documents with large images (full-page diagrams, high-resolution photographs), this creates a token budget problem that text chunking doesn't have.
+
+Mitigations:
+1. **Resize before embedding and retrieval**: store a thumbnail for context (lower token cost) and a full-resolution version for cases where detail matters
+2. **Region-of-interest cropping**: if the retrieval question is about a specific part of a diagram, crop to that region before passing to the vision model
+3. **Caption-first display**: pass the caption text to the context window and include the image only when the caption explicitly signals it is needed for visual detail
+
+### CLIP vs caption: when to use each
+
+| Factor | CLIP embeddings | Caption embeddings |
+|---|---|---|
+| **Query type** | "Show me a red sports car" (visual concept) | "Find the architecture diagram with three microservices" (structural/semantic) |
+| **Index cost** | One forward pass per image (cheap) | One vision model call per image (expensive) |
+| **Query time** | One CLIP text embedding (cheap) | Standard text embedding (cheap) |
+| **Text in images** | Poor (OCR not captured) | Good (vision model reads text) |
+| **Abstract concepts** | Poor | Good |
+| **Visual similarity** | Excellent | Poor |
+
+For most enterprise use cases (slide decks, documents, diagrams), caption-first retrieval outperforms CLIP because the relevant information is often in the text and structure of the image, not the visual appearance. Use CLIP when users will query with visual descriptions, or as a hybrid alongside captions.
+
+### Whisper and the transcription quality problem
+
+Whisper transcription quality depends heavily on audio quality. In production:
+
+- **Speaker overlap** (common in meeting recordings): produces garbled transcripts where the model interleaves two speakers' words incorrectly
+- **Domain-specific vocabulary** (engineering terms, product names): Whisper generates plausible-sounding but wrong words for unfamiliar terms
+- **Background noise**: degrades word error rate significantly, particularly in the 8kHz/mono recordings common in telephony
+
+The fix for speaker overlap is diarisation (identifying who is speaking when) before transcription. The fix for domain vocabulary is providing a vocabulary prompt to Whisper or using a fine-tuned transcription model. Background noise requires audio preprocessing (denoising) before transcription.
+
+Without addressing these, audio retrieval accuracy is bounded by transcription accuracy — and transcription errors surface as retrieval misses.
+
+### Named failure modes in multimodal RAG
+
+| Failure | Cause | Fix |
+|---|---|---|
+| **Token budget overflow** | Including all retrieved images without per-modality budget | Hard cap on images per context; thumbnail-first strategy |
+| **Visual detail loss** | Resize image to thumbnail but query requires fine detail | Two-stage: retrieve with thumbnail, load full-resolution on demand |
+| **Transcription hallucination** | Whisper generates plausible-sounding wrong words | Domain vocabulary prompt; post-transcription confidence filtering |
+| **Modality mismatch** | Query is text-based but correct answer is in an image | Run retrieval across all modalities; surface image caption in text response |
+| **Caption drift** | Caption describes the image accurately but misses the specific detail being queried | Use CLIP hybrid; include raw caption and CLIP results in candidate set |
+| **Stale index** | Image or audio file updated but index not refreshed | Content hash per asset; change detection in ingestion pipeline |
+
+### Further reading
+
+- [Learning Transferable Visual Models From Natural Language Supervision (CLIP)](https://arxiv.org/abs/2103.00020); Radford et al., 2021. The original CLIP paper introducing contrastive image-text pretraining; foundational for understanding cross-modal embedding spaces.
+- [Robust Speech Recognition via Large-Scale Weak Supervision (Whisper)](https://arxiv.org/abs/2212.04356); Radford et al., 2022. Whisper architecture and evaluation; covers the quality tradeoffs between model sizes and audio conditions.
+- [Flamingo: a Visual Language Model for Few-Shot Learning](https://arxiv.org/abs/2204.14198); Alayrac et al., 2022. Early influential work on interleaved image-text models; useful background on how vision-language models process multimodal context.

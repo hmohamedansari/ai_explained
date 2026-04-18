@@ -1,0 +1,76 @@
+{
+  "title": "Long-Context vs RAG Decision Framework — Check your understanding",
+  "moduleId": "2.12",
+  "questions": [
+    {
+      "id": "2.12-q1",
+      "type": "multiple-choice",
+      "question": "Your team is building a legal document assistant. The corpus is 800 contracts, each 5,000 tokens, totalling 4M tokens. The contracts change rarely (once a quarter). Users ask precise factual questions like 'What is the penalty clause in the Acme contract?' Your latency SLO is 10 seconds and cost ceiling is $5,000/month. Which architecture is most appropriate?",
+      "options": [
+        "Pure long-context — the corpus is stable and synthesis quality is best with full document visibility",
+        "Hybrid — load all 800 contracts as anchor context and use RAG for dynamic queries on top",
+        "Pure RAG — even though the corpus is stable, a 4M token corpus exceeds practical context window limits and would cost significantly more per query than retrieval-augmented generation",
+        "Fine-tuning — since the contracts change rarely, encode them into model weights to eliminate retrieval entirely"
+      ],
+      "answer": 2,
+      "explanation": "4M tokens exceeds current context windows for most models, and the query type is 'needle in a haystack' — a precise factual lookup — where RAG outperforms long-context due to the lost-in-the-middle problem. Even if a model with sufficient context window existed, the per-query cost of 4M input tokens would far exceed the $5,000/month ceiling at any meaningful query volume. Fine-tuning is not appropriate for factual lookup — it encodes knowledge into weights but doesn't provide reliable retrieval of specific contract terms.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "2.12-q2",
+      "type": "multiple-choice",
+      "question": "You measure retrieval accuracy against your RAG system and find that a target document placed at position 50 in a 100-document long-context prompt is retrieved accurately only 58% of the time, compared to 91% at position 1. A colleague suggests simply sorting documents so the most relevant always comes first. Does this solve the problem for a RAG system?",
+      "options": [
+        "No — RAG systems already control context construction and place retrieved chunks at the start; the lost-in-the-middle problem is a concern for long-context architectures where all documents are included regardless of relevance",
+        "Yes — always placing the most relevant document first in the RAG context block will eliminate the positional accuracy degradation",
+        "No — RAG systems also exhibit lost-in-the-middle behaviour because retrieved chunks are appended sequentially and the model attends to them equally",
+        "Yes — but only if you also reduce top-k to 3 or fewer, since the effect only appears above that threshold"
+      ],
+      "answer": 0,
+      "explanation": "The lost-in-the-middle problem applies to long-context architectures that include all documents indiscriminately. RAG avoids the problem structurally: it selects a small, relevant subset (e.g., top-5 chunks), which fits comfortably near the start of the prompt where attention is strongest. Placing the most relevant chunk first within a 5-chunk context is good practice but is addressing a much smaller issue. The colleague's suggestion conflates long-context and RAG architectures.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "2.12-q3",
+      "type": "multiple-choice",
+      "question": "A product manager asks: 'Our new model supports 1M token context windows. Can we just replace our RAG pipeline with full-document context stuffing?' Your corpus is 50,000 documents × 2,000 tokens = 100M tokens. The corpus updates daily. You serve 5,000 queries/day. What is the most important reason not to replace RAG with full context stuffing in this case?",
+      "options": [
+        "1M context windows don't exist yet; the manager is referring to marketing claims, not shipped capabilities",
+        "The corpus at 100M tokens cannot fit into a 1M token context window, and even if it could, daily update frequency means the prompt would need to be rebuilt and redistributed daily, with per-query inference costs far exceeding a RAG pipeline",
+        "RAG produces better quality answers for all query types, so there is never a reason to use long-context",
+        "The 1M token context window will cause out-of-memory errors on GPU inference hardware"
+      ],
+      "answer": 1,
+      "explanation": "Two blocking problems: first, 100M tokens simply doesn't fit in a 1M token context window — the corpus is 100× larger. Second, even if a sufficient context window existed, daily corpus updates require rebuilding and redistributing a massive prompt daily, a significant operational burden. The per-query inference cost of 100M input tokens would be orders of magnitude higher than RAG at 5,000 queries/day. RAG doesn't always produce better answers (option C is wrong) — for synthesis tasks on stable corpora that fit in context, long-context can outperform RAG.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "2.12-q4",
+      "type": "multiple-choice",
+      "question": "You have a customer support assistant. The product documentation (200 pages, ~100K tokens) changes quarterly. Each customer session is unique with per-customer history (another ~5K tokens). You serve 50,000 queries/day with a latency SLO of 3 seconds. Which architecture and cost optimisation is most appropriate?",
+      "options": [
+        "Pure long-context with the full 105K token prompt on every query — simple to implement and documentation quality is best with full visibility",
+        "Hybrid: load the product documentation as a cached anchor context (100K tokens, cache shared across all users) and use RAG for per-customer history; cache amortises the documentation cost across all queries",
+        "Pure RAG for both documentation and customer history — retrieval is always cheaper than long-context",
+        "Fine-tune the model on the product documentation quarterly and use RAG only for customer history"
+      ],
+      "answer": 1,
+      "explanation": "This is the canonical hybrid use case. The product documentation is static (quarterly updates), shared across all users, and an ideal candidate for prompt caching — 50,000 queries/day sharing a 100K token cached context makes the effective per-query documentation cost near zero. Per-customer history is dynamic and per-user, making RAG the right fit. Pure long-context (option A) at 105K tokens × 50,000 queries/day is extremely expensive without caching. Fine-tuning doesn't give you reliable factual retrieval and requires retraining quarterly.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "2.12-q5",
+      "type": "multiple-choice",
+      "question": "A team is building a research synthesis tool. Users upload 30–50 papers and ask the assistant to identify themes, contradictions, and gaps across the full set. The papers are uploaded fresh per session. Average corpus per session: 300K tokens. Latency SLO: 60 seconds. Cost ceiling: $2 per session. The queries require reasoning across all documents simultaneously. Which architecture is most appropriate?",
+      "options": [
+        "RAG — retrieval is always cheaper and the team should design queries to be answerable from a few chunks",
+        "Pure long-context — synthesis queries that require reasoning across all 30–50 papers simultaneously are a case where long-context outperforms RAG, provided latency and cost are acceptable; 300K input tokens at modern pricing fits within a $2 budget at low query volume per session",
+        "Hybrid — cache the first 10 papers as anchor context and RAG the remaining 40",
+        "Fine-tuning — train on representative paper sets to embed research synthesis capability directly"
+      ],
+      "answer": 1,
+      "explanation": "Synthesis across all documents simultaneously is the primary use case where long-context outperforms RAG. RAG can only surface a subset of documents per query, which means cross-paper reasoning requires multiple queries and synthesis in application code — much more complex. The session parameters favour long-context: 60s latency SLO is generous enough, per-session corpus is uploaded fresh (no indexing pipeline needed), and at low sessions-per-day the $2 budget is achievable with current frontier model pricing for 300K input tokens. Fine-tuning is irrelevant — it encodes patterns, not specific papers uploaded per session.",
+      "personas": ["senior", "leader"]
+    }
+  ]
+}

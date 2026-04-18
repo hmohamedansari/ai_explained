@@ -1,0 +1,390 @@
+---
+moduleId: "2.10"
+title: "Hybrid Memory Architecture"
+description: "Most AI systems treat the context window as their only memory. This means every session starts cold and the system can never learn from past interactions. A proper memory hierarchy — short-term, long-term, and working — requires deliberate design decisions about what to remember, when to retrieve it, and when to forget it."
+track: "rag"
+order: 10
+personas: ["senior"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 15
+  layer3: 30
+productionGotcha: "Most systems only use the context window for memory, meaning every session starts cold and the system can never learn from past interactions. Designing a proper memory hierarchy requires deciding what to remember, when to retrieve it, and when to forget it — and getting any of these wrong is as damaging as not having long-term memory at all."
+draft: false
+---
+
+## Layer 1: Surface
+
+Every time a user starts a new session with a context-window-only system, the system has forgotten everything. The user's preferences, their prior queries, the answers that worked — gone. This is acceptable for single-turn use cases. It becomes a product liability for anything that benefits from continuity: customer support, coding assistants, research tools.
+
+The solution is a memory hierarchy that mirrors how humans think across time.
+
+| Memory tier | What it is | Scope | Example |
+|---|---|---|---|
+| **Short-term** | The context window | Current conversation | Messages, retrieved chunks, tool outputs |
+| **Working** | In-flight scratchpad | Current task | Intermediate reasoning, draft answers, partial results |
+| **Long-term** | Persistent external store | Cross-session | User preferences, past decisions, domain facts |
+
+The three tiers serve different purposes and require different implementations. Conflating them — using the context window for everything, or storing everything in a vector store — is the most common mistake.
+
+### What belongs in each tier
+
+**Short-term:** the current conversation. All messages, retrieved context, tool results. Managed automatically by the context window. Expires at session end.
+
+**Working memory:** intermediate state within a complex task. A plan being executed, a document being analyzed, a code file being edited. Needs to survive context compaction but is discarded when the task completes.
+
+**Long-term:** persistent knowledge that should survive across sessions. Comes in two sub-types:
+- *Episodic*: "user asked about X last Tuesday and preferred Y format"
+- *Semantic*: "this codebase uses async patterns throughout"
+
+### Production Gotcha
+
+> **Common Gotcha:** Most systems only use the context window for memory. Every session starts cold. Designing a proper memory hierarchy requires deciding what to remember, when to retrieve it, and when to forget it — and getting any of these wrong is as damaging as not having long-term memory at all. Storing everything creates noise; retrieving too eagerly creates distraction; never forgetting creates stale context.
+
+---
+
+## Layer 2: Guided
+
+### The three-tier memory manager
+
+```python
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Optional
+
+
+@dataclass
+class MemoryEntry:
+    content: str
+    memory_type: str          # "episodic" | "semantic" | "preference"
+    source_session_id: str
+    created_at: datetime
+    last_accessed: datetime
+    access_count: int = 0
+    importance: float = 0.5   # 0.0 to 1.0, used for forgetting decisions
+    metadata: dict = field(default_factory=dict)
+
+
+class HybridMemoryManager:
+    def __init__(
+        self,
+        vector_store,          # Long-term: vector DB (e.g. pgvector, Chroma)
+        key_value_store,       # Working: Redis or in-process dict
+        short_term_limit: int = 8000,   # tokens, before compaction triggers
+        long_term_ttl_days: int = 90,
+    ):
+        self.vector_store = vector_store
+        self.kv = key_value_store
+        self.short_term_limit = short_term_limit
+        self.long_term_ttl_days = long_term_ttl_days
+
+    # ── Short-term: context window management ──────────────────────────────
+
+    def get_short_term(self, session_id: str) -> list[dict]:
+        """Return the current conversation messages for this session."""
+        return self.kv.get(f"session:{session_id}:messages", [])
+
+    def append_short_term(self, session_id: str, message: dict) -> None:
+        messages = self.get_short_term(session_id)
+        messages.append(message)
+        self.kv.set(f"session:{session_id}:messages", messages, ttl=3600)
+
+        if self._token_count(messages) > self.short_term_limit:
+            self._compact_short_term(session_id, messages)
+
+    def _compact_short_term(self, session_id: str, messages: list[dict]) -> None:
+        """
+        Summarise older messages to stay under the token limit.
+        The summary replaces the original messages; recent turns are kept verbatim.
+        """
+        keep_recent = 6
+        to_summarise = messages[:-keep_recent]
+        recent = messages[-keep_recent:]
+
+        if not to_summarise:
+            return
+
+        summary = llm.chat(
+            model="fast",
+            system=(
+                "Summarise this conversation history into a compact paragraph. "
+                "Preserve specific facts, decisions, and user preferences. "
+                "Omit pleasantries and repetition."
+            ),
+            messages=[{
+                "role": "user",
+                "content": "\n".join(f"{m['role']}: {m['content']}" for m in to_summarise)
+            }],
+            max_tokens=200,
+        ).text
+
+        compacted = [{"role": "system", "content": f"[Prior context summary] {summary}"}] + recent
+        self.kv.set(f"session:{session_id}:messages", compacted, ttl=3600)
+
+    # ── Working memory: in-flight task state ───────────────────────────────
+
+    def set_working(self, session_id: str, key: str, value: str, ttl: int = 1800) -> None:
+        """Store intermediate task state. Expires when the task completes or times out."""
+        self.kv.set(f"working:{session_id}:{key}", value, ttl=ttl)
+
+    def get_working(self, session_id: str, key: str) -> Optional[str]:
+        return self.kv.get(f"working:{session_id}:{key}")
+
+    def clear_working(self, session_id: str) -> None:
+        """Call when a task completes to free working memory."""
+        self.kv.delete_prefix(f"working:{session_id}:")
+
+    # ── Long-term memory: cross-session persistence ─────────────────────────
+
+    def store_long_term(
+        self,
+        user_id: str,
+        content: str,
+        memory_type: str,
+        importance: float,
+        session_id: str,
+        metadata: dict | None = None,
+    ) -> str:
+        """
+        Embed and store a memory in the vector store.
+        Returns the memory ID.
+        """
+        entry = MemoryEntry(
+            content=content,
+            memory_type=memory_type,
+            source_session_id=session_id,
+            created_at=datetime.utcnow(),
+            last_accessed=datetime.utcnow(),
+            importance=importance,
+            metadata=metadata or {},
+        )
+        embedding = embed(content)
+        return self.vector_store.upsert(
+            user_id=user_id,
+            vector=embedding,
+            payload=entry.__dict__,
+        )
+
+    def retrieve_long_term(
+        self,
+        user_id: str,
+        query: str,
+        top_k: int = 5,
+        memory_types: list[str] | None = None,
+    ) -> list[MemoryEntry]:
+        """
+        Retrieve relevant memories for the current query.
+        Filter by memory_type when only certain kinds are needed.
+        """
+        filters = {"user_id": user_id}
+        if memory_types:
+            filters["memory_type"] = {"$in": memory_types}
+
+        results = self.vector_store.search(
+            vector=embed(query),
+            top_k=top_k,
+            filters=filters,
+        )
+
+        for r in results:
+            self.vector_store.update(r["id"], {"last_accessed": datetime.utcnow().isoformat()})
+
+        return [MemoryEntry(**r["payload"]) for r in results]
+
+    def forget_stale(self, user_id: str) -> int:
+        """
+        Delete memories that are old and low-importance.
+        Returns count of deleted entries.
+        """
+        cutoff = datetime.utcnow() - timedelta(days=self.long_term_ttl_days)
+        return self.vector_store.delete_where(
+            filters={
+                "user_id": user_id,
+                "last_accessed": {"$lt": cutoff.isoformat()},
+                "importance": {"$lt": 0.4},
+            }
+        )
+```
+
+### Deciding what to store in long-term memory
+
+Not every conversation warrants a memory write. The key question: would this information be useful in a future session?
+
+```python
+def should_store_long_term(message_pair: dict) -> tuple[bool, str, float]:
+    """
+    Evaluate whether an assistant/user exchange should be persisted.
+    Returns: (should_store, memory_type, importance_score)
+    """
+    response = llm.chat(
+        model="fast",
+        system=(
+            "Evaluate this conversation exchange. Decide:\n"
+            "1. Should it be stored for future sessions? (YES/NO)\n"
+            "2. If YES, type: preference | episodic | semantic\n"
+            "3. If YES, importance 0.0-1.0 (1.0 = critical, 0.0 = trivial)\n\n"
+            "Preferences: user stated how they want things done.\n"
+            "Episodic: specific event or decision that occurred.\n"
+            "Semantic: factual knowledge about the user's domain.\n\n"
+            "Respond as JSON: {\"store\": bool, \"type\": str, \"importance\": float}"
+        ),
+        messages=[{
+            "role": "user",
+            "content": (
+                f"User: {message_pair['user']}\n"
+                f"Assistant: {message_pair['assistant']}"
+            )
+        }],
+        max_tokens=80,
+    )
+
+    import json
+    result = json.loads(response.text)
+    return result["store"], result.get("type", "episodic"), result.get("importance", 0.5)
+```
+
+### Assembling context with all three tiers
+
+```python
+def build_context(
+    user_id: str,
+    session_id: str,
+    query: str,
+    memory_manager: HybridMemoryManager,
+    rag_chunks: list[dict],
+) -> tuple[str, list[dict]]:
+    """
+    Combine long-term memory, working state, short-term history,
+    and retrieved RAG chunks into a coherent context.
+    Returns system_prompt addition and message list.
+    """
+    # 1. Retrieve relevant long-term memories
+    memories = memory_manager.retrieve_long_term(
+        user_id=user_id,
+        query=query,
+        top_k=3,
+    )
+    memory_block = "\n".join(f"- {m.content}" for m in memories) if memories else ""
+
+    # 2. Check working memory for active task state
+    active_task = memory_manager.get_working(session_id, "current_task")
+
+    # 3. Get short-term conversation history
+    history = memory_manager.get_short_term(session_id)
+
+    # 4. Assemble system context block
+    system_additions = []
+    if memory_block:
+        system_additions.append(f"[User context from prior sessions]\n{memory_block}")
+    if active_task:
+        system_additions.append(f"[Current task in progress]\n{active_task}")
+    if rag_chunks:
+        chunk_text = "\n\n".join(
+            f"[Document {i+1}]\n{c['text']}" for i, c in enumerate(rag_chunks)
+        )
+        system_additions.append(f"[Retrieved documents]\n{chunk_text}")
+
+    return "\n\n".join(system_additions), history
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### Architecture diagram: state transitions between memory tiers
+
+```
+                         ┌─────────────────────────────────────────────┐
+                         │            User Session                      │
+                         │                                              │
+  User input ──────────► │  ┌────────────────────────────────────────┐ │
+                         │  │         Short-term Memory               │ │
+                         │  │  (context window, ~8K–128K tokens)      │ │
+                         │  │  ┌──────────────────────────────────┐   │ │
+                         │  │  │  System prompt                   │   │ │
+                         │  │  │  Long-term memories (retrieved)  │   │ │
+                         │  │  │  Working memory snapshot         │   │ │
+                         │  │  │  RAG chunks                      │   │ │
+                         │  │  │  Conversation history            │   │ │
+                         │  │  └──────────────────────────────────┘   │ │
+                         │  └──────────────┬─────────────────────┬───┘ │
+                         │                 │                     │     │
+                         │        compaction │             write  │     │
+                         │           (TTL)  ▼           decision ▼     │
+                         │  ┌───────────────────┐  ┌─────────────────┐ │
+                         │  │  Working Memory    │  │  Long-term      │ │
+                         │  │  (Redis / KV)      │  │  Memory         │ │
+                         │  │  Task state        │  │  (Vector store) │ │
+                         │  │  Intermediate      │  │  Episodic       │ │
+                         │  │  results           │  │  Semantic       │ │
+                         │  │  Draft outputs     │  │  Preferences    │ │
+                         │  └────────────────────┘  └────────┬────────┘ │
+                         │  Cleared on task complete          │         │
+                         │                                   │ retrieve │
+                         │  ◄────────────────────────────────┘         │
+                         └─────────────────────────────────────────────┘
+
+                                           │
+                                   forget_stale()
+                                   (cron job, nightly)
+                                           │
+                                           ▼
+                                     Deleted entries
+                                  (low importance + old)
+```
+
+**State transition rules:**
+1. Short-term → Working: extracted when a multi-step task begins
+2. Short-term → Long-term: when `should_store_long_term` returns true at session end
+3. Working → Short-term: snapshot appended to context at each step
+4. Working → Deleted: cleared on task completion
+5. Long-term → Short-term: retrieved at session start and on each query
+6. Long-term → Deleted: `forget_stale()` applies importance × recency filter
+
+### Why the write decision is the hardest part
+
+The temptation is to store everything and filter at retrieval time. This fails at scale for two reasons:
+
+**Retrieval pollution:** if you store every conversation turn, the vector store fills with low-signal content (pleasantries, clarifying questions, failed attempts). Retrieval similarity scores degrade because the noise floor rises. Relevant memories no longer surface reliably in top-k results.
+
+**Compounding staleness:** a user's preference from 18 months ago ("I prefer TypeScript") may conflict with their current context ("I just migrated everything to Python"). Without TTL and importance-weighted forgetting, stale long-term memories override current intent.
+
+The right model is selective ingestion at write time and TTL-based expiry, not comprehensive storage with deferred filtering.
+
+### The forgetting problem: when not to remember
+
+Three categories of content that should never enter long-term memory:
+
+1. **Transient task state:** "Step 3 of 7: analysing dependencies." This is working memory, not long-term. Storing it pollutes episodic memory with meaningless procedural noise.
+2. **Sensitive information:** PII, credentials, private content that users may not expect to persist across sessions. Apply a classification step before the long-term write decision.
+3. **Wrong answers:** when the model made a factual error in a prior session, storing the exchange as episodic memory locks in the error. Filter for confirmed-correct exchanges only.
+
+### Episodic vs semantic: why the distinction matters operationally
+
+These two long-term memory sub-types need different retrieval strategies:
+
+**Episodic** (events): retrieve by recency and specificity. "What did the user decide about X in the last three sessions?" Temporal metadata is critical. These memories can conflict (user changed their mind) and recency should win.
+
+**Semantic** (facts about the domain): retrieve by relevance regardless of recency. "What is true about this user's codebase?" These memories accumulate and rarely conflict. Update in place rather than appending.
+
+Conflating them — storing both in the same collection without type discrimination — means retrieval mixes event-based and fact-based results, reducing the quality of both.
+
+### Failure modes taxonomy
+
+| Failure | Cause | Fix |
+|---|---|---|
+| **Cold start on every session** | No long-term memory tier | Implement episodic store at minimum |
+| **Memory pollution** | Storing every turn without selectivity | Apply `should_store_long_term` gate |
+| **Stale preference override** | No TTL on long-term memories | Importance × recency forgetting policy |
+| **Working memory leak** | Working state not cleared after task completion | `clear_working()` in task completion handler |
+| **Context window overflow** | Short-term not compacted | Compaction trigger on token count |
+| **Retrieval noise** | Long-term store too large and undifferentiated | Type filtering at retrieval time |
+
+### Further reading
+
+- [MemGPT: Towards LLMs as Operating Systems](https://arxiv.org/abs/2310.08560); Packer et al., 2023. Frames memory management in LLMs as an OS paging problem; introduced the idea of managing context window contents explicitly with in-context and external storage tiers.
+- [Generative Agents: Interactive Simulacra of Human Behavior](https://arxiv.org/abs/2304.03442); Park et al., 2023. Multi-agent simulation with persistent episodic memory, reflection, and retrieval; the memory architecture section is directly applicable to production systems.
+- [A Survey on Memory-Augmented Neural Networks](https://arxiv.org/abs/2011.06240); Peng et al., 2020. Comprehensive taxonomy of memory augmentation approaches; useful background for the design decisions behind the three-tier model.

@@ -1,0 +1,76 @@
+{
+  "title": "Reliability Patterns for Agent Systems — Check your understanding",
+  "moduleId": "4.12",
+  "questions": [
+    {
+      "id": "4.12-q1",
+      "type": "multiple-choice",
+      "question": "Your agent sends an email when a contract is signed. During a network timeout, the agent retries the tool call. The customer receives two identical emails. What reliability pattern was missing?",
+      "options": [
+        "Circuit breaker — the agent should have stopped retrying after the first failure",
+        "Idempotency key — the email tool should reject duplicate requests with the same key, making multiple calls safe to execute",
+        "Compensation transaction — the agent should have sent a follow-up email cancelling the first",
+        "Quorum — the agent should have confirmed delivery with at least two email servers"
+      ],
+      "answer": 1,
+      "explanation": "Idempotency keys solve this exactly: the first call generates a unique key (e.g., contract_id + action_type); every subsequent call with the same key is a no-op. The email service can safely receive multiple requests and deduplicate them. Circuit breakers control retry rate but do not prevent duplicate effects when a timeout occurs on a request that actually succeeded. Compensation transactions are for undoing side effects after failure, not for preventing duplicates during retry. Quorum is for consensus in distributed decision-making.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "4.12-q2",
+      "type": "multiple-choice",
+      "question": "An agent completes step 1 (reserve inventory) and step 2 (charge card) before failing at step 3 (create shipment). The agent retries from the beginning and charges the card twice. What pattern prevents this?",
+      "options": [
+        "Retry with exponential backoff — this prevents the agent from retrying too quickly",
+        "Circuit breaker — this stops the agent from making calls to a failing service",
+        "Compensation transaction — step 2 (charge card) should have a paired undo action (refund) that runs when subsequent steps fail, plus idempotency to prevent duplicate charges on retry",
+        "Checkpointing — save progress after each step and resume from the last successful checkpoint on retry"
+      ],
+      "answer": 2,
+      "explanation": "This scenario requires two patterns working together. A compensation transaction (saga pattern) means each step has a paired undo: if step 3 fails, the agent runs undo-step-2 (refund) and undo-step-1 (release inventory) before retrying. Idempotency keys prevent the charge from happening twice if the agent retries from step 2. Checkpointing alone doesn't prevent duplicate charges on retry — resuming from step 2 still executes the charge again. Exponential backoff and circuit breakers address retry timing and service health, not duplicate side effects.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "4.12-q3",
+      "type": "multiple-choice",
+      "question": "Your agent calls an external pricing API 200 times per minute. The API begins returning errors and the agent keeps retrying every request. The API is now receiving 600 requests per minute from retries, making recovery impossible. What pattern prevents this?",
+      "options": [
+        "Idempotency keys — preventing duplicate requests from accumulating",
+        "Circuit breaker — after a threshold of failures, stop sending requests to the failing service for a cooldown period, then test with a small probe before resuming",
+        "Compensation transaction — undo the requests that failed before sending new ones",
+        "Quorum — route requests across three pricing API instances and use majority response"
+      ],
+      "answer": 1,
+      "explanation": "Circuit breakers are designed for exactly this scenario: cascading retry storms that prevent failing services from recovering. After a configurable failure threshold, the circuit 'opens' and all requests fail immediately (no retry) for a cooldown period. After the cooldown, a probe request tests whether the service has recovered. If it succeeds, the circuit closes and normal traffic resumes. This protects both the agent (from accumulating cost and latency) and the downstream service (from being overwhelmed by retries). Idempotency keys prevent duplicate effects but don't stop the storm. Quorum requires multiple instances of the same service.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "4.12-q4",
+      "type": "multiple-choice",
+      "question": "A multi-agent pipeline has three agents, each with 92% per-step accuracy. A business stakeholder says the overall accuracy is 'probably around 90%.' What is the actual compound accuracy, and why does this matter?",
+      "options": [
+        "~90% — agent accuracy is averaged, not compounded, across the pipeline",
+        "~78% — 0.92 × 0.92 × 0.92 ≈ 0.78, meaning roughly 1 in 5 runs produces an incorrect final output even when each individual agent performs well",
+        "~92% — the final agent's accuracy dominates because it synthesises all prior outputs",
+        "~84% — errors are partially self-correcting when agents see each other's outputs"
+      ],
+      "answer": 1,
+      "explanation": "Accuracy compounds multiplicatively in sequential pipelines: 0.92³ ≈ 0.78. This means roughly 22% of runs produce incorrect final outputs even with individually high-performing agents. This is the '17× error trap' failure mode — individual agent metrics look healthy while system-level accuracy is significantly degraded. The business stakeholder's intuition (around 90%) reflects averaging, not compounding. Self-correction would require explicit verification steps between agents, not just observing each other's outputs. This math is why end-to-end pipeline evaluation is non-negotiable.",
+      "personas": ["senior", "sre"]
+    },
+    {
+      "id": "4.12-q5",
+      "type": "multiple-choice",
+      "question": "Your agent tool call to an invoice generation service intermittently times out. You implement exponential backoff with 3 retries. After deploying, you discover that some invoices are being generated twice because the first call succeeded but returned a timeout to the agent. What is the correct fix?",
+      "options": [
+        "Reduce the timeout threshold so the agent knows faster whether a call succeeded",
+        "Switch to a synchronous call pattern to eliminate the possibility of partial success",
+        "Add idempotency keys to the invoice generation call so the service deduplicates requests with the same key, making retries safe regardless of whether the original call succeeded",
+        "Implement a circuit breaker to stop retrying when the service is slow"
+      ],
+      "answer": 2,
+      "explanation": "A timeout does not mean the call failed — it means the agent does not know whether the call succeeded. Retrying without idempotency protection duplicates the action. The fix is to generate a unique idempotency key before the first call (e.g., a UUID tied to the business event), include it in every attempt, and have the service return success if it already processed a request with that key. This makes retries safe regardless of what the original call's outcome was. Reducing timeout, switching to synchronous calls, and circuit breakers do not solve the fundamental problem of not knowing whether a timed-out call succeeded.",
+      "personas": ["senior", "sre"]
+    }
+  ]
+}

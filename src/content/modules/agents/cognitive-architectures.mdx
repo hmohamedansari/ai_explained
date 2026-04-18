@@ -1,0 +1,323 @@
+---
+moduleId: "4.9"
+title: "Cognitive Architectures"
+description: "The way you structure an agent's memory, planning, and action loop determines what kinds of tasks it can handle well — and where it will fail. This module maps the three main cognitive architecture families and gives you the decision criteria to choose between them."
+track: "agents"
+order: 9
+personas: ["senior"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 18
+  layer3: 35
+productionGotcha: "Plan-and-Execute sounds more organised than ReAct, but if the plan is wrong and there is no replanning loop, the agent executes a bad plan to completion. Always verify whether your architecture can revise its plan mid-execution — most tutorial implementations cannot."
+draft: false
+---
+
+## Layer 1: Surface
+
+An agent that works well on a research task often fails on a coding task using the same model. The difference is rarely the model — it is the architecture. How the agent structures its reasoning, when it acts, and how it uses memory all shape what it can and cannot do.
+
+Three architecture families cover most production deployments:
+
+| Architecture | How it works | Best for | Breaks on |
+|---|---|---|---|
+| **ReAct** | Interleaves reasoning and action in each step | Open-ended tasks, unknown path length | Long tasks where context fills up fast |
+| **Plan-and-Execute** | Generates a full plan first, then executes step-by-step | Tasks with known structure and stable requirements | Tasks where early steps change what later steps should be |
+| **Reflexion** | Adds a self-evaluation loop after each attempt, revising based on feedback | Tasks with verifiable correctness (code, math, search) | Tasks with no reliable success signal |
+
+Each architecture is a different answer to the same question: *when should the agent reason about what to do next?*
+
+In ReAct, the answer is "before every action." In Plan-and-Execute, it is "once, at the start." In Reflexion, it is "after you fail."
+
+> **Production gotcha:** Plan-and-Execute sounds more organised than ReAct, but if the plan is wrong and there is no replanning loop, the agent executes a bad plan to completion. Always verify whether your architecture can revise its plan mid-execution — most tutorial implementations cannot.
+
+---
+
+## Layer 2: Guided
+
+### ReAct: reason before every action
+
+ReAct (Reasoning + Acting) structures each step as a triplet: **Thought → Action → Observation**. The model narrates its reasoning, takes an action, observes the result, and repeats.
+
+```python
+REACT_SYSTEM_PROMPT = """
+You are an agent with access to tools. For each step, you must:
+1. Think: reason about what you know and what you need to do next
+2. Act: call exactly one tool
+3. Observe the result before continuing
+
+Format:
+Thought: <your reasoning>
+Action: <tool_name>(<args>)
+Observation: <result>
+
+Repeat until you have a final answer, then output:
+Final Answer: <answer>
+"""
+
+def run_react_agent(goal: str, tools: dict, max_steps: int = 15) -> str:
+    messages = [{"role": "user", "content": goal}]
+
+    for step in range(max_steps):
+        response = llm.chat(
+            system=REACT_SYSTEM_PROMPT,
+            messages=messages,
+            stop_sequences=["Observation:"],  # model stops after Action; we inject observation
+        )
+
+        text = response.text
+        messages.append({"role": "assistant", "content": text})
+
+        if "Final Answer:" in text:
+            return text.split("Final Answer:")[-1].strip()
+
+        # Parse and execute the action
+        action_line = [l for l in text.split("\n") if l.startswith("Action:")][0]
+        tool_name, args = parse_action(action_line)
+
+        if tool_name not in tools:
+            observation = f"Error: unknown tool '{tool_name}'"
+        else:
+            observation = tools[tool_name](**args)
+
+        # Inject the observation so the next step can see it
+        messages.append({
+            "role": "user",
+            "content": f"Observation: {observation}"
+        })
+
+    return "Max steps reached without a final answer."
+```
+
+ReAct's strength is adaptability: the model reconsiders its approach after every observation. Its weakness is context growth. On a 15-step task with verbose observations, the context window fills fast — and the model's reasoning quality degrades when earlier steps scroll out of view.
+
+### Plan-and-Execute: separate planning from acting
+
+Plan-and-Execute splits the work into two phases. A **planner** generates an ordered list of steps. An **executor** runs each step and returns results. The planner does not see intermediate results unless you add a replanning step.
+
+```python
+def plan_and_execute(goal: str, tools: dict) -> str:
+    # Phase 1: generate a plan
+    plan_response = llm.chat(
+        system="You are a planning agent. Break the goal into an ordered list of concrete steps. "
+               "Each step must be independently executable. Output steps as a numbered list.",
+        messages=[{"role": "user", "content": goal}]
+    )
+    steps = parse_numbered_list(plan_response.text)
+
+    results = []
+
+    # Phase 2: execute each step
+    for i, step in enumerate(steps):
+        execution_response = llm.chat(
+            system="You are an executor. Complete the given step using the available tools. "
+                   "Return a concise result.",
+            messages=[
+                {"role": "user", "content": f"Step {i+1}: {step}\n\nPrevious results:\n{format_results(results)}"}
+            ],
+            tools=list(tools.values())
+        )
+
+        result = extract_tool_results(execution_response)
+        results.append({"step": step, "result": result})
+
+    # Synthesise final answer from all results
+    synthesis = llm.chat(
+        system="Synthesise the step results into a final answer for the original goal.",
+        messages=[{"role": "user", "content": f"Goal: {goal}\n\nResults:\n{format_results(results)}"}]
+    )
+    return synthesis.text
+
+
+def plan_and_execute_with_replanning(goal: str, tools: dict) -> str:
+    """Adds a replanning check after each step — this is the version you actually want."""
+    steps = generate_plan(goal)
+    results = []
+
+    for i, step in enumerate(steps):
+        result = execute_step(step, results, tools)
+        results.append({"step": step, "result": result})
+
+        # Check whether the plan needs revision given what we just learned
+        replan = llm.chat(
+            system="You are a replanning agent. Given the original goal, the current plan, "
+                   "and the result so far, decide: should the remaining steps be revised? "
+                   "If yes, return a revised plan. If no, return 'CONTINUE'.",
+            messages=[{
+                "role": "user",
+                "content": f"Goal: {goal}\nOriginal plan: {steps}\nCompleted so far: {results}\nRemaining: {steps[i+1:]}"
+            }]
+        )
+
+        if "CONTINUE" not in replan.text:
+            steps = steps[:i+1] + parse_numbered_list(replan.text)
+
+    return synthesise(goal, results)
+```
+
+Without the replanning check, Plan-and-Execute is brittle: a flawed assumption in step 1 propagates through every subsequent step. With replanning, it trades some of that brittleness for higher latency.
+
+### Reflexion: learn from failure
+
+Reflexion adds an outer loop. After each attempt, a **self-evaluator** judges the result. If it fails, the agent generates a verbal reflection — a diagnosis of what went wrong — stores it in memory, and tries again.
+
+```python
+def run_reflexion_agent(
+    goal: str,
+    tools: dict,
+    evaluator: callable,
+    max_attempts: int = 3
+) -> str:
+    reflections = []
+
+    for attempt in range(max_attempts):
+        # Build context with all previous reflections
+        reflection_context = ""
+        if reflections:
+            reflection_context = (
+                "Previous attempts failed. Here is what you learned:\n"
+                + "\n".join(f"- {r}" for r in reflections)
+                + "\n\nAvoid these mistakes in this attempt."
+            )
+
+        # Run a ReAct-style attempt with reflection context injected
+        result = run_react_agent(
+            goal=f"{reflection_context}\n\nGoal: {goal}",
+            tools=tools
+        )
+
+        # Evaluate the result (could be a unit test, a verifier, or an LLM judge)
+        success, feedback = evaluator(goal, result)
+
+        if success:
+            return result
+
+        # Generate a verbal reflection on the failure
+        reflection_response = llm.chat(
+            system="You are a self-critic. Given a goal, an attempt, and evaluation feedback, "
+                   "write a brief diagnosis of what went wrong and what to do differently.",
+            messages=[{
+                "role": "user",
+                "content": f"Goal: {goal}\nAttempt: {result}\nFeedback: {feedback}"
+            }]
+        )
+        reflections.append(reflection_response.text)
+
+    return f"Failed after {max_attempts} attempts. Last result: {result}"
+```
+
+Reflexion works best when there is a reliable success signal — a unit test, a verifier, or a domain where an LLM judge is well-calibrated. Without a reliable signal, the evaluator becomes the bottleneck.
+
+### Long-term memory and persistent state
+
+All three architectures above use in-context memory: everything the agent knows lives in the current messages array. This is fine for single sessions. For agents that handle work across sessions — a coding agent that picks up where it left off, a research agent building a knowledge base — you need external memory.
+
+```python
+class PersistentAgentMemory:
+    def __init__(self, agent_id: str, vector_store: VectorStore, kv_store: KVStore):
+        self.agent_id = agent_id
+        self.vectors = vector_store  # semantic search over past observations
+        self.kv = kv_store           # structured facts: "project X uses Python 3.12"
+
+    def store_observation(self, step: str, result: str) -> None:
+        embedding_text = f"Step: {step}\nResult: {result}"
+        self.vectors.upsert(
+            id=f"{self.agent_id}:{hash(step)}",
+            text=embedding_text,
+            metadata={"agent_id": self.agent_id, "step": step}
+        )
+
+    def retrieve_relevant(self, query: str, top_k: int = 5) -> list[str]:
+        results = self.vectors.search(query, top_k=top_k, filter={"agent_id": self.agent_id})
+        return [r.text for r in results]
+
+    def store_fact(self, key: str, value: str) -> None:
+        self.kv.set(f"{self.agent_id}:{key}", value)
+
+    def get_fact(self, key: str) -> str | None:
+        return self.kv.get(f"{self.agent_id}:{key}")
+
+    def build_context_prefix(self, current_goal: str) -> str:
+        relevant = self.retrieve_relevant(current_goal)
+        if not relevant:
+            return ""
+        return "Relevant memory from past sessions:\n" + "\n".join(f"- {r}" for r in relevant) + "\n\n"
+```
+
+Long-term memory introduces a retrieval problem: the agent only benefits from past observations if it retrieves the right ones. Retrieval quality directly affects plan quality — a memory miss is as bad as no memory.
+
+---
+
+## Layer 3: Deep Dive
+
+### ReAct vs. Plan-and-Execute: where each wins
+
+The original ReAct paper (Yao et al., 2022) evaluated the architecture on HotpotQA (multi-step question answering) and Fever (fact verification). ReAct outperformed chain-of-thought prompting on tasks requiring information lookup — because intermediate observations changed what subsequent reasoning steps needed to do.
+
+Plan-and-Execute architectures perform better when:
+
+1. **The task structure is stable.** Software development tasks where the subtasks (write tests, implement function, refactor) are known upfront benefit from planning. Research tasks where every search result might redirect the inquiry do not.
+
+2. **Parallelism is possible.** A planner that produces independent subtasks can farm them to parallel executors. ReAct is inherently sequential — each thought depends on the previous observation. Systems like LangGraph's parallel branches or custom multi-agent orchestrators exploit this structural advantage.
+
+3. **Context budget is tight.** A planner generates a compact task list. An executor sees only its assigned step and the relevant prior results — not the full interleaved reasoning trace. This makes Plan-and-Execute more context-efficient on long tasks.
+
+ReAct performs better when:
+
+1. **The path is genuinely unknown.** Open-ended research, exploratory debugging, and competitive analysis tasks often cannot be planned upfront because each discovery changes what to look at next.
+
+2. **Early steps are unreliable.** If the first tool call commonly fails or returns unexpected results, a ReAct agent adapts on the fly. A Plan-and-Execute agent without a replanning loop does not.
+
+### The Reflexion architecture in depth
+
+Shinn et al. (2023) introduced Reflexion as a reinforcement-without-gradient method: instead of updating model weights based on a reward signal, the agent updates its verbal memory. The key insight is that large language models can generate useful diagnoses of their own failures when given the failure and the task.
+
+Reflexion assumes three things that do not always hold in production:
+
+1. **A reliable evaluator.** The paper used unit tests (for coding tasks) and exact-match retrieval (for QA). In production, these are rare. LLM judges can substitute, but introduce their own reliability concerns.
+
+2. **Stateless retries.** The architecture assumes each attempt starts fresh except for the verbal reflections. If the tool environment has side effects (files written, APIs called), retries are not free.
+
+3. **Bounded attempt counts.** Reflexion without a budget cap can loop indefinitely if the evaluator never fires. In production, always set `max_attempts` and monitor attempt distributions — a spike means either the task is too hard or the evaluator is miscalibrated.
+
+### Named failure modes in cognitive architectures
+
+**Plan-and-commit:** The planner produces a confident plan with an early factual error. Because there is no replanning loop, all subsequent steps build on the wrong foundation. The agent finishes and reports success. Mitigation: add a post-step verifier that flags results inconsistent with the original goal; trigger replanning on flag.
+
+**Observation blindness:** In a Plan-and-Execute setup, the executor for step N does not see the observation from step N-2 because those results were summarised away. Crucial context is lost. The agent makes a decision that contradicts earlier findings. Mitigation: pass a rolling summary of observations to each executor, or use a shared working memory store.
+
+**Reflection hallucination:** In Reflexion, the self-critic generates a diagnosis of failure that is confident but wrong — the agent "learns" a false lesson and applies it to subsequent attempts, making performance worse. Mitigation: require the self-critic to cite specific lines from the failed attempt rather than making abstract diagnoses.
+
+**Memory retrieval drift:** In persistent-memory architectures, the agent retrieves memories by semantic similarity. On later sessions, the most semantically similar memories are from the last session, not necessarily the most relevant ones. Older but important memories drift below the retrieval threshold. Mitigation: maintain a separate "pinned context" store for facts that should always be included, regardless of retrieval score.
+
+**Context window saturation:** ReAct agents on long tasks accumulate reasoning traces, observations, and tool outputs. Reasoning quality degrades noticeably when context exceeds 50-60% of the model's window, because earlier steps are increasingly compressed or truncated. Mitigation: implement a summarisation step every N iterations that condenses the trailing context into a working-memory summary, then truncates the raw trace.
+
+### Choosing an architecture
+
+Use this decision tree as a starting point, not a final answer:
+
+```
+Does the task require discovery (each step changes what the next step should be)?
+├── Yes → ReAct
+└── No → Can you enumerate the major subtasks upfront?
+    ├── Yes → Plan-and-Execute (add replanning if requirements may shift)
+    └── No → ReAct with longer step budget
+
+Is there a reliable, fast success signal (unit tests, verifier, exact match)?
+├── Yes → Consider wrapping either architecture in a Reflexion outer loop
+└── No → Skip Reflexion; unreliable evaluators make Reflexion worse than a single attempt
+
+Does the agent need to retain knowledge across sessions (>1 day)?
+├── Yes → Add external memory layer (vector store + KV store)
+└── No → In-context memory is sufficient
+```
+
+### Further reading
+
+- [ReAct: Synergizing Reasoning and Acting in Language Models](https://arxiv.org/abs/2210.03629); Yao et al., 2022. The foundational paper defining the Thought-Action-Observation loop and benchmarking it against chain-of-thought on multi-step tasks.
+- [Reflexion: Language Agents with Verbal Reinforcement Learning](https://arxiv.org/abs/2303.11366); Shinn et al., 2023. Introduces verbal self-reflection as a substitute for gradient-based learning; includes ablations showing which components contribute most.
+- [Plan-and-Solve Prompting: Improving Zero-Shot Chain-of-Thought Reasoning by Large Language Models](https://arxiv.org/abs/2305.04091); Wang et al., 2023. Formalises the separate-planning-from-execution approach and evaluates it on arithmetic, commonsense, and symbolic reasoning benchmarks.
+- [Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427); Sumers et al., 2023. Comprehensive taxonomy of memory types, action spaces, and decision-making approaches across agent architectures.

@@ -1,0 +1,319 @@
+---
+moduleId: "3.9"
+title: "The AGENTS.md Convention"
+description: "AGENTS.md is a machine-readable config file at the root of a repo that tells AI coding agents how to work in that codebase — what tools to use, what files to avoid, how to run tests, and what conventions to follow. It is a team coordination artifact as much as a technical one."
+track: "protocols"
+order: 9
+personas: ["senior"]
+volatility: "emerging"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 5
+  layer2: 20
+  layer3: 30
+productionGotcha: "An outdated AGENTS.md pointing to deprecated test commands or wrong file paths actively misleads agents — you get worse results than with no file at all. Treat it as a living document with a clear owner, not a one-time setup artifact."
+draft: false
+---
+
+## Layer 1: Surface
+
+When a developer joins a new codebase, they read the README, ask teammates, and learn the conventions over weeks. An AI coding agent has none of that context. Without it, agents suggest test commands that don't exist, modify files that should never be touched, and write code in a style that fails your linter.
+
+**AGENTS.md** is the file that gives agents that context upfront. Placed at the repo root, it is read automatically by agents that support it (Codex, some configurations of Claude Code, and an emerging set of CI-integrated agents). It encodes the machine-readable equivalent of the onboarding conversation:
+
+- How do I run the tests?
+- What areas of the codebase should I avoid?
+- What conventions does this team follow?
+- What tools can I use?
+
+Think of it as `.github/CODEOWNERS` but for AI agents. `CODEOWNERS` tells GitHub who owns which files. `AGENTS.md` tells AI agents how to work across all of them.
+
+**What belongs in AGENTS.md versus what doesn't:**
+
+| Put in AGENTS.md | Keep elsewhere |
+|---|---|
+| Test and lint commands | Architecture decisions (ADRs) |
+| File paths and directory structure | Detailed API documentation |
+| Coding style rules specific to this repo | General language best practices |
+| Deploy and release procedures | Team process and meeting norms |
+| Tool permissions (what the agent can/cannot run) | Onboarding guides for humans |
+
+The production gotcha is easy to overlook when you're setting it up for the first time: AGENTS.md is only valuable as long as it is accurate. A test command that was renamed six months ago, a directory structure that was reorganized, a linting rule that was dropped — any of these make the file actively harmful. An agent given bad instructions produces confidently wrong output. You get worse results than if the file didn't exist, because the agent follows the wrong instructions without knowing they're wrong.
+
+---
+
+## Layer 2: Guided
+
+### A complete AGENTS.md for a Python FastAPI repo
+
+The following is a production-quality AGENTS.md for a real-world FastAPI service. Every section has a specific purpose — annotations explain why each section exists.
+
+```markdown
+# AGENTS.md
+
+## Overview
+
+This is a FastAPI REST service for the billing domain. It uses PostgreSQL (via SQLAlchemy
+async), Redis for caching, and Celery for background tasks.
+
+Python 3.12+. All async. No sync database calls anywhere in the codebase.
+
+---
+
+## Test commands
+
+Run the full test suite:
+```
+make test
+```
+
+Run only unit tests (fast, no database required):
+```
+make test-unit
+```
+
+Run only integration tests (requires Docker Compose to be running):
+```
+make test-integration
+```
+
+Lint and format:
+```
+make lint       # ruff check + mypy
+make format     # ruff format (auto-fixes)
+```
+
+Start local dev environment:
+```
+docker compose up -d
+make run-dev
+```
+
+---
+
+## Directory structure
+
+```
+src/
+  api/          # FastAPI routers — one file per resource
+  services/     # Business logic — no HTTP or database imports here
+  repositories/ # All database access — SQLAlchemy models and queries only
+  schemas/      # Pydantic request/response models
+  workers/      # Celery task definitions
+  core/         # Config, database connection, Redis client
+tests/
+  unit/         # No database, no external services
+  integration/  # Requires Docker Compose
+alembic/        # Database migrations — do not edit manually
+```
+
+---
+
+## Conventions
+
+- All database access goes through `repositories/`. Services must not import SQLAlchemy directly.
+- All external HTTP calls go through `src/core/http_client.py`. Do not use `requests` or `httpx` directly.
+- Pydantic models for API input/output go in `schemas/`. Never return SQLAlchemy models from routers.
+- Use `async def` for all route handlers and service methods. No sync functions in the hot path.
+- Type hints are required on all public functions. mypy is enforced in CI.
+- Error handling: raise `HTTPException` only in routers. Services raise domain exceptions from `src/core/exceptions.py`.
+
+---
+
+## What not to touch
+
+- `alembic/versions/` — migrations are generated with `make migration MSG="description"`, never written by hand.
+- `src/core/config.py` — configuration is environment-variable-driven. Do not add hardcoded values.
+- `pyproject.toml` — dependency changes require a separate PR and security review.
+- `.github/workflows/` — CI changes require a separate review from the platform team.
+
+---
+
+## Tool permissions
+
+The agent may:
+- Read any file in the repository
+- Write to files under `src/` and `tests/`
+- Run `make test-unit`
+- Run `make lint`
+- Run `make format`
+
+The agent must NOT:
+- Run `make test-integration` without human confirmation (requires external services)
+- Run any `alembic` commands directly
+- Commit or push to any branch
+- Make outbound HTTP requests from the local environment
+
+---
+
+## Dependency injection
+
+FastAPI dependencies are in `src/api/deps.py`. When a route needs a database session, Redis client,
+or the current authenticated user, import from there:
+
+```python
+from src.api.deps import get_db, get_redis, current_user
+```
+
+Do not instantiate these directly in route handlers.
+
+---
+
+## Common patterns
+
+New API endpoint:
+1. Add router in `src/api/routers/{resource}.py`
+2. Register router in `src/api/main.py`
+3. Add Pydantic schemas in `src/schemas/{resource}.py`
+4. Add service logic in `src/services/{resource}.py`
+5. Add repository methods in `src/repositories/{resource}.py`
+6. Add unit tests in `tests/unit/test_{resource}.py`
+
+New background task:
+1. Define the task in `src/workers/tasks.py`
+2. Call it with `.delay()` or `.apply_async()` — never call the function directly in a route
+```
+
+### Integrating AGENTS.md into your workflow
+
+The file has no effect if agents do not know it exists. Check your agent platform's documentation for how it reads repo-level config. In Codex, AGENTS.md at the repo root is read automatically. In Claude Code, you can reference it explicitly in the system prompt or configure it to be pre-loaded.
+
+Validate that your agent is actually reading it:
+
+```python
+def validate_agent_context(agent_response: str, agents_md_path: str) -> dict:
+    """
+    Check whether the agent's response reflects AGENTS.md instructions.
+    Simple heuristic: look for violations of explicit constraints.
+    """
+    import re
+    from pathlib import Path
+
+    agents_md = Path(agents_md_path).read_text()
+
+    forbidden_patterns = []
+    violations = []
+
+    lines = agents_md.split("\n")
+    in_do_not_touch = False
+    for line in lines:
+        if "must NOT" in line or "do not" in line.lower() or "never" in line.lower():
+            in_do_not_touch = True
+        if in_do_not_touch and line.strip().startswith("-"):
+            item = line.strip().lstrip("- ").strip()
+            if item:
+                forbidden_patterns.append(item)
+
+    for pattern in forbidden_patterns:
+        if re.search(re.escape(pattern.split()[0]), agent_response, re.IGNORECASE):
+            violations.append(f"Possible violation: '{pattern}'")
+
+    return {
+        "violations_found": len(violations),
+        "details": violations,
+    }
+```
+
+---
+
+## Layer 3: Deep Dive
+
+### The team coordination problem
+
+AGENTS.md is not primarily a technical problem. It is a team coordination problem with a technical manifestation.
+
+The file encodes knowledge that currently lives in three places: in individual engineers' heads, scattered across Confluence or Notion, and in ad hoc Slack answers to questions like "how do I run just the unit tests?" That knowledge is invisible to AI agents, and it is also invisible to new team members, to on-call engineers unfamiliar with a service, and to your future self six months from now.
+
+Writing AGENTS.md forces a team to agree on and write down what is currently implicit. This has value independent of AI agents. Teams that maintain a high-quality AGENTS.md tend to also have clearer test commands, more consistent tooling, and better-documented conventions — because the discipline of writing for an agent requires you to be specific enough that ambiguity is exposed.
+
+The failure mode most teams hit: AGENTS.md is written once during a sprint focused on AI tooling, then treated as done. Three months later, the test command changed, a directory was restructured, and a new linting rule was added. No one updated AGENTS.md because it was not in the habit loop for any of those changes.
+
+### Governance patterns that keep AGENTS.md current
+
+**Pattern 1: Ownership and review gate**
+
+Designate a named owner in CODEOWNERS:
+
+```
+# .github/CODEOWNERS
+AGENTS.md @your-org/platform-team
+```
+
+This means every PR that touches AGENTS.md requires platform team review. More importantly, the platform team is on the hook to review it whenever they change the tooling that AGENTS.md describes.
+
+**Pattern 2: CI validation**
+
+Write a test that validates the commands in AGENTS.md actually exist and run:
+
+```python
+import subprocess
+import re
+from pathlib import Path
+import pytest
+
+def extract_commands_from_agents_md(path: str) -> list[str]:
+    """Extract shell commands from AGENTS.md code blocks."""
+    content = Path(path).read_text()
+    commands = re.findall(r"```\n(make \S+|npm \S+|python \S+)\n```", content)
+    return commands
+
+@pytest.mark.parametrize("command", extract_commands_from_agents_md("AGENTS.md"))
+def test_agents_md_command_exists(command: str):
+    """Fail if a command listed in AGENTS.md does not exist in the Makefile or package.json."""
+    tool = command.split()[0]
+    if tool == "make":
+        target = command.split()[1]
+        result = subprocess.run(
+            ["make", "--dry-run", target],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"AGENTS.md references `{command}` but it does not exist in Makefile"
+    elif tool == "npm":
+        script = command.split()[1]
+        import json
+        pkg = json.loads(Path("package.json").read_text())
+        assert script in pkg.get("scripts", {}), f"AGENTS.md references `{command}` but it is not in package.json scripts"
+```
+
+Running this in CI catches the most common class of AGENTS.md staleness: renamed or removed commands.
+
+**Pattern 3: Quarterly review cadence**
+
+Add AGENTS.md to the quarterly tooling review agenda. This is a 15-minute exercise: read through the file and ask "is any of this still true?" It catches structural drift that CI validation cannot: directory reorganizations, removed tools, changed conventions.
+
+### Multi-repo and monorepo variations
+
+**Monorepo:** Place a root AGENTS.md with repo-wide conventions, then place service-specific AGENTS.md files in each service directory. Agents that support directory-level config will merge both, with the local file taking precedence on conflicts.
+
+```
+repo-root/
+  AGENTS.md           # repo-wide conventions, shared tooling
+  services/
+    billing/
+      AGENTS.md       # billing-service-specific commands and conventions
+    auth/
+      AGENTS.md       # auth-service-specific commands and conventions
+```
+
+**Multi-repo:** Consider a shared AGENTS.md template in an internal developer platform repo that services pull from during setup. The template encodes the org-wide conventions; each service appends its specific overrides.
+
+### The security boundary question
+
+AGENTS.md defines what an agent is allowed to do. This makes it a security-relevant file. A malicious or misconfigured AGENTS.md could grant an agent permissions to run destructive commands, make outbound network requests, or access files it should not touch.
+
+Treat AGENTS.md with the same review discipline you would apply to a GitHub Actions workflow file: require review, audit changes, and do not merge modifications from untrusted forks without scrutiny. The tool permissions section in particular should be reviewed against the principle of least privilege — grant the agent only the capabilities it needs to complete the tasks it is assigned.
+
+### Primary sources and references
+
+- [OpenAI Codex AGENTS.md specification](https://platform.openai.com/docs/codex/agents-md); OpenAI, 2025. The canonical specification for the AGENTS.md format as adopted in the Codex platform — covers supported sections, merge behavior for nested files, and tool permission syntax.
+- [GitHub CODEOWNERS documentation](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners); GitHub. The analogous pattern for human code review ownership — useful context for understanding the ownership model that AGENTS.md extends to AI agents.
+- [Anthropic Claude Code documentation](https://docs.anthropic.com/en/docs/claude-code); Anthropic, 2025. Covers how Claude Code reads project-level configuration including CLAUDE.md (Anthropic's equivalent convention) and how it integrates with repository structure.
+
+### Further reading
+
+- [AGENTS.md: The Emerging Standard for AI Coding Context](https://www.anthropic.com/news/claude-code); Anthropic, 2025. Overview of how repo-level AI configuration is converging across providers.
+- [The Pragmatic Engineer: How AI Coding Tools Work in Large Codebases](https://blog.pragmaticengineer.com/); Gergely Orosz, 2025. Ground-level reporting on how engineering teams are integrating AI coding agents, including context management strategies.
+- [GitHub Copilot: Custom Instructions](https://docs.github.com/en/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot); GitHub, 2024. GitHub's parallel convention for repo-level AI agent configuration — useful for understanding how AGENTS.md fits in the broader landscape of similar standards.
+- [Least Privilege Principle in Software Systems](https://csrc.nist.gov/glossary/term/least_privilege); NIST. Foundational security concept relevant to the tool permissions section of AGENTS.md — agents should receive only the capabilities they need.

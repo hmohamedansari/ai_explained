@@ -1,0 +1,76 @@
+{
+  "title": "Constitutional AI & RLHF — Check your understanding",
+  "moduleId": "7.10",
+  "questions": [
+    {
+      "id": "7.10-q1",
+      "type": "multiple-choice",
+      "question": "Your team deploys Claude for customer support. A security researcher demonstrates that with a specific adversarial prompt sequence, the model produces content it normally refuses. Your manager concludes that 'RLHF doesn't work.' What is the accurate characterisation?",
+      "options": [
+        "The manager is correct — RLHF should eliminate all harmful outputs and any bypass proves the technique is ineffective",
+        "RLHF shifts the probability distribution of outputs but does not guarantee zero harmful outputs. Adversarial prompts that bypass alignment are expected at the tail of the distribution — they are an argument for inference-time guardrails, not evidence that training-time alignment failed",
+        "The bypass only works for this specific model — other RLHF-aligned models would not be susceptible",
+        "The bypass is a hallucination and the output is not actually harmful, just appears harmful to a non-expert"
+      ],
+      "answer": 1,
+      "explanation": "RLHF is a probabilistic technique that shifts the output distribution toward safer, more aligned responses. It does not create a mathematical guarantee of zero harmful outputs. Adversarial prompts work by shifting the context in ways that restore parts of the pre-alignment distribution. This is known, expected behaviour — the research community documents jailbreaks as part of safety evaluation. The correct conclusion is that RLHF is effective at typical inputs but insufficient as a sole defence, which is why inference-time guardrails (input classifiers, output filters) are necessary as a second layer.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "7.10-q2",
+      "type": "multiple-choice",
+      "question": "In RLHF Phase 2, human labellers compare pairs of model responses and indicate which is better. A post-training analysis finds the reward model gives higher scores to longer responses even when shorter ones are more accurate. What failure mode does this represent?",
+      "options": [
+        "Overfitting — the reward model has memorised the training pairs instead of learning general quality",
+        "Reward hacking via length bias — human labellers systematically prefer longer responses, so the reward model learned length as a proxy for quality. The PPO-optimised model then produces unnecessarily verbose outputs to maximise reward",
+        "Distributional shift — the evaluation responses were from a different model than the training responses",
+        "Sycophancy — the model learned to agree with users rather than provide accurate information"
+      ],
+      "answer": 1,
+      "explanation": "Length bias is a well-documented reward hacking failure mode in RLHF. Human preference labellers, working quickly, tend to rate longer responses as more thorough and complete — even when a shorter response is more accurate. The reward model learns this spurious correlation. When PPO optimises against this reward model, the resulting model produces unnecessarily verbose outputs to maximise score. This is reward hacking: the model found a way to score highly on the reward model that does not correspond to genuine quality improvement. Mitigations include separating helpfulness and verbosity reward models and penalising unnecessary length.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "7.10-q3",
+      "type": "multiple-choice",
+      "question": "Constitutional AI replaces much of the human preference labelling for the safety dimension of training with an automated critique-and-revision loop. What is the key advantage of this approach?",
+      "options": [
+        "AI-generated critiques are always more accurate than human judgements about safety",
+        "It eliminates the cost of human labellers entirely for all aspects of alignment",
+        "Human labellers can focus on helpfulness judgements while the constitutional critique loop handles the high-volume safety signal generation, making the overall process more scalable",
+        "Constitutional AI produces models that are immune to adversarial bypass because the constitution is comprehensive"
+      ],
+      "answer": 2,
+      "explanation": "The key advantage of CAI is scalability of safety signal: generating preference labels for safety by having the model critique and revise its own outputs (guided by the constitution) is far cheaper and faster than collecting millions of human safety preference labels. Human labellers remain essential for helpfulness evaluation and for validating the constitutional AI outputs — CAI does not eliminate human oversight. It shifts where human effort is concentrated. CAI-trained models are not adversarially immune; the probabilistic nature of the alignment remains. The constitution can be comprehensive and still leave edge cases that adversarial prompts can exploit.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "7.10-q4",
+      "type": "multiple-choice",
+      "question": "Anthropic's Constitutional AI approach defines a priority ordering: Safety > Ethics > Anthropic's principles > Helpfulness. A user asks the model to do something helpful but deceptive. How should the model respond under this priority ordering?",
+      "options": [
+        "Complete the task helpfully since helpfulness is the primary goal of an assistant",
+        "Refuse and cite the specific Anthropic principle being violated",
+        "Decline the deceptive aspect and offer an honest alternative — Ethics (honesty) takes priority over Helpfulness, so the deceptive request is overridden",
+        "Ask for clarification before responding, since the constitution does not specify how to handle this case"
+      ],
+      "answer": 2,
+      "explanation": "The priority ordering is designed to resolve exactly these conflicts. Deception violates the Ethics tier (honesty and non-deception are core ethical principles). Since Ethics ranks above Helpfulness, the model's trained disposition is to decline the deceptive framing and offer an honest alternative — not to comply with the helpful-but-deceptive request. The constitution is designed so the model resolves conflicts without needing explicit case-by-case instructions for every possible situation. Citing Anthropic's principles specifically would be ranking tier 3 above tier 2, which inverts the ordering.",
+      "personas": ["senior"]
+    },
+    {
+      "id": "7.10-q5",
+      "type": "multiple-choice",
+      "question": "You are deploying an RLHF-aligned model for a high-stakes medical information use case. A colleague says 'the model is already aligned, so we don't need additional guardrails.' What is the strongest argument against this position?",
+      "options": [
+        "RLHF-aligned models are not approved by the FDA for medical use and therefore cannot be deployed",
+        "Training-time alignment was optimised on general human preferences — medical accuracy requires domain-specific evaluation that the alignment training did not specifically target. Inference-time checks for medical accuracy, source grounding, and hallucination detection cover the gap between general alignment and domain-specific safety requirements",
+        "Inference-time guardrails are always required by regulation for medical AI",
+        "RLHF-aligned models are more susceptible to hallucination than base models in medical domains"
+      ],
+      "answer": 1,
+      "explanation": "This is the core argument for defence-in-depth: training-time alignment optimises for general safety and helpfulness across a broad distribution of inputs. High-stakes domains have specific failure modes that general alignment does not specifically address — medical accuracy, contraindication checking, appropriate escalation to clinicians, hallucination detection on clinical facts. Inference-time guardrails add domain-specific checks that the general alignment training cannot guarantee. RLHF-aligned models are not more prone to hallucination than base models — they are generally less so — but alignment does not eliminate hallucination in specialised domains where training coverage was sparse.",
+      "personas": ["senior"]
+    }
+  ]
+}

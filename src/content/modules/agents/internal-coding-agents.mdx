@@ -1,0 +1,306 @@
+---
+moduleId: "4.10"
+title: "Internal Coding Agents"
+description: "Coding agents are moving from personal tools to team infrastructure. This module covers the architecture for deploying coding agents internally — startup context, sandboxed execution, CI integration, and the review gates that keep automation safe."
+track: "agents"
+order: 10
+personas: ["senior", "leader"]
+volatility: "volatile"
+status: "draft"
+lastReviewed: "2026-04-18"
+estimatedMinutes:
+  layer1: 6
+  layer2: 18
+  layer3: 35
+productionGotcha: "Coding agents without a sandbox will run generated code in your production environment. Every internal coding agent deployment needs a sandboxed execution environment with network egress controls — not just Docker, but purpose-built agent sandboxes with filesystem isolation and time limits."
+draft: false
+---
+
+## Layer 1: Surface
+
+A coding agent used by one developer is a productivity tool. A coding agent deployed as internal infrastructure — invoked from Slack, wired into Linear and GitHub, running against your actual codebase — is a different kind of system. It needs the same engineering attention you would give a new microservice: startup context, execution sandboxing, review gates, and observability.
+
+The architectural pattern is the same regardless of which agent tool your team picks:
+
+```
+Trigger → Startup context → Task → Sandboxed execution → Review gate → Merge
+```
+
+**What each stage does:**
+
+| Stage | What it is | Why it matters |
+|---|---|---|
+| **Trigger** | How the agent is invoked (Slack command, Linear ticket, CI event) | Determines latency expectations and who can invoke |
+| **Startup context** | Codebase summary, conventions, and prior context injected at start | Without this, the agent re-discovers what your team already knows on every run |
+| **Task** | The goal the agent is given — issue description, PR review comment, failing test | Specificity here directly determines output quality |
+| **Sandboxed execution** | Isolated environment where the agent runs and tests code | Without this, generated code runs in your real environment |
+| **Review gate** | Human or automated check before anything merges | The line between automation and autonomy |
+| **Merge** | Code lands in the repository with attribution | Preserves audit trail |
+
+The pattern is stable. The tools implementing it — Claude Code, Cursor, OpenCode, Warp, and others — change rapidly. Build against the pattern, not the tool.
+
+> **Production gotcha:** Coding agents without a sandbox will run generated code in your production environment. Every internal coding agent deployment needs a sandboxed execution environment with network egress controls — not just Docker, but purpose-built agent sandboxes with filesystem isolation and time limits.
+
+---
+
+## Layer 2: Guided
+
+### Startup context: AGENTS.md and the context file pattern
+
+A coding agent that starts cold has to read your codebase from scratch, infer your conventions, and guess at your architecture. This takes tokens, takes time, and produces worse output. The fix is a context file — commonly named `AGENTS.md` — that tells the agent what it needs to know before it starts.
+
+```markdown
+# AGENTS.md
+
+## What this repo is
+Python monorepo. Three services: api/, worker/, scheduler/. Shared code in lib/.
+
+## Languages and runtimes
+Python 3.12. Node 22 for frontend tooling only. No mixing.
+
+## Coding conventions
+- Type hints required on all public functions
+- Tests live next to source: foo.py → foo_test.py
+- No print() in non-script code — use structlog
+- Database access only through repositories in lib/db/
+
+## How to run tests
+pytest -x tests/  (fail-fast)
+make test         (full suite, slow)
+
+## How to add a dependency
+Add to pyproject.toml and run: uv pip compile pyproject.toml -o requirements.txt
+
+## What the agent should never do
+- Never modify migration files directly — use make migration name=<name>
+- Never commit .env files
+- Never push directly to main
+
+## Current priorities
+- We are mid-migration from SQLAlchemy 1.x to 2.x. All new queries must use 2.x style.
+- Prefer async/await in the api/ service; sync is fine in worker/ and scheduler/.
+```
+
+This file answers the questions the agent will ask anyway — it just answers them once, cheaply, before work starts. Keep it in the repository root, update it when conventions change, and treat it as real documentation.
+
+### Wiring the integration: Slack → GitHub
+
+Here is the minimal architecture for a Slack-invoked coding agent that opens pull requests:
+
+```python
+import os
+import subprocess
+import tempfile
+from pathlib import Path
+from slack_bolt import App
+from github import Github
+
+app = App(token=os.environ["SLACK_BOT_TOKEN"])
+gh = Github(os.environ["GITHUB_TOKEN"])
+repo = gh.get_repo(os.environ["GITHUB_REPO"])
+
+@app.command("/agent")
+def handle_agent_command(ack, command, say):
+    ack()
+    task = command["text"].strip()
+
+    if not task:
+        say("Usage: /agent <task description>")
+        return
+
+    say(f"Starting agent for: `{task}`")
+
+    # Run asynchronously so Slack doesn't time out
+    import threading
+    threading.Thread(target=run_agent_task, args=(task, command["user_id"], say)).start()
+
+
+def run_agent_task(task: str, user_id: str, say) -> None:
+    branch_name = f"agent/{task[:40].lower().replace(' ', '-')}"
+
+    try:
+        with tempfile.TemporaryDirectory() as sandbox_dir:
+            # Clone the repo into the sandbox
+            subprocess.run(
+                ["git", "clone", os.environ["REPO_URL"], sandbox_dir],
+                check=True, capture_output=True
+            )
+
+            # Create a new branch
+            subprocess.run(
+                ["git", "checkout", "-b", branch_name],
+                cwd=sandbox_dir, check=True, capture_output=True
+            )
+
+            # Read startup context
+            agents_md_path = Path(sandbox_dir) / "AGENTS.md"
+            startup_context = agents_md_path.read_text() if agents_md_path.exists() else ""
+
+            # Invoke the coding agent CLI in the sandbox directory
+            result = subprocess.run(
+                ["claude", "--print", "--no-conversation", f"{startup_context}\n\nTask: {task}"],
+                cwd=sandbox_dir,
+                capture_output=True,
+                text=True,
+                timeout=300  # 5-minute hard limit
+            )
+
+            if result.returncode != 0:
+                say(f"<@{user_id}> Agent failed: ```{result.stderr[:500]}```")
+                return
+
+            # Check if any files changed
+            diff_result = subprocess.run(
+                ["git", "diff", "--name-only"],
+                cwd=sandbox_dir, capture_output=True, text=True
+            )
+
+            if not diff_result.stdout.strip():
+                say(f"<@{user_id}> Agent completed but made no changes.")
+                return
+
+            # Commit and push
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=sandbox_dir, check=True
+            )
+            subprocess.run(
+                ["git", "commit", "-m", f"agent: {task[:72]}"],
+                cwd=sandbox_dir, check=True
+            )
+            subprocess.run(
+                ["git", "push", "origin", branch_name],
+                cwd=sandbox_dir, check=True
+            )
+
+            # Open a pull request
+            pr = repo.create_pull(
+                title=f"[Agent] {task[:70]}",
+                body=f"Invoked by <@{user_id}> via Slack.\n\nTask: {task}\n\n"
+                     f"Agent output:\n```\n{result.stdout[:2000]}\n```",
+                head=branch_name,
+                base="main"
+            )
+
+            say(f"<@{user_id}> PR ready for review: {pr.html_url}")
+
+    except subprocess.TimeoutExpired:
+        say(f"<@{user_id}> Agent timed out after 5 minutes.")
+    except Exception as e:
+        say(f"<@{user_id}> Error: {str(e)[:300]}")
+```
+
+This is the minimal implementation. In production you will add: a proper sandbox (not just `tempfile`), egress controls, resource limits, and a queue for concurrent requests.
+
+### The sandbox problem
+
+`tempfile.TemporaryDirectory()` in the example above is not a sandbox — it is filesystem isolation only. The agent process can still make outbound network calls, consume unbounded CPU, and write to paths outside the temp directory.
+
+Purpose-built agent sandboxes solve this at the infrastructure level:
+
+| What you need | What solves it |
+|---|---|
+| Filesystem isolation | A fresh clone per task (already in the pattern above) |
+| Network egress control | Egress proxy with allowlist (GitHub, your package registry, nothing else) |
+| Resource limits | CPU/memory limits on the execution container |
+| Time limits | Hard timeout enforced by the sandbox runtime, not just `timeout=` |
+| Secrets isolation | No production secrets in the sandbox environment |
+
+Services like Modal, Daytona, and Runloop provide this as managed infrastructure. Building it yourself from Docker Compose is feasible but requires ongoing maintenance — the container breakout risks are subtle.
+
+### The review gate
+
+The review gate is what makes this automation rather than autonomy. The agent opens a PR; a human (or an automated check) decides whether to merge it. This is the correct default. Lower the gate only after you have:
+
+1. Built an eval dataset for your agent's output on this task type
+2. Established a false-positive rate you are willing to accept
+3. Added a revert mechanism that the on-call can trigger in under two minutes
+
+For most teams, the right progression is:
+
+```
+Phase 1: Agent drafts PRs → human reviews every PR → human merges
+Phase 2: Agent drafts PRs → CI auto-approves for low-risk task types → human merges
+Phase 3: Agent drafts PRs → CI auto-approves and merges for well-specified tasks
+```
+
+Do not skip phases. Phase 2 without a calibrated CI approval policy is just phase 1 with less oversight.
+
+---
+
+## Layer 3: Deep Dive
+
+### The org design question (for leaders)
+
+When a team deploys a coding agent as internal infrastructure, the first question is not "which tool?" — it is "who owns it?" The coding agent sits at the intersection of platform engineering, security, and developer experience. In most organisations, none of those three teams has a natural mandate over all three concerns simultaneously.
+
+The deployment pattern that works best treats the coding agent as a platform product:
+
+- **Platform team** owns the sandbox, the Slack integration, the CI wiring, and the AGENTS.md convention
+- **Security team** owns the egress controls, the secrets policy, and the incident response playbook
+- **Individual teams** own their AGENTS.md files and their review gates
+
+Without this separation, the coding agent either stalls in security review (owned by security alone) or gets deployed without adequate controls (owned by developers alone).
+
+### Rich startup context: beyond AGENTS.md
+
+AGENTS.md covers static context — conventions, architecture, never-do rules. A production deployment also needs dynamic context: what changed recently, what is failing in CI, what the current sprint priorities are.
+
+This context can be injected at invocation time:
+
+```python
+def build_startup_context(repo_dir: str, task: str) -> str:
+    agents_md = read_file_if_exists(f"{repo_dir}/AGENTS.md")
+
+    # Recent changes — what did the last few commits touch?
+    recent_log = subprocess.run(
+        ["git", "log", "--oneline", "-10"],
+        cwd=repo_dir, capture_output=True, text=True
+    ).stdout
+
+    # Current CI status — is main green?
+    ci_status = fetch_ci_status(os.environ["GITHUB_REPO"])
+
+    # Linear: open issues tagged for agent work
+    linear_context = fetch_linear_agent_issues(os.environ["LINEAR_TEAM_ID"])
+
+    return f"""
+{agents_md}
+
+## Recent changes (last 10 commits)
+{recent_log}
+
+## CI status
+{ci_status}
+
+## Open agent-tagged issues
+{linear_context}
+
+## Your task
+{task}
+""".strip()
+```
+
+Each additional context source narrows the space of plausible actions, which improves output quality and reduces the chance the agent works on something that conflicts with in-flight changes.
+
+### Failure modes specific to coding agents
+
+**Silent regression introduction:** The agent writes code that passes existing tests but breaks an invariant not covered by tests. This is the same failure mode as a junior engineer — but it happens at machine speed across many PRs. Mitigation: expand test coverage before expanding agent usage; the agent should not be trusted to maintain correctness beyond what tests can verify.
+
+**Context drift in long tasks:** On tasks that span many files, the agent accumulates a long context of file contents and tool outputs. After 30-40 tool calls, the agent's working memory of the early files it read has been compressed or forgotten — it starts making changes inconsistent with those files. Mitigation: limit task scope to a single well-defined change; decompose large tasks into smaller ones at the orchestration layer.
+
+**AGENTS.md rot:** The startup context file documents the codebase at a point in time. If the team does not maintain it, the agent gets outdated instructions — "use Python 3.12" when the repo moved to 3.13, "queries go in lib/db/" when the team restructured. Mitigation: treat AGENTS.md as a first-class artifact with PR reviews and a quarterly review cycle.
+
+**Sandbox escape via dependency install:** An agent that can install dependencies can install a package that makes outbound network calls, regardless of your egress controls. Mitigation: pre-install dependencies in the sandbox image; restrict the agent's ability to install new packages unless you have reviewed the package first.
+
+**Attribution loss:** When the agent commits code, the author is the agent (or the bot account). Six months later, `git blame` returns no useful information about why a decision was made. Mitigation: require the agent to include a structured comment in every PR explaining its reasoning; archive the agent's reasoning trace with the PR.
+
+### Tooling landscape note
+
+As of 2026, the coding agent tools in active use include Claude Code (terminal-first, scriptable, exposed as a CLI), Cursor (IDE-integrated), OpenCode (open-source terminal agent), and Warp (terminal with AI features). The architectural patterns in this module apply regardless of which tool you use. Specific capabilities — file watching, multi-file context, background tasks — vary by version and change frequently. Read each tool's current documentation before wiring it into infrastructure.
+
+### Further reading
+
+- [SWE-bench: Can Language Models Resolve Real-World GitHub Issues?](https://arxiv.org/abs/2310.06770); Jimenez et al., 2024. Benchmark evaluating coding agents on real GitHub issues; the results reveal where current agents reliably succeed and where they fail, useful for setting team expectations.
+- [Anthropic, Building Effective Agents](https://www.anthropic.com/research/building-effective-agents); Anthropic, 2024. Covers the orchestrator-subagent pattern and tool design principles directly applicable to coding agent integration.
+- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code); Anthropic, 2025. Current reference for the Claude Code CLI, including the AGENTS.md convention and SDK/headless usage patterns.

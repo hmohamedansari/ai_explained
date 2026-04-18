@@ -1,0 +1,76 @@
+{
+  "title": "Internal Coding Agents — Check your understanding",
+  "moduleId": "4.10",
+  "questions": [
+    {
+      "id": "4.10-q1",
+      "type": "multiple-choice",
+      "question": "Your team deploys a Slack-invoked coding agent that clones the repo and runs generated code. Three days after launch, the agent executes a generated script that makes 200 API calls to your production payment processor. No sandbox was in place. Which part of the deployment architecture failed?",
+      "options": [
+        "The AGENTS.md file did not explicitly prohibit calling the payment API",
+        "The review gate — the agent should have opened a PR rather than executing code directly",
+        "The sandboxed execution stage — without network egress controls, the agent's generated code could reach any external service",
+        "The startup context was insufficient; the agent needed more information about which APIs exist"
+      ],
+      "answer": 2,
+      "explanation": "The missing piece is sandbox isolation with network egress controls. A proper sandbox restricts outbound network calls to an allowlist — your package registry, GitHub, maybe a few internal services — so generated code cannot reach production APIs regardless of what the code contains. AGENTS.md instructions can be ignored or misinterpreted by the model; they are not enforcement. The review gate catches code before it merges, but this code was executed before review. The root cause is architectural: no egress control.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "4.10-q2",
+      "type": "multiple-choice",
+      "question": "A senior engineer on your team argues that Docker is sufficient sandboxing for the coding agent. You disagree. What is the strongest argument against Docker-only sandboxing for agent workloads?",
+      "options": [
+        "Docker is too slow for coding agent workloads; agent sandboxes need to start in under 100ms",
+        "Docker provides filesystem isolation but does not by default restrict network egress, CPU/memory consumption, or prevent container escape via mounted volumes or privileged capabilities",
+        "Docker containers cannot run the programming languages that coding agents typically use",
+        "Using Docker requires root privileges, which violates the principle of least privilege"
+      ],
+      "answer": 1,
+      "explanation": "Docker provides a useful isolation boundary but it is not a complete sandbox by default. Network egress is unrestricted unless you configure it explicitly. Resource limits (CPU, memory) require explicit cgroups configuration. Privileged containers or mounted host paths can lead to container escape. Purpose-built agent sandboxes address these gaps as a managed concern rather than requiring the team to correctly configure Docker security options. The other answers contain partial truths (Docker can be slow to start; root usage is a concern) but are not the strongest argument against Docker-only sandboxing.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "4.10-q3",
+      "type": "multiple-choice",
+      "question": "Six months after deploying an internal coding agent, engineers report that the agent keeps using SQLAlchemy 1.x patterns even though the team migrated to 2.x four months ago. The model version has not changed. What is the most likely cause?",
+      "options": [
+        "The model's training data predates SQLAlchemy 2.x and it cannot learn new APIs without fine-tuning",
+        "The AGENTS.md file was not updated when the team migrated to SQLAlchemy 2.x, so the agent's startup context still describes 1.x conventions",
+        "The agent's context window is too short to include the SQLAlchemy 2.x documentation",
+        "Coding agents cannot be updated to use new library versions without redeploying the agent tool"
+      ],
+      "answer": 1,
+      "explanation": "AGENTS.md rot is the most common cause of this failure pattern. The startup context file documented the codebase at a point in time, and when the team migrated to SQLAlchemy 2.x, nobody updated it. The agent is following its instructions correctly — the instructions are just wrong. Models do know about SQLAlchemy 2.x (it is well-documented in training data), but the AGENTS.md instruction 'mid-migration from SQLAlchemy 1.x to 2.x' can override that knowledge. Fix: update AGENTS.md as part of the migration, and add a quarterly review to the team's maintenance schedule.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "4.10-q4",
+      "type": "multiple-choice",
+      "question": "Your engineering leader wants to skip the PR review gate for coding agent output on 'low-risk' tasks like updating documentation. What should you establish before agreeing to this?",
+      "options": [
+        "A user survey confirming that developers trust the agent's documentation quality",
+        "An eval dataset for documentation tasks, a measured false-positive rate on that dataset, and a revert mechanism the on-call can trigger in under two minutes",
+        "Confirmation that the documentation changes will not affect CI test results",
+        "A model upgrade to ensure documentation quality is high enough to skip review"
+      ],
+      "answer": 1,
+      "explanation": "Removing the review gate — even for 'low-risk' tasks — requires knowing what your false-positive rate actually is on that task type, not just assuming it is low. An eval dataset gives you that measurement. You also need a fast revert path: if the agent merges a batch of wrong documentation changes, the on-call needs to undo them quickly without waiting for a manual PR. These are not bureaucratic requirements — they are the minimum needed to know whether auto-merge is safe, and to recover quickly when it is not.",
+      "personas": ["senior", "leader"]
+    },
+    {
+      "id": "4.10-q5",
+      "type": "multiple-choice",
+      "question": "You are designing the ownership model for your internal coding agent deployment. Security wants control of the sandbox, platform wants to own the CI integration, and the individual product teams want to control the AGENTS.md files. A manager suggests one team should own everything. What is the better approach?",
+      "options": [
+        "Give ownership to security, since agent sandboxing is a security concern first",
+        "Give ownership to platform, since CI and developer tooling are already their domain",
+        "Split ownership by concern: platform owns the sandbox and CI wiring, security owns egress controls and incident response, individual teams own their AGENTS.md files",
+        "Create a new dedicated agent team to own all agent infrastructure and tooling"
+      ],
+      "answer": 2,
+      "explanation": "A split ownership model by concern is more robust than either centralising everything or creating a new team. Security has the skills for egress controls and incident response but not for developer experience. Platform has the skills for CI wiring and tooling but not for security policy. Individual teams have the domain context to maintain accurate AGENTS.md files but not the infrastructure expertise. Centralising in one team creates a bottleneck; a new dedicated team delays delivery and adds headcount. The split model leverages existing expertise where it already lives.",
+      "personas": ["senior", "leader"]
+    }
+  ]
+}
