@@ -183,17 +183,14 @@ outside an IDE.
 (streaming events to frontends).
 
 **Course coverage: PARTIAL**
-Four of the six protocols are covered or planned in Track 3:
-- **3.1** — protocol-landscape (MCP, published)
-- **3.4** — Agent2Agent (A2A), planned
-- **3.5** — AG-UI: Streaming Protocol, planned
+Five of the six protocols are covered or planned in Track 3:
+- **3.1** — protocol-landscape (MCP, A2A, AG-UI — all published in the same module)
 - **3.6** — Agent Payments Protocol (AP2), planned
 - UCP (Universal Commerce Protocol) and A2UI (Agent-to-User Interface Protocol) are
-  not planned modules. The Google article is valuable as a Track 3 reading list item
+  not in the curriculum. The Google article is valuable as a Track 3 reading list item
   that frames all six protocols as complementary layers.
 
-This article should be the primary reference URL for **3.4** and linked from the
-Track 3 intro page.
+This article should be linked from **3.1** as further reading.
 
 ---
 
