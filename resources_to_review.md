@@ -183,7 +183,7 @@ outside an IDE.
 (streaming events to frontends).
 
 **Course coverage: PARTIAL**
-Five of the six protocols are covered or planned in Track 3:
+Four of the six protocols are covered or planned in Track 3:
 - **3.1** — protocol-landscape (MCP, A2A, AG-UI — all published in the same module)
 - **3.6** — Agent Payments Protocol (AP2), planned
 - UCP (Universal Commerce Protocol) and A2UI (Agent-to-User Interface Protocol) are
