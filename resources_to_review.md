@@ -2,10 +2,16 @@
 
 Links evaluated against the actual ai_explained 9-track curriculum.
 
+**Rubric:** published + planned modules both count as coverage. "Planned" means the
+module exists in the track spec files — committed curriculum intent, not speculation.
+For a published-only view, see `curriculum/external-resources-inbox.md`.
+
 **Coverage key:**
-- COVERED: concept and/or specific tool already in a published or planned module
-- PARTIAL: the concept is planned but this specific resource adds detail worth noting
-- GAP: not in the curriculum at all — worth adding
+- COVERED: the concept and this specific resource's angle are addressed in a published
+  or planned module — use this resource as a primary reference URL for that module
+- PARTIAL: the general concept is in the curriculum but this specific tool/angle is
+  not mentioned — worth a reference or mention in the relevant module
+- GAP: not addressed in the curriculum at all — worth a new module or dedicated section
 
 ---
 
@@ -252,7 +258,7 @@ reference there.
 | Traycer | AI dev workflow | PARTIAL | Planning-layer example in 4.10 |
 | OpenCode | AI coding agent | PARTIAL | Primary tool example in 4.10 |
 | Warp | AI terminal | PARTIAL | Tooling example in 4.10 |
-| Google Agent Protocols | Protocol survey | COVERED (3.4/3.5/3.6) | Link as Track 3 reading list |
+| Google Agent Protocols | Protocol survey | PARTIAL | Link as Track 3 reading list; UCP/A2UI not planned |
 | Disaggregated inference | Serving architecture | PARTIAL | Layer 3 note in 5.3 |
 | TurboQuant | KV cache compression | PARTIAL | Further reading in 5.2 |
 | Terminal-Bench | Agent eval benchmark | PARTIAL | Further reading in 4.8 |

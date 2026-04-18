@@ -6,12 +6,15 @@ Method used:
 - Checked the current repo's curriculum and published module content for conceptual overlap.
 - Separated "explicit mention" from "conceptual coverage".
 
+**Rubric:** published modules only. Planned modules in track spec files do not count
+as coverage here. For a published + planned view, see `resources_to_review.md`.
+
 Definitions:
 - `Explicit`: the product/protocol name appears directly in current content/planning docs.
-- `Coverage`: how well current published modules already teach the same underlying concepts.
-  - `Strong`: dedicated module(s) already cover the concept deeply.
-  - `Partial`: related modules exist, but not this specific shape/use case.
-  - `Gap`: little/no meaningful current coverage.
+- `Coverage`: how well currently *published* modules teach the same underlying concepts.
+  - `Strong`: dedicated published module(s) already cover the concept deeply.
+  - `Partial`: related published modules exist, but not this specific shape/use case.
+  - `Gap`: little/no meaningful current coverage in published modules.
 
 ## Snapshot
 
@@ -19,8 +22,8 @@ Definitions:
 - Explicitly named in published modules/pages: 0
 - Explicitly named in planning docs: LiteLLM, DSPy, LLM Gateway
 - Conceptual coverage:
-  - Strong: 8
-  - Partial: 9
+  - Strong: 7
+  - Partial: 10
   - Gap: 2
 
 ## Resource Log (Repo Knowledge Mapping)
@@ -32,7 +35,7 @@ Definitions:
 | 3 | https://modelrouter.app/docs | No | Strong | 3.4, 3.7, 5.8, 6.5 | Unified model-gateway concepts are covered; specific product not named. |
 | 4 | https://ragflow.io/ | No | Strong | 2.1, 2.4, 2.6, 2.8, 4.7 | End-to-end RAG architecture/ops/eval is already taught. |
 | 5 | https://portkey.ai/ | No | Strong | 3.7, 6.4, 6.5, 7.5, 8.7 | Gateway + observability + governance + vendor-eval concepts are covered. |
-| 6 | https://developers.googleblog.com/developers-guide-to-ai-agent-protocols/ | No | Strong | 3.1 | MCP/A2A/AG-UI protocol landscape is explicitly covered. |
+| 6 | https://developers.googleblog.com/developers-guide-to-ai-agent-protocols/ | No | Partial | 3.1 | MCP published (3.1); A2A (3.4), AG-UI (3.5), AP2 (3.6) are planned-only; UCP and A2UI not in curriculum. |
 | 7 | https://llmgateway.io/ | No | Strong | 3.4, 3.7, 5.8, 6.5 | Same conceptual bucket as model gateways/proxies. |
 | 8 | https://dspy.ai/ | Planning docs only | Gap | (planned in curriculum docs) | DSPy is planned in curriculum planning docs, but no dedicated published module currently teaches it. |
 | 9 | https://www.tbench.ai/ | No | Partial | 4.8, 6.1, 6.6 | Agent eval is covered; terminal-agent benchmark specifics are not. |
@@ -51,4 +54,5 @@ Definitions:
 
 - Add as concrete examples (no new module needed): 1, 3, 5, 7, 16, 17.
 - Add as "advanced sidebar/read more": 9, 13, 14, 15, 18, 19.
-- Consider new focused module/lab: 8 (DSPy), 10 (developer terminal-agent workflow patterns).
+- Consider new focused module/lab: 10 (developer terminal-agent workflow patterns).
+- Already planned — no new module needed: 8 (DSPy is planned as module 1.9; use this resource as the primary reference URL).
