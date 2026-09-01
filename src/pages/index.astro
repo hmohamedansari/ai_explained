@@ -5,126 +5,126 @@ import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
 const tracks = await getCollection('tracks');
-const sortedTracks = tracks.sort((a, b) => a.data.order - b.data.order).slice(0, 6);
-const publishedModules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.status === 'published'
-);
+const trackById = Object.fromEntries(tracks.map((track) => [track.id, track]));
+const startingTracks = ['foundations', 'agents', 'infrastructure'].map((id) => trackById[id]).filter(Boolean);
+const publishedModules = await getCollection('modules', ({ data }) => !data.draft && data.status === 'published');
 ---
 
-<BaseLayout title="Home">
+<BaseLayout
+  title="AI Explained, without the magic"
+  description="Learn how AI systems work in plain English, then follow the details all the way to reliable production systems."
+>
   <Header />
 
   <main class="flex-1">
-
-    <!-- ── Hero ─────────────────────────────────────────────── -->
     <section class="relative overflow-hidden bg-surface">
-      <!-- Circuit board pattern -->
       <div class="circuit-bg home-hero-circuit absolute inset-0 opacity-70" />
-
-      <!-- Radial green glow -->
-      <div class="home-hero-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                  w-[500px] sm:w-[800px] h-[300px] sm:h-[500px]
-                  bg-brand-500/8 rounded-full blur-[80px] pointer-events-none" />
-
-      <!-- Bottom fade into next section -->
+      <div class="home-hero-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] sm:w-[800px] h-[300px] sm:h-[500px] bg-brand-500/8 rounded-full blur-[80px] pointer-events-none" />
       <div class="home-hero-bottom-fade absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-surface to-transparent" />
 
-      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-32 pb-20 sm:pb-28 text-center">
-        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full
-                    border border-brand-500/30 bg-brand-950/30 text-brand-400
-                    text-xs font-medium mb-6 sm:mb-8">
-          <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
-          Open source · Community driven
+      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-32 pb-20 sm:pb-28">
+        <div class="max-w-3xl">
+          <p class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/30 text-brand-400 text-xs font-medium mb-6 sm:mb-8">
+            <span class="w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+            A learning field guide for AI systems
+          </p>
+
+          <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white leading-tight tracking-tight mb-5 sm:mb-6">
+            Learn AI without<br />
+            <span class="text-brand-400">the magic trick.</span>
+          </h1>
+
+          <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mb-8 sm:mb-10 leading-relaxed">
+            AI is useful. It is not a veil of magic. Start with simple, plain-English mental models; then follow the details into tools, policy, context, evidence, and reliable production systems.
+          </p>
+
+          <div class="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+            <a href="/onboarding" class="btn-primary text-base px-7 py-3 w-full sm:w-auto justify-center">
+              Find my starting point →
+            </a>
+            <a href="/learn/foundations" class="btn-secondary text-base px-7 py-3 w-full sm:w-auto justify-center">
+              Start with the foundations
+            </a>
+          </div>
         </div>
+      </div>
+    </section>
 
-        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white
-                   leading-tight tracking-tight mb-5 sm:mb-6">
-          AI Engineering<br />
-          <span class="text-brand-400">Explained Properly</span>
-        </h1>
+    <section class="border-y border-white/10 bg-surface-1">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
+        <div class="grid lg:grid-cols-[0.8fr_1.2fr] gap-8 lg:gap-12 items-center">
+          <div>
+            <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">One useful mental model</p>
+            <h2 class="text-2xl sm:text-3xl font-semibold text-white mb-4">A model proposes. The system decides.</h2>
+            <p class="text-slate-400 leading-relaxed">
+              An agentic system is not just a model. It is a model working inside a harness: with context, tools, policy, a control loop, and evidence of what actually happened.
+            </p>
+          </div>
 
-        <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed">
-          Not hype, not magic: concrete mental models, real protocols, and working code.
-          9 tracks for every role, from curious beginner to production SRE.
-        </p>
-
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-          <a href="/onboarding" class="btn-primary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            Find my learning path →
-          </a>
-          <a href="/learn" class="btn-secondary text-base px-7 py-3 w-full sm:w-auto justify-center">
-            Browse all tracks
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            {[
+              ['Model', 'proposes'],
+              ['Context', 'makes it relevant'],
+              ['Policy', 'allows, asks, or denies'],
+              ['Tools', 'can cause effects'],
+              ['Evidence', 'shows what happened'],
+              ['Control loop', 'continues or stops'],
+            ].map(([label, detail]) => (
+              <div class="rounded-xl border border-white/10 bg-surface p-4">
+                <p class="font-medium text-white mb-1">{label}</p>
+                <p class="text-xs text-slate-500 leading-relaxed">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div class="mt-7">
+          <a href="https://hmohamedansari.github.io/there-is-no-agent-talk/" class="text-sm text-brand-400 hover:text-brand-300 transition-colors" target="_blank" rel="noopener noreferrer">
+            Explore this idea in “There Is No Agent” →
           </a>
         </div>
       </div>
     </section>
 
-    <!-- ── Learning Tracks ───────────────────────────────────── -->
     <section class="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-      <div class="flex items-end justify-between mb-8 sm:mb-10">
-        <div>
-          <h2 class="text-2xl font-semibold text-white mb-2">Learning Tracks</h2>
-          <p class="text-slate-400">9 tracks, {publishedModules.length} modules published. Start anywhere.</p>
-        </div>
-        <a href="/learn" class="text-sm text-brand-400 hover:text-brand-300 transition-colors shrink-0 ml-4">
-          All tracks →
-        </a>
+      <div class="max-w-2xl mb-8 sm:mb-10">
+        <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">Choose your next useful question</p>
+        <h2 class="text-2xl sm:text-3xl font-semibold text-white mb-3">Start where the work starts.</h2>
+        <p class="text-slate-400 leading-relaxed">There are {publishedModules.length} published modules across nine tracks. You do not need to take them in order.</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedTracks.map(track => (
-          <a href={`/learn/${track.id}`} class="card group flex flex-col gap-3">
+      <div class="grid md:grid-cols-3 gap-4">
+        {startingTracks.map((track) => (
+          <a href={`/learn/${track.id}`} class="card group flex flex-col gap-3 min-h-56">
             <span class="text-3xl">{track.data.icon}</span>
             <div>
               <p class="text-xs font-mono text-slate-600 mb-1">Track {track.data.order}</p>
-              <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors mb-1">
-                {track.data.title}
-              </h3>
+              <h3 class="font-semibold text-white group-hover:text-brand-400 transition-colors mb-2">{track.data.title}</h3>
               <p class="text-sm text-slate-400 leading-relaxed">{track.data.description}</p>
             </div>
-            <div class="mt-auto pt-3 border-t border-white/5 text-xs text-brand-500
-                        group-hover:text-brand-400 transition-colors">
-              Explore track →
-            </div>
+            <span class="mt-auto pt-3 border-t border-white/5 text-xs text-brand-500 group-hover:text-brand-400 transition-colors">Explore this track →</span>
           </a>
         ))}
+      </div>
 
-        <a href="/learn"
-           class="card group flex flex-col items-center justify-center gap-3 border-dashed opacity-60 hover:opacity-100">
-          <span class="text-3xl text-brand-500">+</span>
-          <p class="text-sm text-slate-400 group-hover:text-white transition-colors">3 more tracks</p>
-        </a>
+      <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-xl border border-white/10 bg-surface-1 p-5 sm:p-6">
+        <p class="text-sm text-slate-400">Already know your role? Let the guide suggest a path through the material.</p>
+        <a href="/paths" class="text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors shrink-0">Browse learning paths →</a>
       </div>
     </section>
 
-    <!-- ── Audience strip ────────────────────────────────────── -->
     <section class="border-t border-white/10 bg-surface-1">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16">
-        <h2 class="text-xl sm:text-2xl font-semibold text-white text-center mb-8 sm:mb-10">Built for every role</h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
-          {[
-            { emoji: '🌱', role: 'Curious Beginner', desc: 'No code required',                href: '/paths/curious-beginner' },
-            { emoji: '🏛️', role: 'Tech Leader',      desc: 'Mental models, not boilerplate', href: '/paths/tech-leader' },
-            { emoji: '🌿', role: 'Junior Dev',        desc: 'Step-by-step with working code', href: '/paths/new-dev' },
-            { emoji: '⚙️', role: 'Senior Dev',        desc: 'Protocol internals + trade-offs', href: '/paths/experienced-dev' },
-            { emoji: '🔧', role: 'SRE',               desc: 'Deploy, monitor, secure',        href: '/paths/sre-devops' },
-          ].map(item => (
-            <a
-              href={item.href}
-              class="text-center p-4 sm:p-5 rounded-xl border border-white/10
-                     hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
-            >
-              <div class="text-3xl mb-3">{item.emoji}</div>
-              <p class="font-medium text-white text-sm mb-1 group-hover:text-brand-400 transition-colors">
-                {item.role}
-              </p>
-              <p class="text-xs text-slate-500">{item.desc}</p>
-            </a>
-          ))}
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-16 grid md:grid-cols-[1.2fr_0.8fr] gap-8 items-start">
+        <div>
+          <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">Built to be useful</p>
+          <h2 class="text-2xl font-semibold text-white mb-3">A field guide, not a feed.</h2>
+          <p class="text-slate-400 leading-relaxed max-w-2xl">The aim is practical understanding: enough clarity to ask better questions, make better engineering decisions, and know where a confident-sounding answer needs verification.</p>
+        </div>
+        <div class="grid gap-3 text-sm">
+          <a href="/tools" class="rounded-lg border border-white/10 bg-surface p-4 text-slate-400 hover:text-white hover:border-brand-500/40 transition-colors">Useful tools and references <span class="text-brand-400">→</span></a>
+          <a href="/about" class="rounded-lg border border-white/10 bg-surface p-4 text-slate-400 hover:text-white hover:border-brand-500/40 transition-colors">Why this exists <span class="text-brand-400">→</span></a>
         </div>
       </div>
     </section>
-
   </main>
 
   <Footer />

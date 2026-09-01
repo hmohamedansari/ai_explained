@@ -28,7 +28,7 @@ const noGreenDarkPlus = {
 };
 
 export default defineConfig({
-  site: 'https://hmohamedansari.com',
+  site: 'https://ai.hmohamedansari.com',
   integrations: [
     mdx(),
     react(),

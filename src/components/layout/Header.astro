@@ -2,8 +2,8 @@
 const navLinks = [
   { href: '/learn',  label: 'Learn' },
   { href: '/paths',  label: 'Learning Paths' },
-  { href: '/tools',  label: 'Tools' },
-  { href: '/about',  label: 'About' },
+  { href: '/tools',  label: 'Tools & references' },
+  { href: '/about',  label: 'Why this exists' },
 ];
 
 const currentPath = Astro.url.pathname;
@@ -14,7 +14,7 @@ const currentPath = Astro.url.pathname;
 
     <!-- Logo -->
     <a href="/" class="flex items-center gap-2 font-semibold text-white hover:text-brand-400 transition-colors">
-      <span class="text-2xl">🤖</span>
+      <span class="text-2xl">✦</span>
       <span class="text-base sm:text-lg tracking-tight">AI Explained</span>
     </a>
 
@@ -38,7 +38,7 @@ const currentPath = Astro.url.pathname;
     <div class="flex items-center gap-2">
       <!-- Desktop CTA -->
       <a href="/onboarding" class="btn-primary text-sm hidden md:inline-flex">
-        Find my path →
+        Find my starting point →
       </a>
 
       <!-- Theme toggle -->
@@ -94,7 +94,7 @@ const currentPath = Astro.url.pathname;
         </a>
       ))}
       <a href="/onboarding" class="btn-primary text-sm mt-2 justify-center">
-        Find my path →
+        Find my starting point →
       </a>
     </nav>
   </div>
