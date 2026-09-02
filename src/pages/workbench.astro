@@ -32,6 +32,17 @@ import Footer from '@/components/layout/Footer.astro';
       </div>
     </section>
 
+    <section class="rounded-2xl border border-brand-500/25 bg-brand-950/20 p-5 sm:p-6 mb-12 sm:mb-16">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-5">
+        <div class="max-w-2xl">
+          <p class="text-xs font-mono uppercase tracking-[0.16em] text-brand-400 mb-3">Try the deterministic checkpoint</p>
+          <h2 class="text-xl font-semibold text-white mb-3">Run the Workbench before we add a model.</h2>
+          <p class="text-sm text-slate-300 leading-relaxed">Clone the companion project, follow its macOS, Windows or Linux setup, then start with <code>workbench</code>. For the visual version, run <code>python -m streamlit run app.py</code> and change the two visible rule inputs. The first checkpoint needs no API key and no Docker.</p>
+        </div>
+        <a href="https://github.com/hmohamedansari/engineering-troubleshooting-workbench" class="btn-primary whitespace-nowrap shrink-0" target="_blank" rel="noopener noreferrer">Open the Workbench repo ↗</a>
+      </div>
+    </section>
+
     <section class="rounded-2xl border border-white/10 overflow-hidden mb-12 sm:mb-16">
       <div class="p-5 sm:p-6 bg-surface-1 border-b border-white/10">
         <p class="text-xs font-mono uppercase tracking-[0.16em] text-slate-500">How the system grows</p>
@@ -61,7 +72,7 @@ policy          → allows, denies or asks for approval
 tool/runtime    → performs permitted work
 state/events    → record what happened
 control loop    → decides whether work continues`}</code></pre>
-      <p class="mt-5 text-slate-400 leading-relaxed">The companion begins with a deterministic checkpoint: local fixtures, explicit rules and a visible decision trail. Its public source link will join the first release; until then, every lesson keeps the application architecture visible.</p>
+      <p class="mt-5 text-slate-400 leading-relaxed">The companion begins with a deterministic checkpoint: local fixtures, explicit rules and a visible decision trail. The code is there to be changed carefully, tested, and connected back to the lesson that explains why it behaves as it does.</p>
     </section>
   </main>
 

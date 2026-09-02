@@ -24,9 +24,11 @@ if error_rate > 0.05:
 
 That is useful, but it does not tell us whether an incident is new, acknowledged, being investigated, waiting for approval, or resolved. That is **state**.
 
+**State is the durable record of where a piece of work is in its lifecycle, plus the facts the system needs to decide what may happen next.** It is not simply a variable that exists while one function runs. Good state survives a retry, a restart and a hand-off to a human.
+
 ## Model the work honestly
 
-The first Workbench uses a small state machine:
+This is the state machine the Workbench will grow into:
 
 ```text
 new → triaged → investigating → waiting-for-human → resolved
@@ -34,7 +36,9 @@ new → triaged → investigating → waiting-for-human → resolved
                     closed-as-noise
 ```
 
-Each transition has a reason. The system should refuse transitions that do not make sense: you should not resolve an incident that was never investigated, and you should not investigate one that has been closed.
+Each transition needs a reason. When we add transitions, the system should refuse ones that do not make sense: you should not resolve an incident that was never investigated, and you should not investigate one that has been closed.
+
+The current deterministic checkpoint keeps the incident's state in the scenario and shows it in the report. That is deliberate: first make the state visible; then teach the rules that move it.
 
 ## Why state is a gift
 
@@ -48,7 +52,7 @@ This becomes important when we add a model. A model call is not the state of the
 
 ## Try it
 
-Change the scenario from "new" to "investigating" and run the deterministic investigator. Notice which checks it skips. Then try an invalid transition and read the error. The error is not an inconvenience; it is the system protecting its own story.
+Run the `checkout-regression` scenario and find `State: investigating` in its report. Then run `normal-checkout` and notice that it starts at `triaged`. The route is a decision for this run; the state tells the next part of the workflow where the investigation already is.
 
 ## Keep this with you
 

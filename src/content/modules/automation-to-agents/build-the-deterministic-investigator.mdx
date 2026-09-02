@@ -52,7 +52,18 @@ If you can answer those questions, you have built something useful.
 
 ## Try it
 
-Make a small change to one rule. Run the scenario and then its tests. Use OpenCode if you want help understanding the function, but do not accept a change until you can explain what it changed in the route.
+The Workbench is a small local Python project. [Set it up from the companion repository](https://github.com/hmohamedansari/engineering-troubleshooting-workbench), then run:
+
+```bash
+workbench
+python -m streamlit run app.py
+```
+
+Choose **Checkout regression** in the browser view. Its observed error rate is 8.2%. In the sidebar, raise **High checkout error rate** from 5% to 9%. The selected route should move from `possible-deployment-regression` to `normal-observation`; set it back to 5% and the original route returns. You changed one explicit input and saw one explainable consequence. No source edit and no model are needed.
+
+Then run `pytest` to see the rules the project protects.
+
+**Optional: use OpenCode as a reading companion.** OpenCode is an open-source coding agent that can inspect the files on your machine and explain a small change. It is not required for this course or for the Workbench. If you use it, ask: “Show me where the high-error rule is evaluated and explain both routes.” Read the answer against `src/workbench/investigator.py`; do not accept a proposed change until you can explain its effect on the route.
 
 ## Keep this with you
 

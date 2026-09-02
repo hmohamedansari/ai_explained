@@ -40,7 +40,9 @@ The Workbench is deliberately small, so it uses local scenario data rather than 
 
 Retries are not a magic word for reliability. A retry is only sensible when the operation is safe to repeat and the failure might be temporary.
 
-For example, reading a metric snapshot can be retried. Charging a customer cannot be casually repeated. This is where **idempotency** matters: an operation is idempotent when repeating it does not create an additional unintended effect.
+For example, reading a metric snapshot can be retried. Charging a customer cannot be casually repeated. This is where **idempotency** matters: an operation is idempotent when you can run it more than once and leave the system in the same intended final state as one run. A duplicate "create ticket" request should still leave us with one ticket; a duplicate charge must not create a second payment.
+
+The response may say "already exists" on the second attempt. That is fine. The important part is that the operation does not create a second effect. This is about safe retries, not regression testing.
 
 ## Try it
 
