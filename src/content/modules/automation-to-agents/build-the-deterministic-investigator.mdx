@@ -22,19 +22,21 @@ It does not use a model. That makes this the most important checkpoint in the co
 ## The core loop
 
 ```python
-def investigate(incident, evidence):
-    findings = collect_known_findings(evidence)
-    route = choose_route(incident, findings)
-    next_step = decide_next_step(route, incident.state)
-    return report(incident, findings, route, next_step)
+def investigate(scenario, hypothesis_outcomes=None):
+    findings = collect_findings(scenario)
+    hypotheses = collect_hypotheses(scenario, hypothesis_outcomes)
+    route, reason, next_step = choose_route(scenario)
+    events = collect_workflow_events(scenario)
+    return InvestigationReport(findings, hypotheses, route, reason, next_step, events)
 ```
 
 Each function owns one job:
 
-- `collect_known_findings` reads facts.
+- `collect_findings` reads facts and their sources.
+- `collect_hypotheses` keeps explanations separate from facts.
 - `choose_route` applies explicit rules.
-- `decide_next_step` checks the workflow state.
-- `report` explains the result without changing it.
+- `collect_workflow_events` records retries and duplicate delivery; the investigator records transitions.
+- `InvestigationReport` explains the result without changing it.
 
 That is a harness without a model. We are learning the shape before putting a probabilistic component inside it.
 
@@ -62,6 +64,8 @@ python -m streamlit run app.py
 Choose **Checkout regression** in the browser view. Its observed error rate is 8.2%. In the sidebar, raise **High checkout error rate** from 5% to 9%. The selected route should move from `possible-deployment-regression` to `normal-observation`; set it back to 5% and the original route returns. You changed one explicit input and saw one explainable consequence. No source edit and no model are needed.
 
 Then run `pytest` to see the rules the project protects.
+
+At this point, try each scenario once: **Checkout regression**, **Delayed metric**, and **Duplicate alert**. The application changes shape only where the input and the explicit workflow say it should.
 
 **Optional: use OpenCode as a reading companion.** OpenCode is an open-source coding agent that can inspect the files on your machine and explain a small change. It is not required for this course or for the Workbench. If you use it, ask: “Show me where the high-error rule is evaluated and explain both routes.” Read the answer against `src/workbench/investigator.py`; do not accept a proposed change until you can explain its effect on the route.
 

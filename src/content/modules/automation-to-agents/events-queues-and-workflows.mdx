@@ -46,7 +46,9 @@ The response may say "already exists" on the second attempt. That is fine. The i
 
 ## Try it
 
-Use the delayed-metric scenario. Let the first read fail, then watch the workflow retry once and record both attempts. The final report should tell you that the first read failed. Silence is not evidence of success.
+Choose **Delayed metric** in the Workbench. Its first metric-snapshot read times out; its retry succeeds. Inspect the event timeline: it records the timeout, the one permitted retry, and the successful result that became evidence.
+
+The scenario does not hide the first failure because a later step worked. Silence is not evidence of success.
 
 ## Keep this with you
 

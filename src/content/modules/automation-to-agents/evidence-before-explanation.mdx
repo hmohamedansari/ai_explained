@@ -47,7 +47,9 @@ state/events    → record the tool result as evidence
 
 ## Try it
 
-Run the scenario once, then inspect the evidence timeline. Mark one hypothesis as disproved. The report should retain it, clearly labelled as a dead end, rather than quietly rewriting history.
+Open the Workbench and choose **Checkout regression**. First look at **What the system observed**: the payment-provider health snapshot reports 0.0% errors. Then find **What we still need to test** and record “The payment provider may be failing” as disproved.
+
+The hypothesis remains in the panel and in the event timeline as a dead end, with the evidence that ruled it out. Notice what does *not* happen: “The deployment may have changed checkout validation” remains unproven. We have a reasonable next check, not a conclusion.
 
 ## Keep this with you
 

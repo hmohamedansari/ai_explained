@@ -28,7 +28,7 @@ That is useful, but it does not tell us whether an incident is new, acknowledged
 
 ## Model the work honestly
 
-This is the state machine the Workbench will grow into:
+The Workbench now makes this small state machine visible:
 
 ```text
 new → triaged → investigating → waiting-for-human → resolved
@@ -36,9 +36,9 @@ new → triaged → investigating → waiting-for-human → resolved
                     closed-as-noise
 ```
 
-Each transition needs a reason. When we add transitions, the system should refuse ones that do not make sense: you should not resolve an incident that was never investigated, and you should not investigate one that has been closed.
+Each transition needs a reason. The Workbench refuses transitions that do not make sense: you cannot resolve an incident that was never investigated, and you cannot investigate one that has been closed.
 
-The current deterministic checkpoint keeps the incident's state in the scenario and shows it in the report. That is deliberate: first make the state visible; then teach the rules that move it.
+The deterministic checkpoint keeps the incident's state in the scenario, shows the valid next states, and records a transition in the event timeline. The route is still a decision about the evidence; state is the workflow's memory of where it is.
 
 ## Why state is a gift
 
@@ -52,7 +52,9 @@ This becomes important when we add a model. A model call is not the state of the
 
 ## Try it
 
-Run the `checkout-regression` scenario and find `State: investigating` in its report. Then run `normal-checkout` and notice that it starts at `triaged`. The route is a decision for this run; the state tells the next part of the workflow where the investigation already is.
+Open **Checkout regression**. It starts in `investigating`, so the Workbench offers only `waiting-for-human` and `resolved` as valid next states. Choose **Waiting for human**, record the transition, and inspect the event timeline.
+
+Then choose **Duplicate alert**. It begins as `new`, so the only valid move is `triaged`. The selector is not a convenience feature. It is the workflow refusing to tell a story it cannot support.
 
 ## Keep this with you
 

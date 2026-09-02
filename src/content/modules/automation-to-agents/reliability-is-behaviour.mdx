@@ -42,7 +42,9 @@ That separation will protect us later. An LLM may suggest an action, but it shou
 
 ## Try it
 
-Run the duplicate-alert scenario. The correct result is not two investigations. It is one investigation with a visible note that the duplicate was recognised.
+Choose **Duplicate alert** in the Workbench and inspect the event timeline. Two deliveries arrive with the same idempotency key. The report records one investigation and one `alert.duplicate-suppressed` event.
+
+The second delivery is not a regression test. It is the kind of ordinary network behaviour a reliable workflow plans for before it happens.
 
 ## Keep this with you
 
