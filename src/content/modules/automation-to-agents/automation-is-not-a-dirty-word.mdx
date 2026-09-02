@@ -9,7 +9,7 @@ volatility: "stable"
 status: "published"
 lastReviewed: "2026-09-03"
 estimatedMinutes:
-  layer1: 10
+  layer1: 20
 draft: false
 ---
 
@@ -47,9 +47,82 @@ Reliable automation is usually made of five things:
 
 When somebody tells you their system is "agentic", ask where these five things live. A model can help with one part of the work. It does not make the other parts disappear.
 
+## Set up the Workbench
+
+We will use the Workbench throughout this journey. It is a small local Python application with synthetic incidents only—no cloud account, API key, Docker container or production access is needed.
+
+You need **Python 3.10 or newer** and Git. Open a terminal and check what is already on your machine:
+
+```bash
+python3 --version
+git --version
+```
+
+On Windows PowerShell, use this Python command instead:
+
+```powershell
+py --version
+git --version
+```
+
+If Python reports a version below 3.10 or is not found, install a current version from [python.org/downloads](https://www.python.org/downloads/). If Git is not found, install it from [git-scm.com/downloads](https://git-scm.com/downloads). Once both commands work, clone the Workbench:
+
+```bash
+git clone https://github.com/hmohamedansari/engineering-troubleshooting-workbench.git
+cd engineering-troubleshooting-workbench
+```
+
+### macOS and Linux
+
+Create an isolated Python environment in this project, activate it, then install the Workbench and its tests:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+### Windows PowerShell
+
+Create and activate the same isolated environment, then install the project:
+
+```powershell
+py -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e ".[dev]"
+```
+
+If PowerShell says script execution is disabled, run the following command once **in that same PowerShell window**, then activate the environment again:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+### Run and inspect it
+
+Start with the terminal view:
+
+```bash
+workbench
+```
+
+It prints the incident state, the evidence it collected, the selected route, why that route was selected, and the next safe action. Nothing is hidden behind a model call.
+
+Then open the visual view:
+
+```bash
+python -m streamlit run app.py
+```
+
+Streamlit prints a local address—normally `http://localhost:8501`. Open it in your browser. Choose **Checkout regression** and inspect the evidence, the two rule inputs, the route, the incident state and the event timeline. Keep this terminal open while you use the browser.
+
 ## Try it
 
-Open the first Workbench scenario. Change the error threshold, run the investigator again, and compare its report. Nothing mysterious happened: you changed a rule, so the route changed.
+The Checkout regression scenario observes an 8.2% checkout error rate. In the browser sidebar, raise **High checkout error rate** from 5% to 9%. The route moves from `possible-deployment-regression` to `normal-observation`. Set it back to 5% and the original route returns.
+
+Nothing mysterious happened: you changed one visible rule, so the visible decision changed. Run `pytest` afterwards to see the rules this checkpoint protects.
 
 ## Keep this with you
 
