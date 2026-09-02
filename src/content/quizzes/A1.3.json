@@ -1,0 +1,24 @@
+{
+  "title": "Rules, decisions and state",
+  "moduleId": "A1.3",
+  "questions": [
+    {
+      "id": "A1.3-q1",
+      "type": "multiple-choice",
+      "question": "What does state add beyond a single rule?",
+      "options": ["A more creative answer", "Knowledge of where the work is in a longer process", "Access to external tools", "Lower token cost"],
+      "answer": 1,
+      "explanation": "State records the current stage of work, such as new, investigating or resolved. A local rule alone cannot do that.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.3-q2",
+      "type": "multiple-choice",
+      "question": "Why should an invalid state transition be rejected?",
+      "options": ["To make the UI more complex", "To protect the workflow from an incoherent history", "To force an LLM to reason harder", "To avoid writing event logs"],
+      "answer": 1,
+      "explanation": "A state machine prevents impossible sequences, such as resolving an incident that was never investigated.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

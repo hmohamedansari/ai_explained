@@ -1,0 +1,59 @@
+---
+moduleId: "A1.6"
+title: "Build the deterministic investigator"
+description: "Put the pieces together: evidence, rules, state and safe outcomes in the first useful Workbench milestone."
+track: "automation-to-agents"
+order: 6
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 18
+draft: false
+---
+
+## This is the first thing we build
+
+The deterministic investigator is intentionally modest. It receives an incident, reads scenario evidence, applies a small set of rules, and produces a report that explains its route.
+
+It does not use a model. That makes this the most important checkpoint in the course: every capability we add later has to preserve this clarity.
+
+## The core loop
+
+```python
+def investigate(incident, evidence):
+    findings = collect_known_findings(evidence)
+    route = choose_route(incident, findings)
+    next_step = decide_next_step(route, incident.state)
+    return report(incident, findings, route, next_step)
+```
+
+Each function owns one job:
+
+- `collect_known_findings` reads facts.
+- `choose_route` applies explicit rules.
+- `decide_next_step` checks the workflow state.
+- `report` explains the result without changing it.
+
+That is a harness without a model. We are learning the shape before putting a probabilistic component inside it.
+
+## What success looks like
+
+At the end of this checkpoint, you can take a synthetic incident and answer:
+
+- What did the system observe?
+- Which rule selected the route?
+- What state is the incident in?
+- What will happen next?
+- What would cause the system to ask a human instead?
+
+If you can answer those questions, you have built something useful.
+
+## Try it
+
+Make a small change to one rule. Run the scenario and then its tests. Use OpenCode if you want help understanding the function, but do not accept a change until you can explain what it changed in the route.
+
+## Keep this with you
+
+The point is not to write a lot of Python. The point is to make the work legible. That is a skill models cannot do for us.

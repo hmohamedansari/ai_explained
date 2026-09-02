@@ -5,135 +5,56 @@ import Footer from '@/components/layout/Footer.astro';
 ---
 
 <BaseLayout
-  title="About"
-  description="AI Academy is a free, open-source AI education platform. Learn who built it and why."
+  title="About AI Explained"
+  description="Why AI Explained exists: practical, evidence-led learning about AI systems for engineers and technical people."
 >
   <Header />
 
   <main class="flex-1 max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-
-    <!-- Author -->
     <section class="mb-12 sm:mb-16">
-      <div class="flex items-start gap-4 sm:gap-6 mb-8">
-        <div class="w-20 h-20 rounded-full bg-brand-950 border border-brand-500/30 flex items-center justify-center text-3xl shrink-0">
-          👤
-        </div>
-        <div>
-          <h1 class="text-3xl font-semibold text-white mb-1">
-            Mohamed Ansari
-          </h1>
-          <p class="text-slate-400 mb-3">
-            Engineering Manager; SRE &amp; Platform
-          </p>
-          <div class="flex gap-3">
-            <a
-              href="https://github.com/hmohamedansari"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-sm text-brand-400 hover:text-brand-300 transition-colors"
-            >GitHub</a>
-            <a
-              href="https://hmohamedansari.github.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="text-sm text-brand-400 hover:text-brand-300 transition-colors"
-            >Website</a>
-          </div>
-        </div>
-      </div>
-
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">Why this exists</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-5">AI is not magic. It is also not simple.</h1>
       <div class="prose-lesson">
-        <p class="text-slate-300 leading-relaxed mb-4">
-          I'm an Engineering Manager leading SRE and Platform teams. My day-to-day is
-          reliability, infrastructure, and the systems that keep production running: which
-          means I care about AI the way an operator does: what breaks, what it costs, and
-          whether it holds up when the demo is over.
-        </p>
-        <p class="text-slate-300 leading-relaxed mb-4">
-          I built AI Academy because the content I needed didn't exist. Vendor docs are
-          optimised to get you to their next API call. Academic papers assume you want a
-          literature review. Blog posts are mostly surface-level hype or narrow tutorials
-          that age in months. None of that helps you make real architectural decisions.
-        </p>
-        <p class="text-slate-300 leading-relaxed">
-          The goal here is practical and durable knowledge: the kind that lets you design
-          a system, review a design, or call out a bad tradeoff. No vendor lock-in,
-          no hand-waving, no prerequisites beyond curiosity and a willingness to read code.
-        </p>
+        <p>There is a strange pressure around AI right now. People feel they should already know what MCP, agents, context windows and multi-agent systems mean. So we learn the vocabulary first, then quietly hope nobody asks us to explain the machinery.</p>
+        <p>AI Explained is for getting past that. It begins with the automation engineers already understand, then makes each new capability visible: what the model does, what the harness does, what policy permits, which tool creates an effect, and where the evidence lives.</p>
       </div>
     </section>
 
-    <!-- Why this site -->
-    <section class="mb-16">
-      <h2 class="text-2xl font-semibold text-white mb-6">Why AI Academy</h2>
-      <div class="space-y-4 text-slate-300 leading-relaxed">
-        <p>
-          Most AI education falls into two traps: hand-wavy overviews that leave you unable
-          to make real decisions, or deep technical resources that assume you already understand
-          the landscape. AI Academy sits in between.
-        </p>
-        <p>
-          Every module has three layers: a plain-English surface for anyone, a guided walkthrough
-          with working code, and a deep-dive analysis for those who want the architecture and
-          primary sources. You choose your depth.
-        </p>
-        <p>
-          The curriculum covers 9 tracks: from what an LLM actually is to
-          running sovereign air-gapped deployments. Each module is tagged for volatility so
-          you know what's stable knowledge and what needs re-reading in six months.
-        </p>
+    <section class="mb-12 sm:mb-16">
+      <h2 class="text-2xl font-semibold text-white mb-5">How we work here</h2>
+      <div class="grid gap-3 text-sm">
+        {[
+          ['Plain English first', 'We introduce the mechanism without assuming the learner is already fluent in the jargon.'],
+          ['Build one evolving system', 'The Engineering Troubleshooting Workbench gives every concept somewhere concrete to live.'],
+          ['Keep boundaries visible', 'Model output is a proposal. Code, policy, tools, state and events retain their own responsibilities.'],
+          ['Treat sources honestly', 'Specifications, established engineering practice, research patterns and vendor implementations are not the same kind of claim.'],
+          ['Make failure part of learning', 'A lesson is incomplete if it cannot show what changes when an assumption breaks.'],
+        ].map(([title, copy]) => (
+          <div class="card py-4 sm:py-5">
+            <h3 class="font-semibold text-white mb-1">{title}</h3>
+            <p class="text-slate-400 leading-relaxed">{copy}</p>
+          </div>
+        ))}
       </div>
     </section>
 
-    <!-- Open source -->
-    <section class="mb-16">
-      <h2 class="text-2xl font-semibold text-white mb-6">Open Source</h2>
-      <div class="space-y-4 text-slate-300 leading-relaxed">
-        <p>
-          AI Academy is fully open source. The curriculum content is licensed under
-          CC BY-SA 4.0: you can use, adapt, and redistribute it as long as you
-          attribute the source and share derivatives under the same licence.
-          The site code is MIT.
-        </p>
-        <p>
-          If you spot an error, know a better explanation, or want to contribute a module,
-          pull requests are open. See{' '}
-          <a
-            href="https://github.com/hmohamedansari/ai-explained/blob/main/CONTRIBUTING.md"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-brand-400 hover:text-brand-300 transition-colors"
-          >
-            CONTRIBUTING.md
-          </a>{' '}
-          for how to get started.
-        </p>
+    <section class="mb-12 sm:mb-16">
+      <h2 class="text-2xl font-semibold text-white mb-4">Built by Mohamed Ansari</h2>
+      <div class="prose-lesson">
+        <p>Mohamed is an Engineering Manager working across AI Platform Engineering, SRE, Observability and DevOps. This guide is shaped by the questions that matter after the demo: What is this system actually doing? What can it touch? How does it fail? Can we observe, explain and improve it?</p>
       </div>
-
-      <div class="mt-6 flex gap-4 flex-wrap">
-        <a
-          href="https://github.com/hmohamedansari/ai-explained"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-secondary"
-        >
-          View on GitHub →
-        </a>
+      <div class="mt-5 flex flex-wrap gap-4 text-sm">
+        <a href="https://hmohamedansari.com" target="_blank" rel="noopener noreferrer" class="text-brand-400 hover:text-brand-300 transition-colors">Personal site →</a>
+        <a href="https://www.linkedin.com/in/mohamedansari/" target="_blank" rel="noopener noreferrer" class="text-brand-400 hover:text-brand-300 transition-colors">LinkedIn →</a>
+        <a href="https://hmohamedansari.github.io/there-is-no-agent-talk/" target="_blank" rel="noopener noreferrer" class="text-brand-400 hover:text-brand-300 transition-colors">There Is No Agent →</a>
       </div>
     </section>
 
-    <!-- Newsletter -->
-    <section class="p-8 rounded-xl border border-brand-500/20 bg-brand-950/20">
-      <h2 class="text-xl font-semibold text-white mb-2">Stay updated</h2>
-      <p class="text-slate-400 text-sm mb-4">
-        New modules, curriculum updates, and AI education content: occasionally,
-        never spammy.
-      </p>
-      <!-- TODO: replace with your newsletter embed (Beehiiv / Buttondown / ConvertKit) -->
-      <!-- Privacy policy required before this goes live. See site-strategy.md. -->
-      <p class="text-slate-500 text-sm italic">Newsletter coming soon.</p>
+    <section class="rounded-2xl border border-brand-500/20 bg-brand-950/20 p-6 sm:p-8">
+      <h2 class="text-xl font-semibold text-white mb-2">This is a living field guide.</h2>
+      <p class="text-slate-400 leading-relaxed">Protocols and providers move quickly. If something is inaccurate, unclear or missing the part that makes it useful, please say so. The source and curriculum are open for review.</p>
+      <a href="https://github.com/hmohamedansari/ai-explained" target="_blank" rel="noopener noreferrer" class="inline-flex mt-5 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors">View the source on GitHub →</a>
     </section>
-
   </main>
 
   <Footer />

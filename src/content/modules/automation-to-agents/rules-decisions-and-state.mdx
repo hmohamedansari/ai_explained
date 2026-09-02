@@ -1,0 +1,55 @@
+---
+moduleId: "A1.3"
+title: "Rules, decisions and state"
+description: "A rule chooses an outcome. State tells the system where it is in a longer piece of work."
+track: "automation-to-agents"
+order: 3
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## A condition is not a workflow
+
+A rule answers a local question:
+
+```python
+if error_rate > 0.05:
+    severity = "high"
+```
+
+That is useful, but it does not tell us whether an incident is new, acknowledged, being investigated, waiting for approval, or resolved. That is **state**.
+
+## Model the work honestly
+
+The first Workbench uses a small state machine:
+
+```text
+new → triaged → investigating → waiting-for-human → resolved
+                       ↓
+                    closed-as-noise
+```
+
+Each transition has a reason. The system should refuse transitions that do not make sense: you should not resolve an incident that was never investigated, and you should not investigate one that has been closed.
+
+## Why state is a gift
+
+State gives us three things that are hard to get back later:
+
+- A shared understanding of what is happening now.
+- A safe place to resume after a failure.
+- A record of why the system did not take some other path.
+
+This becomes important when we add a model. A model call is not the state of the investigation. It is one event inside it.
+
+## Try it
+
+Change the scenario from "new" to "investigating" and run the deterministic investigator. Notice which checks it skips. Then try an invalid transition and read the error. The error is not an inconvenience; it is the system protecting its own story.
+
+## Keep this with you
+
+If a piece of work takes more than one step, write down its states before you ask an LLM to navigate them.

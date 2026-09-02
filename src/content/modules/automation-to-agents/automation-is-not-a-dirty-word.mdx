@@ -1,0 +1,56 @@
+---
+moduleId: "A1.1"
+title: "Automation is not a dirty word"
+description: "Before we talk about models or agents, we need to remember what dependable automation already looks like."
+track: "automation-to-agents"
+order: 1
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 10
+draft: false
+---
+
+## The boring systems did a lot of good work
+
+Before LLMs turned up, engineers were already automating serious work: routing alerts, scheduling jobs, validating data, provisioning access, reconciling payments, and escalating a person when the rules ran out.
+
+Those systems were not lesser because they were boring. They were useful because they were explicit. Given the same input and state, a deterministic program follows the same path. You can test it, replay it, and explain why it made a decision.
+
+That is our starting point.
+
+## The Workbench situation
+
+Our fictional online shop has an incident: checkout failures rose after a deployment. The first version of the Engineering Troubleshooting Workbench does not guess. It takes known signals and applies known rules.
+
+```text
+if checkout errors are high and a deploy happened recently:
+    label the incident “possible deployment regression”
+    ask an engineer to inspect the deployment
+else:
+    follow the normal checkout runbook
+```
+
+That is automation. It is also a perfectly respectable design.
+
+## What automation needs
+
+Reliable automation is usually made of five things:
+
+1. **Inputs** — alerts, forms, events, API responses, schedules.
+2. **Rules** — conditions, validation and policy.
+3. **State** — what has already happened and what is still in progress.
+4. **Effects** — a ticket created, a message sent, a task queued, or an approval requested.
+5. **Evidence** — enough history for a human to reconstruct the decision.
+
+When somebody tells you their system is "agentic", ask where these five things live. A model can help with one part of the work. It does not make the other parts disappear.
+
+## Try it
+
+Open the first Workbench scenario. Change the error threshold, run the investigator again, and compare its report. Nothing mysterious happened: you changed a rule, so the route changed.
+
+## Keep this with you
+
+The question is not "Can an LLM do this?" Start with: "Can a clear rule do this reliably?" If yes, use the rule. Save uncertainty for work that actually needs it.

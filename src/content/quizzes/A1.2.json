@@ -1,0 +1,24 @@
+{
+  "title": "Evidence before explanation",
+  "moduleId": "A1.2",
+  "questions": [
+    {
+      "id": "A1.2-q1",
+      "type": "multiple-choice",
+      "question": "Which statement is evidence rather than a hypothesis?",
+      "options": ["The deployment broke checkout", "Checkout 5xx rate reached 8.2% at 10:04 UTC", "The database is probably slow", "The model thinks the release is unsafe"],
+      "answer": 1,
+      "explanation": "A measured error rate with a source and time is an observation. The other statements may be useful hypotheses, but still need checking.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.2-q2",
+      "type": "multiple-choice",
+      "question": "After a model proposes a hypothesis, what can turn it into new evidence?",
+      "options": ["Repeating it in a summary", "A permitted check succeeds and records its result", "Giving it a more confident tone", "Putting it in the system prompt"],
+      "answer": 1,
+      "explanation": "The runtime performs a permitted check. Its recorded result is evidence; the model's proposal remains a proposal.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

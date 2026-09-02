@@ -1,0 +1,69 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+---
+
+<BaseLayout
+  title="The Engineering Troubleshooting Workbench"
+  description="A small local Python application that grows from deterministic automation into a bounded agentic system."
+>
+  <Header />
+
+  <main class="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <a href="/learn" class="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-brand-400 transition-colors mb-8 sm:mb-10">← Learning journeys</a>
+
+    <section class="max-w-3xl mb-12 sm:mb-16">
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">The evolving application</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-4">Engineering Troubleshooting Workbench</h1>
+      <p class="text-lg text-slate-400 leading-relaxed">A fictional online shop has a real-looking incident. You collect evidence, apply rules, make the workflow visible, and only then introduce a model where language and ambiguity are genuinely useful.</p>
+    </section>
+
+    <section class="grid lg:grid-cols-[1fr_1.1fr] gap-5 mb-12">
+      <div class="card">
+        <p class="text-xs font-mono uppercase tracking-[0.16em] text-brand-400 mb-3">It runs on your machine</p>
+        <h2 class="text-xl font-semibold text-white mb-3">Python first. Docker optional.</h2>
+        <p class="text-sm text-slate-400 leading-relaxed">The normal route is a Python virtual environment and a terminal command. Streamlit opens a local browser view so you can inspect evidence, state and decisions. Docker comes later as an optional production-shaped route.</p>
+      </div>
+      <div class="card">
+        <p class="text-xs font-mono uppercase tracking-[0.16em] text-brand-400 mb-3">It is safe to explore</p>
+        <h2 class="text-xl font-semibold text-white mb-3">Synthetic data. Read-only tools.</h2>
+        <p class="text-sm text-slate-400 leading-relaxed">No real cloud account, Kubernetes cluster or production logs are required. The first scenarios use local fixtures, and every tool is deliberately narrow and inspectable.</p>
+      </div>
+    </section>
+
+    <section class="rounded-2xl border border-white/10 overflow-hidden mb-12 sm:mb-16">
+      <div class="p-5 sm:p-6 bg-surface-1 border-b border-white/10">
+        <p class="text-xs font-mono uppercase tracking-[0.16em] text-slate-500">How the system grows</p>
+      </div>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-white/10">
+        {[
+          ['1', 'Deterministic investigator', 'Rules, evidence, state and known routes.'],
+          ['2', 'Model-assisted harness', 'Structured proposals without giving away control.'],
+          ['3', 'Context and memory', 'Relevant runbooks, citations and durable state.'],
+          ['4', 'Bounded agent', 'A small read-only loop with budgets and a stop condition.'],
+        ].map(([number, title, detail]) => (
+          <div class="p-5 sm:p-6">
+            <span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-brand-950/50 border border-brand-500/30 text-xs font-mono text-brand-400 mb-4">{number}</span>
+            <h2 class="font-semibold text-white mb-2">{title}</h2>
+            <p class="text-sm text-slate-400 leading-relaxed">{detail}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section class="max-w-3xl">
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">The boundary that keeps it honest</p>
+      <h2 class="text-2xl font-semibold text-white mb-4">The model does not run the system.</h2>
+      <pre class="rounded-xl border border-white/10 bg-surface-2 p-5 text-sm text-slate-300 overflow-x-auto"><code>{`model/provider  → generates text or a structured proposal
+harness         → interprets and validates it
+policy          → allows, denies or asks for approval
+tool/runtime    → performs permitted work
+state/events    → record what happened
+control loop    → decides whether work continues`}</code></pre>
+      <p class="mt-5 text-slate-400 leading-relaxed">The companion begins with a deterministic checkpoint: local fixtures, explicit rules and a visible decision trail. Its public source link will join the first release; until then, every lesson keeps the application architecture visible.</p>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>

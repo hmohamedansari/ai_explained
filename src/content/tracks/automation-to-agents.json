@@ -1,0 +1,9 @@
+{
+  "title": "From Automation to Agentic Systems",
+  "description": "Start with the deterministic systems you already trust. Then add models, context, tools and control loops without pretending the machinery disappeared.",
+  "order": 0,
+  "icon": "🧭",
+  "color": "brand",
+  "volatility": "stable",
+  "personas": ["curious", "leader", "junior", "senior", "sre"]
+}

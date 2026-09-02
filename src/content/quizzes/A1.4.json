@@ -1,0 +1,24 @@
+{
+  "title": "Events, queues and workflows",
+  "moduleId": "A1.4",
+  "questions": [
+    {
+      "id": "A1.4-q1",
+      "type": "multiple-choice",
+      "question": "What is an event?",
+      "options": ["A record that something happened", "A model's hidden reasoning", "A retry budget", "A database schema"],
+      "answer": 0,
+      "explanation": "An event records something that happened, such as an alert crossing a threshold or a deployment completing.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.4-q2",
+      "type": "multiple-choice",
+      "question": "When is a retry safest?",
+      "options": ["Whenever a request fails", "When the operation is safe to repeat and the failure may be temporary", "Only when a model suggests it", "After an irreversible payment action"],
+      "answer": 1,
+      "explanation": "Retries need a reason. They are appropriate for temporary failures in operations that can safely be repeated.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

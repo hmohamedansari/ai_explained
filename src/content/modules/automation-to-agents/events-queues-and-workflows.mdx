@@ -1,0 +1,51 @@
+---
+moduleId: "A1.4"
+title: "Events, queues and workflows"
+description: "Not every task happens in one request. Learn the machinery that lets work continue safely across time and failure."
+track: "automation-to-agents"
+order: 4
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## The request is not the whole world
+
+Some work completes immediately. Some work has to wait for a human, a database, a remote API, or a scheduled retry. Treating all of that as one long request is how systems become fragile.
+
+Three simple ideas help:
+
+- An **event** says something happened: `checkout.error-rate-crossed`.
+- A **queue** holds work until a worker can take it.
+- A **workflow** coordinates steps, state and outcomes over time.
+
+## Our incident flow
+
+```text
+alert received
+  → create investigation
+  → run deterministic checks
+  → record evidence
+  → request human review if the rules cannot decide
+  → close or continue
+```
+
+The Workbench is deliberately small, so it uses local scenario data rather than a real message broker. The mental model is the same. Later, when you meet queues and workflow engines in production, you will recognise the responsibilities.
+
+## Retries need a reason
+
+Retries are not a magic word for reliability. A retry is only sensible when the operation is safe to repeat and the failure might be temporary.
+
+For example, reading a metric snapshot can be retried. Charging a customer cannot be casually repeated. This is where **idempotency** matters: an operation is idempotent when repeating it does not create an additional unintended effect.
+
+## Try it
+
+Use the delayed-metric scenario. Let the first read fail, then watch the workflow retry once and record both attempts. The final report should tell you that the first read failed. Silence is not evidence of success.
+
+## Keep this with you
+
+A workflow is not fancy orchestration. It is a promise that work can survive time, waiting and failure without forgetting what it was doing.

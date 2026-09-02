@@ -18,6 +18,26 @@ const tracks = defineCollection({
   }),
 });
 
+// ── Journeys ───────────────────────────────────────────────────────────────
+// Curated routes through the curriculum. A journey is deliberately broader than
+// a module: it gives learners a useful destination without pretending that a
+// job title can predict what they need to learn.
+const journeys = defineCollection({
+  type: 'data',
+  schema: z.object({
+    title: z.string(),
+    eyebrow: z.string(),
+    description: z.string(),
+    track: z.string(),
+    order: z.number(),
+    status: z.enum(['published', 'next', 'planned']),
+    icon: z.string(),
+    lessons: z.number().int().positive().optional(),
+    outcome: z.string(),
+    evidence: z.enum(['stable', 'mixed', 'fast-moving']),
+  }),
+});
+
 // ── Modules ────────────────────────────────────────────────────────────────
 // MDX content files at src/content/modules/[track-slug]/[module-slug].mdx
 // The body contains all three progressive-disclosure layers.
@@ -80,4 +100,4 @@ const quizzes = defineCollection({
   }),
 });
 
-export const collections = { tracks, modules, quizzes };
+export const collections = { tracks, journeys, modules, quizzes };

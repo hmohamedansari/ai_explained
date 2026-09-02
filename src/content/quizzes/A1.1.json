@@ -1,0 +1,24 @@
+{
+  "title": "Automation is not a dirty word",
+  "moduleId": "A1.1",
+  "questions": [
+    {
+      "id": "A1.1-q1",
+      "type": "multiple-choice",
+      "question": "A clear rule can route an alert correctly every time. What is the most sensible first choice?",
+      "options": ["Use the deterministic rule", "Use an LLM because it sounds more flexible", "Use two agents to vote", "Ask a human to route every alert"],
+      "answer": 0,
+      "explanation": "Use a deterministic rule when the work is clear and stable. Models add value where language or uncertainty is genuinely part of the task.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.1-q2",
+      "type": "multiple-choice",
+      "question": "Which part of an automation lets a human reconstruct why it acted?",
+      "options": ["A longer prompt", "Evidence and event history", "A larger model", "A higher temperature"],
+      "answer": 1,
+      "explanation": "Evidence and an event history make decisions inspectable. They are useful with or without a model.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

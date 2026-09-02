@@ -1,0 +1,42 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Header from '@/components/layout/Header.astro';
+import Footer from '@/components/layout/Footer.astro';
+---
+
+<BaseLayout
+  title="Advanced: Agent Systems, MCP and A2A"
+  description="The next level of AI Explained: multi-agent systems, MCP, A2A and interoperability with clear boundaries."
+>
+  <Header />
+
+  <main class="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+    <section class="max-w-3xl mb-12 sm:mb-16">
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-orange-400 mb-3">Level 2 · Next level</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-4">Agent systems, MCP and A2A.</h1>
+      <p class="text-lg text-slate-400 leading-relaxed">This is where the fun gets serious. We will build toward delegation, specialised workers and interoperable systems, while staying honest about ownership, permissions, failure and cost.</p>
+    </section>
+
+    <div class="grid md:grid-cols-3 gap-4">
+      {[
+        ['Agent architectures', 'Routers, planners, executors, reviewers, judges, supervisors and workers. More importantly: when a workflow is the better answer.'],
+        ['MCP', 'Hosts, clients, servers, tools, resources, prompts, transports, authentication and the difference between discovery and execution.'],
+        ['A2A and gateways', 'Agent Cards, tasks, messages, artifacts, delegation, trust boundaries, protocol compatibility and gateway policy.'],
+      ].map(([title, description], index) => (
+        <section class="card">
+          <span class="inline-flex w-7 h-7 items-center justify-center rounded-full bg-orange-950/30 border border-orange-500/30 text-xs font-mono text-orange-400 mb-4">{index + 1}</span>
+          <h2 class="text-lg font-semibold text-white mb-2">{title}</h2>
+          <p class="text-sm text-slate-400 leading-relaxed">{description}</p>
+        </section>
+      ))}
+    </div>
+
+    <section class="mt-12 sm:mt-16 rounded-2xl border border-orange-500/20 bg-orange-950/20 p-6 sm:p-8 max-w-3xl">
+      <h2 class="text-xl font-semibold text-white mb-2">First, understand the harness.</h2>
+      <p class="text-slate-400 leading-relaxed">The foundations path ends with a bounded troubleshooting agent. That gives us something concrete to extend into a multi-agent system rather than a pile of labels connected by arrows.</p>
+      <a href="/learn/automation-to-agents" class="inline-flex mt-5 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors">Start the foundations →</a>
+    </section>
+  </main>
+
+  <Footer />
+</BaseLayout>

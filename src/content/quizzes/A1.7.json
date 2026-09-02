@@ -1,0 +1,24 @@
+{
+  "title": "Where the model belongs",
+  "moduleId": "A1.7",
+  "questions": [
+    {
+      "id": "A1.7-q1",
+      "type": "multiple-choice",
+      "question": "What is the model's role in the harness?",
+      "options": ["Enforce authorisation", "Generate text or a structured proposal", "Perform irreversible effects", "Store the workflow state"],
+      "answer": 1,
+      "explanation": "The model proposes. The harness, policy, tools and state system own the decisions and effects around that proposal.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.7-q2",
+      "type": "multiple-choice",
+      "question": "Which task is usually best handled by deterministic code?",
+      "options": ["Summarising a messy customer report", "Selecting a state transition that requires authorisation", "Explaining a log excerpt in plain English", "Suggesting a question to investigate next"],
+      "answer": 1,
+      "explanation": "Permissions, state transitions and irreversible effects need deterministic enforcement. Models are useful around language and ambiguity.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

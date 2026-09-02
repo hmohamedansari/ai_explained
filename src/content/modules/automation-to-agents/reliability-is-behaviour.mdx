@@ -1,0 +1,49 @@
+---
+moduleId: "A1.5"
+title: "Reliability is behaviour"
+description: "A dependable system has a clear answer for success, failure, delay, duplication and uncertainty."
+track: "automation-to-agents"
+order: 5
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 13
+draft: false
+---
+
+## Happy paths are demonstrations, not designs
+
+The first version of a system usually works when everything responds quickly, every input is tidy, and nothing arrives twice. Production is where those assumptions get a vote.
+
+For the Workbench, reliability means we can answer five questions before a problem happens:
+
+| Situation | What the system should do |
+|---|---|
+| Input is invalid | Reject it clearly and keep the incident unchanged |
+| A read fails temporarily | Retry within a small, visible budget |
+| The same event arrives twice | Recognise it and avoid duplicate work |
+| A rule cannot decide | Escalate to a human with the evidence collected |
+| A step takes too long | Stop waiting, record the timeout and choose the next safe action |
+
+## Reliability lives in code and policy
+
+The policy decides whether a retry, escalation or stop is allowed. The runtime performs the actual work. The event log tells us what happened.
+
+```text
+policy          → says whether an action is allowed
+tool/runtime    → attempts the action
+state/events    → record success, failure or timeout
+control flow    → continues, retries, escalates or stops
+```
+
+That separation will protect us later. An LLM may suggest an action, but it should not get to redefine a timeout or bypass an approval because it wrote a persuasive paragraph.
+
+## Try it
+
+Run the duplicate-alert scenario. The correct result is not two investigations. It is one investigation with a visible note that the duplicate was recognised.
+
+## Keep this with you
+
+Reliability is not a badge you add after the demo. It is the behaviour your system chooses when the world is inconvenient.

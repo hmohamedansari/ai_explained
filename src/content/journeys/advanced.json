@@ -1,0 +1,11 @@
+{
+  "title": "Agent Systems, MCP and A2A",
+  "eyebrow": "Level 2 · Advanced",
+  "description": "The good stuff: agent roles, delegation, MCP, A2A, capability boundaries and how to make a multi-agent system understandable instead of merely impressive.",
+  "track": "advanced",
+  "order": 2,
+  "status": "next",
+  "icon": "⚡",
+  "outcome": "the ability to design and review a multi-agent system with clear ownership and evidence.",
+  "evidence": "fast-moving"
+}

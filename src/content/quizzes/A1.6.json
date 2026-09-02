@@ -1,0 +1,24 @@
+{
+  "title": "Build the deterministic investigator",
+  "moduleId": "A1.6",
+  "questions": [
+    {
+      "id": "A1.6-q1",
+      "type": "multiple-choice",
+      "question": "What should the reporting function do?",
+      "options": ["Quietly change the incident route", "Explain the findings and selected route", "Call an external tool without policy", "Persist the model's memory"],
+      "answer": 1,
+      "explanation": "Reporting explains the decision. It should not alter the underlying route or state.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.6-q2",
+      "type": "multiple-choice",
+      "question": "Why build the deterministic investigator before adding a model?",
+      "options": ["Models cannot read text", "It gives us a clear, testable baseline for every later capability", "It makes the API key free", "It removes the need for state"],
+      "answer": 1,
+      "explanation": "The deterministic version makes behaviour visible and testable. Later model-assisted behaviour must fit around that baseline.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

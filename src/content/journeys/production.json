@@ -1,0 +1,11 @@
+{
+  "title": "Agents in Production",
+  "eyebrow": "Level 3 · Production",
+  "description": "Observability, Kubernetes, OpenTelemetry, OpAMP, Grafana, Golden Signals, resilience and security for systems that have to earn trust in production.",
+  "track": "agents-in-production",
+  "order": 3,
+  "status": "planned",
+  "icon": "🏗️",
+  "outcome": "a production-ready way to reason about reliability, operations and security around agentic systems.",
+  "evidence": "mixed"
+}

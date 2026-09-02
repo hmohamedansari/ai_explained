@@ -1,0 +1,24 @@
+{
+  "title": "Reliability is behaviour",
+  "moduleId": "A1.5",
+  "questions": [
+    {
+      "id": "A1.5-q1",
+      "type": "multiple-choice",
+      "question": "A duplicate alert arrives for an open investigation. What should the system normally do?",
+      "options": ["Create a second investigation", "Ignore it without a record", "Recognise it, avoid duplicate work and record that it arrived", "Ask a model to decide whether duplicates exist"],
+      "answer": 2,
+      "explanation": "Deduplication avoids repeated work while preserving evidence that the duplicate event arrived.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    },
+    {
+      "id": "A1.5-q2",
+      "type": "multiple-choice",
+      "question": "Who should decide whether an action is allowed?",
+      "options": ["The model alone", "Policy and deterministic enforcement", "The first tool that responds", "The user interface"],
+      "answer": 1,
+      "explanation": "Policy defines what is allowed. The runtime performs the action only after that policy check.",
+      "personas": ["curious", "leader", "junior", "senior", "sre"]
+    }
+  ]
+}

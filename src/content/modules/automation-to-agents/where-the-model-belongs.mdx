@@ -1,0 +1,45 @@
+---
+moduleId: "A1.7"
+title: "Where the model belongs"
+description: "An LLM is a useful but uncertain component. The system around it still owns the decision, the tools and the consequences."
+track: "automation-to-agents"
+order: 7
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## We are ready to add uncertainty
+
+Our Workbench can already investigate a known failure safely. So why add a model?
+
+Because some inputs arrive as messy language: an engineer's description, a log excerpt, a vague customer report, or a runbook written by somebody who knows the system well but writes like a human. Models are useful for interpreting, summarising and proposing. They are not the place to store the workflow or enforce the rules.
+
+## The boundary that matters
+
+```text
+model/provider  → generates text or a structured proposal
+harness         → assembles context and interprets the proposal
+policy          → allows, denies or asks for approval
+tool/runtime    → performs the effect
+state/events    → record what happened
+control loop    → decides whether work continues
+```
+
+This is not a philosophical distinction. It is how we keep a confident model response from becoming an unreviewed production action.
+
+For our next journey, the model will first help write an incident summary. The deterministic investigator still selects the route. We will then make the model's output structured, validate it, and show exactly what context it received.
+
+## A useful rule of thumb
+
+Use ordinary code for rules, arithmetic, permissions, state transitions and irreversible effects. Use a model where language, ambiguity or synthesis genuinely add value.
+
+If a clear rule can do the job, the rule is usually cheaper, faster and easier to trust.
+
+## Keep this with you
+
+There is no agent hiding inside a prompt. There is a system. Now you know where to look for it.

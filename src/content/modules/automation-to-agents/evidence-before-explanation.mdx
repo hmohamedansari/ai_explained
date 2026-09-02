@@ -1,0 +1,54 @@
+---
+moduleId: "A1.2"
+title: "Evidence before explanation"
+description: "A good incident explanation is built from observable facts, not from the most confident-sounding story."
+track: "automation-to-agents"
+order: 2
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 11
+draft: false
+---
+
+## A plausible story is not a diagnosis
+
+"The deployment caused the errors" may be true. It may also be a very tidy story told by a tired human at 2am.
+
+The Workbench starts by separating what it **observed** from what it **infers**. An alert saying that checkout errors rose is evidence. A deployment timestamp is evidence. "The new release broke checkout" is a hypothesis until we test it.
+
+## Give every fact a home
+
+For this course, each investigation record has four small buckets:
+
+| Bucket | Example |
+|---|---|
+| Observation | Checkout 5xx rate is 8.2% from 10:04 UTC |
+| Source | `checkout-api` metric snapshot |
+| Hypothesis | The deployment may have changed request validation |
+| Next check | Compare error messages before and after the deploy |
+
+This feels almost too simple. That is the point. It stops a system from turning its own generated text into a fact.
+
+## Why this matters before models
+
+Later, a model will help us summarise logs and suggest useful checks. It must not get to quietly invent a source for itself.
+
+The harness will therefore keep evidence separate from model output. The model can propose a hypothesis. The system records the proposal as a proposal. Only a successful check adds new evidence.
+
+```text
+model/provider  → proposes a hypothesis
+harness         → labels the proposal correctly
+tool/runtime    → performs a permitted check
+state/events    → record the tool result as evidence
+```
+
+## Try it
+
+Run the scenario once, then inspect the evidence timeline. Mark one hypothesis as disproved. The report should retain it, clearly labelled as a dead end, rather than quietly rewriting history.
+
+## Keep this with you
+
+When the answer matters, ask: "What did we actually observe, and where did it come from?" That is useful with a spreadsheet, a human on-call engineer, or a model that writes beautifully.

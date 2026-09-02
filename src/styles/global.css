@@ -6,8 +6,8 @@
 
 @layer base {
   :root {
-    --color-brand: 16 185 129;
-    --color-bg: 8 14 9;
+    --color-brand: 201 107 67;
+    --color-bg: 23 20 18;
   }
 
   * {
@@ -118,15 +118,15 @@
    ============================================================= */
 
 html:not(.dark) body {
-  background-color: #f8fafc;
+  background-color: #fdfbf9;
   color: #0f172a;
 }
 
 /* Surfaces */
-html:not(.dark) .bg-surface    { background-color: #ffffff; }
-html:not(.dark) .bg-surface-1  { background-color: #f8fafc; }
-html:not(.dark) .bg-surface-2  { background-color: #f1f5f9; }
-html:not(.dark) .bg-surface-3  { background-color: #e2e8f0; }
+html:not(.dark) .bg-surface    { background-color: #fffdfa; }
+html:not(.dark) .bg-surface-1  { background-color: #f8f3ee; }
+html:not(.dark) .bg-surface-2  { background-color: #f0e6dd; }
+html:not(.dark) .bg-surface-3  { background-color: #e4d5c9; }
 
 /* Text */
 html:not(.dark) .text-white    { color: #0f172a; }
@@ -152,12 +152,12 @@ html:not(.dark) .hover\:text-white:hover   { color: #0f172a; }
 
 /* Card */
 html:not(.dark) .card {
-  background-color: #ffffff;
+  background-color: #fffdfa;
   border-color: rgb(0 0 0 / 0.08);
 }
 html:not(.dark) .card:hover {
-  background-color: #f8fafc;
-  border-color: rgb(5 150 105 / 0.3);
+  background-color: #f8f3ee;
+  border-color: rgb(173 83 48 / 0.35);
 }
 
 /* Buttons */
@@ -172,7 +172,7 @@ html:not(.dark) .btn-secondary:hover {
 
 /* Header */
 html:not(.dark) header.sticky {
-  background-color: rgb(255 255 255 / 0.85);
+  background-color: rgb(255 253 250 / 0.85);
   border-bottom-color: rgb(0 0 0 / 0.08);
 }
 
@@ -204,13 +204,13 @@ html:not(.dark) .prose-lesson {
   --tw-prose-body:          #334155;
   --tw-prose-headings:      #0f172a;
   --tw-prose-lead:          #475569;
-  --tw-prose-links:         #047857;
+  --tw-prose-links:         #8d3f27;
   --tw-prose-bold:          #0f172a;
   --tw-prose-counters:      #64748b;
   --tw-prose-bullets:       #94a3b8;
   --tw-prose-hr:            rgb(0 0 0 / 0.1);
   --tw-prose-quotes:        #334155;
-  --tw-prose-quote-borders: #047857;
+  --tw-prose-quote-borders: #8d3f27;
   --tw-prose-captions:      #64748b;
   --tw-prose-code:          #475569;
   --tw-prose-pre-bg:        #f1f5f9;
@@ -227,8 +227,8 @@ html:not(.dark) .prose-lesson p   { color: #334155; }
 html:not(.dark) .prose-lesson li  { color: #334155; }
 html:not(.dark) .prose-lesson em  { color: inherit; }
 html:not(.dark) .prose-lesson strong     { color: #0f172a; }
-html:not(.dark) .prose-lesson a          { color: #047857; }
-html:not(.dark) .prose-lesson blockquote { color: #64748b; background-color: rgb(5 150 105 / 0.06); }
+html:not(.dark) .prose-lesson a          { color: #8d3f27; }
+html:not(.dark) .prose-lesson blockquote { color: #64748b; background-color: rgb(173 83 48 / 0.06); }
 html:not(.dark) .prose-lesson :not(pre) > code { background-color: transparent; color: #475569; }
 html:not(.dark) .prose-lesson pre  { background-color: #f1f5f9; border-color: rgb(0 0 0 / 0.08); }
 html:not(.dark) .prose-lesson th   { background-color: #f1f5f9; color: #1e293b; }
@@ -236,14 +236,14 @@ html:not(.dark) .prose-lesson td   { color: #334155; }
 
 /* Badge */
 html:not(.dark) .badge { color: #334155; }
-html:not(.dark) .bg-brand-950\/20 { background-color: rgb(5 150 105 / 0.06); }
-html:not(.dark) .bg-brand-950\/30 { background-color: rgb(5 150 105 / 0.08); }
-html:not(.dark) .bg-brand-950\/50 { background-color: rgb(5 150 105 / 0.1);  }
-html:not(.dark) .bg-brand-600\/20 { background-color: rgb(5 150 105 / 0.12); }
-html:not(.dark) .bg-brand-950     { background-color: #f0fdf4; }
-html:not(.dark) .text-brand-300   { color: #047857; }
-html:not(.dark) .text-brand-400   { color: #047857; }
-html:not(.dark) .text-brand-500   { color: #047857; }
+html:not(.dark) .bg-brand-950\/20 { background-color: rgb(173 83 48 / 0.06); }
+html:not(.dark) .bg-brand-950\/30 { background-color: rgb(173 83 48 / 0.08); }
+html:not(.dark) .bg-brand-950\/50 { background-color: rgb(173 83 48 / 0.1);  }
+html:not(.dark) .bg-brand-600\/20 { background-color: rgb(173 83 48 / 0.12); }
+html:not(.dark) .bg-brand-950     { background-color: #fdf3ed; }
+html:not(.dark) .text-brand-300   { color: #8d3f27; }
+html:not(.dark) .text-brand-400   { color: #8d3f27; }
+html:not(.dark) .text-brand-500   { color: #8d3f27; }
 
 /* Orange "Fast-moving" volatility badge */
 html:not(.dark) .text-orange-400      { color: #c2410c; }

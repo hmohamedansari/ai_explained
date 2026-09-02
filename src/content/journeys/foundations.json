@@ -1,0 +1,12 @@
+{
+  "title": "From Automation to Agentic Systems",
+  "eyebrow": "Level 1 · Foundations",
+  "description": "A practical journey from rules, workflows and evidence to a small, bounded troubleshooting agent. You will understand every moving part because you build it in public.",
+  "track": "automation-to-agents",
+  "order": 1,
+  "status": "published",
+  "icon": "🧭",
+  "lessons": 7,
+  "outcome": "a deterministic incident investigator and a solid mental model for where models belong.",
+  "evidence": "stable"
+}

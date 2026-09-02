@@ -4,69 +4,65 @@ import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getCollection } from 'astro:content';
 
-const tracks = await getCollection('tracks');
-const sortedTracks = tracks.sort((a, b) => a.data.order - b.data.order);
+const journeys = (await getCollection('journeys')).sort((a, b) => a.data.order - b.data.order);
 
-const publishedModules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.status === 'published'
-);
-const countByTrack = Object.fromEntries(
-  sortedTracks.map(t => [t.id, publishedModules.filter(m => m.data.track === t.id).length])
-);
-
-const VOLATILITY: Record<string, { label: string; classes: string }> = {
-  volatile: { label: 'Fast-moving', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
-  emerging: { label: 'Emerging',    classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
-  stable:   { label: 'Stable',      classes: 'border-white/10 text-slate-500' },
+const STATUS: Record<string, { label: string; classes: string }> = {
+  published: { label: 'Available now', classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
+  next: { label: 'Next level', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
+  planned: { label: 'On the map', classes: 'border-white/10 text-slate-500 bg-white/5' },
 };
 ---
 
 <BaseLayout
   title="Learn"
-  description="9 tracks covering every layer of AI engineering: from foundations to production agents."
+  description="A practical route from deterministic automation to agentic systems, without the theatre."
 >
   <Header />
 
   <main class="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
     <div class="mb-10 sm:mb-12">
-      <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-3">Learning Tracks</h1>
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">A path with a point</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white mb-3">Learn the system, not the buzzwords.</h1>
       <p class="text-base sm:text-lg text-slate-400 max-w-2xl">
-        9 tracks, {publishedModules.length} modules published. Start anywhere: or{' '}
-        <a href="/onboarding" class="text-brand-400 hover:text-brand-300 transition-colors">
-          find the path for your role
-        </a>.
+        Start with the machinery engineers already know, then add models, context, tools, agents, and protocols one honest layer at a time.
       </p>
     </div>
 
-    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {sortedTracks.map(track => {
-        const count = countByTrack[track.id] ?? 0;
-        const vol = VOLATILITY[track.data.volatility];
+    <div class="grid gap-4">
+      {journeys.map(journey => {
+        const status = STATUS[journey.data.status];
+        const isAvailable = journey.data.status === 'published';
         return (
-          <a href={`/learn/${track.id}`} class="card group flex flex-col gap-3">
-            <div class="flex items-start justify-between gap-2">
-              <span class="text-3xl">{track.data.icon}</span>
-              <span class={`text-xs px-2 py-0.5 rounded-full border ${vol.classes}`}>
-                {vol.label}
-              </span>
-            </div>
+          <a href={isAvailable ? `/learn/${journey.data.track}` : '/advanced'} class="card group grid sm:grid-cols-[auto_1fr_auto] gap-4 sm:gap-6 items-start">
+            <span class="text-3xl sm:text-4xl">{journey.data.icon}</span>
             <div>
-              <p class="text-xs font-mono text-slate-600 mb-1">Track {track.data.order}</p>
-              <h2 class="font-semibold text-white group-hover:text-brand-300 transition-colors mb-1">
-                {track.data.title}
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="text-xs font-mono uppercase tracking-[0.14em] text-slate-500">{journey.data.eyebrow}</span>
+                <span class={`text-xs px-2 py-0.5 rounded-full border ${status.classes}`}>
+                  {status.label}
+                </span>
+              </div>
+              <h2 class="text-xl font-semibold text-white group-hover:text-brand-300 transition-colors mb-2">
+                {journey.data.title}
               </h2>
-              <p class="text-sm text-slate-400 leading-relaxed">{track.data.description}</p>
+              <p class="text-sm text-slate-400 leading-relaxed max-w-2xl">{journey.data.description}</p>
+              <p class="mt-3 text-xs text-slate-500"><span class="text-slate-400">You will leave with:</span> {journey.data.outcome}</p>
             </div>
-            <div class="mt-auto pt-3 border-t border-white/5 flex items-center justify-between text-xs">
-              <span class="text-slate-500">
-                {count > 0 ? `${count} module${count !== 1 ? 's' : ''}` : 'Coming soon'}
-              </span>
-              <span class="text-brand-400 group-hover:translate-x-0.5 transition-transform">→</span>
+            <div class="sm:text-right shrink-0 text-xs text-slate-500">
+              {journey.data.lessons ? <p>{journey.data.lessons} lessons</p> : null}
+              <p class="mt-1 text-brand-400 group-hover:translate-x-0.5 transition-transform">{isAvailable ? 'Begin →' : 'See roadmap →'}</p>
             </div>
           </a>
         );
       })}
     </div>
+
+    <section class="mt-12 sm:mt-16 rounded-2xl border border-brand-500/20 bg-brand-950/20 p-6 sm:p-8">
+      <p class="text-xs font-mono uppercase tracking-[0.18em] text-brand-400 mb-3">How this is taught</p>
+      <h2 class="text-2xl font-semibold text-white mb-3">One evolving application. No blank-page homework.</h2>
+      <p class="text-slate-400 max-w-3xl leading-relaxed">The Engineering Troubleshooting Workbench begins as an ordinary Python investigation tool. Each journey adds one useful capability and leaves the previous behaviour visible, testable, and explainable.</p>
+      <a href="/workbench" class="inline-flex mt-5 text-sm font-medium text-brand-400 hover:text-brand-300 transition-colors">Meet the Workbench →</a>
+    </section>
   </main>
 
   <Footer />

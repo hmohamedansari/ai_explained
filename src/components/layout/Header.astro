@@ -1,9 +1,10 @@
 ---
 const navLinks = [
-  { href: '/learn',  label: 'Learn' },
-  { href: '/paths',  label: 'Learning Paths' },
-  { href: '/tools',  label: 'Tools & references' },
-  { href: '/about',  label: 'Why this exists' },
+  { href: '/learn', label: 'Learn' },
+  { href: '/workbench', label: 'Workbench' },
+  { href: '/advanced', label: 'Advanced' },
+  { href: '/tools', label: 'Resources' },
+  { href: '/about', label: 'About' },
 ];
 
 const currentPath = Astro.url.pathname;
@@ -37,8 +38,8 @@ const currentPath = Astro.url.pathname;
 
     <div class="flex items-center gap-2">
       <!-- Desktop CTA -->
-      <a href="/onboarding" class="btn-primary text-sm hidden md:inline-flex">
-        Find my starting point →
+      <a href="/learn" class="btn-primary text-sm hidden md:inline-flex">
+        Start learning →
       </a>
 
       <!-- Theme toggle -->
@@ -93,8 +94,8 @@ const currentPath = Astro.url.pathname;
           {link.label}
         </a>
       ))}
-      <a href="/onboarding" class="btn-primary text-sm mt-2 justify-center">
-        Find my starting point →
+      <a href="/learn" class="btn-primary text-sm mt-2 justify-center">
+        Start learning →
       </a>
     </nav>
   </div>
