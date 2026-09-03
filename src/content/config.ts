@@ -65,6 +65,12 @@ const modules = defineCollection({
     // long for a good search snippet. Falls back to title/description if absent.
     seoTitle: z.string().optional(),
     seoDescription: z.string().optional(),
+    references: z.array(z.object({
+      title: z.string(),
+      url: z.string().url(),
+      checked: z.string(),
+      note: z.string().optional(),
+    })).default([]),
   }),
 });
 

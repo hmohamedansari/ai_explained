@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import { generateOGImage } from '@/utils/og-image';
+import { isPublicModule } from '@/utils/public-curriculum';
 
 export async function getStaticPaths() {
   const modules = await getCollection('modules', ({ data }) =>
-    !data.draft && data.status === 'published'
+    isPublicModule(data)
   );
   return modules.map(mod => {
     const [track, slug] = mod.slug.split('/');

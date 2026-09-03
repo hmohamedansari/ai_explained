@@ -1,11 +1,12 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
 import type { APIContext } from 'astro';
+import { isPublicModule, isPublicTrack } from '@/utils/public-curriculum';
 
 export async function GET(context: APIContext) {
   const [modules, tracks] = await Promise.all([
-    getCollection('modules', ({ data }) => !data.draft && data.status === 'published'),
-    getCollection('tracks'),
+    getCollection('modules', ({ data }) => isPublicModule(data)),
+    getCollection('tracks', track => isPublicTrack(track.id)),
   ]);
 
   // Build a lookup: track slug → numeric order from tracks collection

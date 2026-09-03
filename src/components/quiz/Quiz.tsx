@@ -15,11 +15,12 @@ interface QuizProps {
   title: string;
   moduleId: string;
   questions: Question[];
+  defaultReadMore?: string;
 }
 
 type AnswerState = Record<string, { selected: number | null; locked: boolean }>;
 
-export default function Quiz({ title, moduleId, questions }: QuizProps) {
+export default function Quiz({ title, moduleId, questions, defaultReadMore }: QuizProps) {
   const [answers, setAnswers] = useState<AnswerState>(() =>
     Object.fromEntries(questions.map(q => [q.id, { selected: null, locked: false }]))
   );
@@ -60,7 +61,7 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-white min-w-0">{title}</h2>
         {showResults && (
-          <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0">
+        <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0" aria-live="polite">
             {score} / {questions.length} correct
           </div>
         )}
@@ -72,14 +73,12 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
         const isWrong = state.locked && state.selected !== q.answer;
 
         return (
-          <div key={q.id} className="p-6 rounded-xl border border-white/10 bg-surface-1 space-y-4">
-            {/* Question */}
-            <div className="flex gap-3">
+          <fieldset key={q.id} className="p-6 rounded-xl border border-white/10 bg-surface-1 space-y-4" disabled={state.locked}>
+            <legend className="flex gap-3 w-full pr-2">
               <span className="text-xs font-mono text-slate-500 mt-0.5 shrink-0">Q{qi + 1}</span>
-              <p className="text-slate-200 text-sm leading-relaxed">{q.question}</p>
-            </div>
+              <span className="text-slate-200 text-sm leading-relaxed">{q.question}</span>
+            </legend>
 
-            {/* Options */}
             <div className="space-y-2 ml-6">
               {q.options?.map((opt, i) => {
                 const isSelected = state.selected === i;
@@ -103,23 +102,27 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
                 }
 
                 return (
-                  <button
+                  <label
                     key={i}
-                    className={cls}
-                    onClick={() => handleSelect(q.id, i)}
-                    disabled={state.locked}
+                    className={`${cls} cursor-pointer ${state.locked ? 'cursor-default' : ''}`}
                   >
-                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-mono border-current opacity-60">
-                      {String.fromCharCode(65 + i)}
-                    </span>
+                    <input
+                      type="radio"
+                      name={q.id}
+                      value={i}
+                      checked={isSelected}
+                      onChange={() => handleSelect(q.id, i)}
+                      className="sr-only"
+                    />
+                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-mono border-current opacity-60" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
                     {opt}
-                  </button>
+                  </label>
                 );
               })}
             </div>
 
             {/* Check / Explanation */}
-            <div className="ml-6">
+            <div className="ml-6" aria-live="polite">
               {!state.locked ? (
                 <button
                   onClick={() => handleCheck(q.id)}
@@ -137,9 +140,9 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
                 ].join(' ')}>
                   <p className="font-medium mb-1">{isCorrect ? '✓ Correct' : '✗ Not quite'}</p>
                   <p className="text-slate-300">{q.explanation}</p>
-                  {q.read_more && (
+                  {(q.read_more ?? defaultReadMore) && (
                     <a
-                      href={q.read_more}
+                      href={q.read_more ?? defaultReadMore}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-block mt-2 text-xs text-brand-400 hover:text-brand-300 transition-colors"
@@ -150,7 +153,7 @@ export default function Quiz({ title, moduleId, questions }: QuizProps) {
                 </div>
               )}
             </div>
-          </div>
+          </fieldset>
         );
       })}
 

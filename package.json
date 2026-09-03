@@ -8,8 +8,10 @@
     "preview": "astro preview",
     "astro": "astro",
     "curriculum:validate": "python3 scripts/validate-curriculum.py",
+    "content:validate": "node scripts/validate-public-content.mjs",
     "curriculum:registry": "python3 scripts/validate-curriculum.py --registry",
-    "curriculum:test": "python3 scripts/tests/test_validator.py"
+    "curriculum:test": "python3 scripts/tests/test_validator.py",
+    "release:verify": "node scripts/verify-public-surface.mjs"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.0",

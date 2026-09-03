@@ -16,7 +16,7 @@ interface Props {
 
 const { mod, prev, next, quiz } = Astro.props;
 const { title, description, track, moduleId, estimatedMinutes, volatility,
-        lastReviewed, seoTitle, seoDescription } = mod.data;
+        lastReviewed, seoTitle, seoDescription, references } = mod.data;
 const currentSlug = mod.slug.split('/')[1];
 
 // SEO-resolved values: optional overrides fall back to display values
@@ -75,7 +75,7 @@ const badge = VOLATILITY_BADGE[volatility];
     <Sidebar track={track} currentSlug={currentSlug} />
 
     <div class="flex-1 min-w-0 flex flex-col">
-      <main class="flex-1">
+      <main id="main-content" class="flex-1" tabindex="-1">
         <div class="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
           <!-- Breadcrumb -->
@@ -98,7 +98,7 @@ const badge = VOLATILITY_BADGE[volatility];
                 </span>
               )}
               {estimatedMinutes && (
-                <span class="text-xs text-slate-500">{estimatedMinutes.layer1} min read</span>
+                <span class="text-xs text-slate-500">{estimatedMinutes.layer1} min lesson</span>
               )}
             </div>
             <h1 class="text-2xl sm:text-3xl font-semibold text-white mb-3">{title}</h1>
@@ -109,6 +109,21 @@ const badge = VOLATILITY_BADGE[volatility];
           <article class="prose-lesson">
             <slot />
           </article>
+
+          {references.length > 0 && (
+            <section class="mt-10 rounded-xl border border-white/10 bg-surface-1 p-5 sm:p-6" aria-labelledby="check-sources">
+              <h2 id="check-sources" class="text-lg font-semibold text-white mb-2">Check the source</h2>
+              <p class="text-sm text-slate-400 mb-4">These are the primary sources behind the moving parts of this lesson. Check them again when you make an implementation decision.</p>
+              <ul class="space-y-3">
+                {references.map(reference => (
+                  <li class="text-sm">
+                    <a href={reference.url} target="_blank" rel="noopener noreferrer" class="font-medium text-brand-400 hover:text-brand-300 transition-colors">{reference.title} ↗</a>
+                    <p class="text-xs text-slate-500 mt-1">Checked {reference.checked}{reference.note ? ` · ${reference.note}` : ''}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <!-- Mark as read -->
           <div class="mt-12 pt-6 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
@@ -130,6 +145,7 @@ const badge = VOLATILITY_BADGE[volatility];
                 title={quiz.data.title}
                 moduleId={quiz.data.moduleId}
                 questions={quiz.data.questions}
+                defaultReadMore={references[0]?.url}
                 client:load
               />
             </section>

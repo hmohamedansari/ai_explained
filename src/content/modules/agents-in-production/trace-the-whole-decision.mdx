@@ -11,6 +11,11 @@ lastReviewed: "2026-09-03"
 estimatedMinutes:
   layer1: 14
 draft: false
+references:
+  - title: "OpenTelemetry context propagation"
+    url: "https://opentelemetry.io/docs/concepts/context-propagation/"
+    checked: "2026-09-03"
+    note: "Use W3C Trace Context to preserve trace identity across service boundaries."
 ---
 
 ## One request, one story
@@ -26,7 +31,9 @@ request
  └─ tool call or human approval
 ```
 
-Use a correlation ID across asynchronous queues and delegated tasks. Without it, a failure becomes a scavenger hunt across logs, vendor dashboards and chat transcripts.
+Across a queue or delegated task, propagate W3C Trace Context: the `traceparent` header carries the trace and parent-span identity, while `tracestate` can carry vendor-specific trace state. Create a new child span when the work is a continuation of the same causal path. When one operation is related to several independent traces, use span links instead of pretending it has only one parent.
+
+A correlation ID is still useful as a business or incident key in logs and records. It is not a replacement for trace propagation: it cannot reconstruct timing, parentage or the distributed path by itself.
 
 ## Telemetry is not a data exfiltration channel
 

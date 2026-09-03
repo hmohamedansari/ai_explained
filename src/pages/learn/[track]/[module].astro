@@ -1,10 +1,11 @@
 ---
 import ModuleLayout from '@/layouts/ModuleLayout.astro';
 import { getCollection } from 'astro:content';
+import { isPublicModule } from '@/utils/public-curriculum';
 
 export async function getStaticPaths() {
   const modules = await getCollection('modules', ({ data }) =>
-    !data.draft && data.status === 'published'
+    isPublicModule(data)
   );
   return modules.map(mod => {
     const [track, slug] = mod.slug.split('/');
@@ -17,7 +18,7 @@ const { Content } = await mod.render();
 
 // Adjacent published modules in the same track for prev/next nav
 const trackModules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.status === 'published' && data.track === mod.data.track
+  isPublicModule(data) && data.track === mod.data.track
 );
 const sorted = trackModules.sort((a, b) => a.data.order - b.data.order);
 const idx = sorted.findIndex(m => m.id === mod.id);

@@ -3,18 +3,19 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import Header from '@/components/layout/Header.astro';
 import Footer from '@/components/layout/Footer.astro';
 import { getCollection, getEntry } from 'astro:content';
+import { isPublicModule, isPublicTrack, PUBLIC_TRACKS } from '@/utils/public-curriculum';
 
 export async function getStaticPaths() {
-  const tracks = await getCollection('tracks');
-  return tracks.map(track => ({ params: { track: track.id } }));
+  return PUBLIC_TRACKS.map(track => ({ params: { track } }));
 }
 
 const { track: trackSlug } = Astro.params;
+if (!trackSlug || !isPublicTrack(trackSlug)) return Astro.redirect('/learn');
 const track = await getEntry('tracks', trackSlug);
 if (!track) return Astro.redirect('/learn');
 
 const allModules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.track === trackSlug
+  isPublicModule(data) && data.track === trackSlug
 );
 const published = allModules
   .filter(m => m.data.status === 'published')

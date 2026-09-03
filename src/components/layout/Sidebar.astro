@@ -1,5 +1,6 @@
 ---
 import { getCollection } from 'astro:content';
+import { isPublicModule } from '@/utils/public-curriculum';
 
 interface Props {
   track: string;
@@ -9,7 +10,7 @@ interface Props {
 const { track, currentSlug } = Astro.props;
 
 const allModules = await getCollection('modules', ({ data }) =>
-  !data.draft && data.status === 'published' && data.track === track
+  isPublicModule(data) && data.track === track
 );
 const trackModules = allModules.sort((a, b) => a.data.order - b.data.order);
 ---
