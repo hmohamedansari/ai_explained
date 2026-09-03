@@ -17,7 +17,7 @@ const journeys = (await getCollection('journeys')).sort((a, b) => a.data.order -
     <section class="home-hero overflow-hidden bg-surface">
       <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-10 pb-20 sm:pb-28">
         <div class="max-w-3xl">
-          <p class="inline-flex items-center gap-2 px-3 py-1.5 border-l-4 border-mulberry-600 bg-brand-950/30 text-brand-400 text-xs font-mono font-medium mb-6 sm:mb-8">
+          <p class="inline-flex items-center gap-2 px-3 py-1.5 border-l-4 border-mulberry-600 bg-brand-950/30 text-brand-400 text-[0.79rem] font-mono font-medium mb-6 sm:mb-8">
             An engineering field guide for AI systems
           </p>
 
@@ -53,7 +53,7 @@ const journeys = (await getCollection('journeys')).sort((a, b) => a.data.order -
             </p>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-5 lg:translate-y-8">
             {[
               ['Model', 'generates a proposal'],
               ['Harness', 'interprets the proposal'],
@@ -62,9 +62,9 @@ const journeys = (await getCollection('journeys')).sort((a, b) => a.data.order -
               ['State & events', 'record what happened'],
               ['Control loop', 'continues or stops'],
             ].map(([label, detail]) => (
-              <div class="rounded-xl border border-white/10 bg-surface p-4">
-                <p class="font-medium text-white mb-1">{label}</p>
-                <p class="text-xs text-slate-500 leading-relaxed">{detail}</p>
+              <div class="rounded-xl border border-white/10 bg-surface p-5">
+                <p class="text-base font-medium text-white mb-2">{label}</p>
+                <p class="text-sm text-slate-500 leading-relaxed">{detail}</p>
               </div>
             ))}
           </div>

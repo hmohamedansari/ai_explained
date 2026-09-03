@@ -102,10 +102,11 @@ html.dark {
       prose-h3:text-lg
       prose-p:leading-7
       prose-a:no-underline hover:prose-a:underline
-      prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+      prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
       prose-pre:border
       prose-blockquote:border-l-4 prose-blockquote:py-1
       prose-table:text-sm;
+    font-size: 1.025rem;
     --tw-prose-body: var(--aex-ink);
     --tw-prose-headings: var(--aex-ink);
     --tw-prose-lead: var(--aex-muted);
