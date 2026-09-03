@@ -42,7 +42,7 @@ For each fact, ask: must this be correct later, or merely helpful now? Correct l
 
 ## Try it
 
-For the Workbench, classify these facts: the active incident state, yesterday's incident summary, the current checkout latency and a runbook paragraph. Decide which belongs in durable state, current context or retrieved knowledge. Then write down who is allowed to update each one.
+Run `workbench` once, then inspect `.workbench-data/workbench.sqlite3` in the cloned project. The Workbench stores the synthetic incident report there as durable state; it does not hide the lifecycle in a chat summary. Then classify the active incident state, yesterday's summary, the current checkout latency and a runbook paragraph. Decide which belongs in durable state, current context or retrieved knowledge, and who may update each one.
 
 ## Keep this with you
 

@@ -11,7 +11,10 @@
     "content:validate": "node scripts/validate-public-content.mjs",
     "curriculum:registry": "python3 scripts/validate-curriculum.py --registry",
     "curriculum:test": "python3 scripts/tests/test_validator.py",
-    "release:verify": "node scripts/verify-public-surface.mjs"
+    "release:verify": "node scripts/verify-public-surface.mjs",
+    "links:verify": "node scripts/verify-internal-links.mjs",
+    "test:e2e": "playwright test",
+    "test": "npm run curriculum:validate && npm run content:validate && npm run curriculum:test && npm run build && npm run release:verify && npm run links:verify && npm run test:e2e"
   },
   "dependencies": {
     "@astrojs/mdx": "^3.1.0",
@@ -34,7 +37,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
-    "playwright": "^1.58.2",
+    "@playwright/test": "^1.58.2",
     "typescript": "^5.6.3"
   }
 }

@@ -31,7 +31,7 @@ Use workload identity and a supported secret mechanism. Avoid shipping provider 
 
 ## Try it
 
-Classify an agentic feature into API, worker and scheduled work. For each, write its timeout, retry owner, durable state location and what makes a request safe to repeat. This exercise is useful even if you do not run Kubernetes today.
+Inspect `k8s/workbench.yaml` in the cloned Workbench. It is deliberately a learning manifest: a non-root, read-only workload with a writable temporary volume, resource bounds, readiness and liveness probes, and separate HTTP and metrics ports. It does not turn the sample into a production deployment. Then classify an agentic feature into API, worker and scheduled work. For each, write its timeout, retry owner, durable state location and what makes a request safe to repeat.
 
 ## Keep this with you
 

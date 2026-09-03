@@ -13,7 +13,7 @@ estimatedMinutes:
 draft: false
 references:
   - title: "Model Context Protocol specification"
-    url: "https://modelcontextprotocol.io/specification/2025-06-18"
+    url: "https://modelcontextprotocol.io/docs/2026-07-28/learn/architecture"
     checked: "2026-09-03"
     note: "Verify the current specification revision before building against MCP."
 ---
@@ -42,7 +42,7 @@ The protocol evolves quickly. Read the current specification and a server's docu
 
 ## Try it
 
-Choose one existing internal API. List its safe read-only operations first. If you exposed it through an MCP server, which identity would call it, what data would be redacted, and which operation would remain unavailable? The answer is your integration design—not the protocol name.
+Run `workbench mcp`. The Workbench lists exactly one SDK-registered tool: a read-only lookup over its synthetic evidence. It has no deployment, ticket or secret capability. Then choose one existing internal API. List its safe read-only operations first. If you exposed it through an MCP server, which identity would call it, what data would be redacted, and which operation would remain unavailable? The answer is your integration design—not the protocol name.
 
 ## Keep this with you
 

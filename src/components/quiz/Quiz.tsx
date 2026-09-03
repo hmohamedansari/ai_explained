@@ -61,7 +61,7 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-white min-w-0">{title}</h2>
         {showResults && (
-        <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0" aria-live="polite">
+          <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0" aria-live="polite">
             {score} / {questions.length} correct
           </div>
         )}
@@ -70,88 +70,86 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
       {questions.map((q, qi) => {
         const state = answers[q.id];
         const isCorrect = state.locked && state.selected === q.answer;
-        const isWrong = state.locked && state.selected !== q.answer;
-
         return (
-          <fieldset key={q.id} className="p-6 rounded-xl border border-white/10 bg-surface-1 space-y-4" disabled={state.locked}>
-            <legend className="flex gap-3 w-full pr-2">
-              <span className="text-xs font-mono text-slate-500 mt-0.5 shrink-0">Q{qi + 1}</span>
-              <span className="text-slate-200 text-sm leading-relaxed">{q.question}</span>
-            </legend>
+          <fieldset key={q.id} data-testid={`quiz-question-${qi + 1}`} className="m-0 min-w-0 border-0 p-0" disabled={state.locked}>
+            <legend className="sr-only">Question {qi + 1}: {q.question}</legend>
+            <div data-testid="quiz-question-card" className="space-y-4 rounded-xl border border-white/10 bg-surface-1 p-6">
+              <div className="flex gap-3" aria-hidden="true">
+                <span className="mt-0.5 shrink-0 font-mono text-xs text-slate-500">Q{qi + 1}</span>
+                <p className="text-sm leading-relaxed text-slate-200">{q.question}</p>
+              </div>
 
-            <div className="space-y-2 ml-6">
-              {q.options?.map((opt, i) => {
-                const isSelected = state.selected === i;
-                const isAnswerKey = i === q.answer;
+              <div className="space-y-2 sm:ml-6">
+                {q.options?.map((opt, i) => {
+                  const isSelected = state.selected === i;
+                  const isAnswerKey = i === q.answer;
 
-                let cls =
-                  'flex items-start gap-3 w-full text-left px-4 py-3 rounded-lg border text-sm transition-all ';
+                  let cls =
+                    'flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ';
 
-                if (!state.locked) {
-                  cls += isSelected
-                    ? 'border-brand-500 bg-brand-950/40 text-white'
-                    : 'border-white/10 bg-surface-2 text-slate-300 hover:border-white/25 hover:text-white';
-                } else {
-                  if (isAnswerKey) {
+                  if (!state.locked) {
+                    cls += isSelected
+                      ? 'border-brand-500 bg-brand-950/40 text-white'
+                      : 'border-white/10 bg-surface-2 text-slate-300 hover:border-white/25 hover:text-white';
+                  } else if (isAnswerKey) {
                     cls += 'border-green-500/50 bg-green-950/30 text-green-300';
-                  } else if (isSelected && !isAnswerKey) {
+                  } else if (isSelected) {
                     cls += 'border-red-500/50 bg-red-950/30 text-red-300';
                   } else {
                     cls += 'border-white/5 bg-surface-2 text-slate-500';
                   }
-                }
 
-                return (
-                  <label
-                    key={i}
-                    className={`${cls} cursor-pointer ${state.locked ? 'cursor-default' : ''}`}
-                  >
-                    <input
-                      type="radio"
-                      name={q.id}
-                      value={i}
-                      checked={isSelected}
-                      onChange={() => handleSelect(q.id, i)}
-                      className="sr-only"
-                    />
-                    <span className="shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center text-xs font-mono border-current opacity-60" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
-                    {opt}
-                  </label>
-                );
-              })}
-            </div>
-
-            {/* Check / Explanation */}
-            <div className="ml-6" aria-live="polite">
-              {!state.locked ? (
-                <button
-                  onClick={() => handleCheck(q.id)}
-                  disabled={state.selected === null}
-                  className="btn-secondary text-xs py-1.5 px-4 disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  Check answer
-                </button>
-              ) : (
-                <div className={[
-                  'p-4 rounded-lg border text-sm leading-relaxed',
-                  isCorrect
-                    ? 'border-green-500/30 bg-green-950/20 text-green-300'
-                    : 'border-red-500/30 bg-red-950/20 text-red-300',
-                ].join(' ')}>
-                  <p className="font-medium mb-1">{isCorrect ? '✓ Correct' : '✗ Not quite'}</p>
-                  <p className="text-slate-300">{q.explanation}</p>
-                  {(q.read_more ?? defaultReadMore) && (
-                    <a
-                      href={q.read_more ?? defaultReadMore}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-2 text-xs text-brand-400 hover:text-brand-300 transition-colors"
+                  return (
+                    <label
+                      key={i}
+                      className={`${cls} cursor-pointer ${state.locked ? 'cursor-default' : ''}`}
                     >
-                      Read more →
-                    </a>
-                  )}
-                </div>
-              )}
+                      <input
+                        type="radio"
+                        name={q.id}
+                        value={i}
+                        checked={isSelected}
+                        onChange={() => handleSelect(q.id, i)}
+                        className="sr-only"
+                      />
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current font-mono text-xs opacity-60" aria-hidden="true">{String.fromCharCode(65 + i)}</span>
+                      {opt}
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div className="sm:ml-6" aria-live="polite">
+                {!state.locked ? (
+                  <button
+                    onClick={() => handleCheck(q.id)}
+                    disabled={state.selected === null}
+                    className="btn-secondary px-4 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    Check answer
+                  </button>
+                ) : (
+                  <div className={[
+                    'rounded-lg border p-4 text-sm leading-relaxed',
+                    isCorrect
+                      ? 'border-green-500/30 bg-green-950/20 text-green-300'
+                      : 'border-red-500/30 bg-red-950/20 text-red-300',
+                  ].join(' ')}>
+                    <p className="mb-1 font-medium">{isCorrect ? '✓ Correct' : '✗ Not quite'}</p>
+                    <p className="text-slate-300">{q.explanation}</p>
+                    {(q.read_more ?? defaultReadMore) && (
+                      <a
+                        href={q.read_more ?? defaultReadMore}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-block text-xs text-brand-400 transition-colors hover:text-brand-300"
+                      >
+                        Read more →
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </fieldset>
         );

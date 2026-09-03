@@ -42,9 +42,15 @@ Start small: one goal, one loop, a few tools, an explicit stop condition. A work
 
 ## Try it
 
-Open the Workbench and run the checkout regression scenario. Imagine adding one model call after the evidence is collected: it may write a plain-English incident summary and propose the next question. It does not choose the route, change the workflow state or deploy anything.
+From the cloned Workbench folder, run:
 
-That is a useful first agent boundary. No API key is required to understand it. When you do experiment with a free model through OpenCode or a provider, treat the model as the proposal writer—not the owner of your system.
+```bash
+workbench advanced
+```
+
+It runs one real, local proposal cycle. The fixture provider receives only the selected synthetic evidence, returns a proposal, and the harness validates it. The proposed `open_ticket` action then stops at a human approval boundary. It does not choose the investigation route, change workflow state or deploy anything.
+
+No API key is required. To use a Groq model after you have deliberately configured `GROQ_API_KEY`, run `workbench advanced --provider groq`. It is still only a proposal writer—not the owner of your system.
 
 ## Keep this with you
 

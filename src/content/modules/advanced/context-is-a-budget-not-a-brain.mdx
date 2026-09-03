@@ -46,9 +46,9 @@ The model is stateless between calls unless your harness restores information. T
 
 ## Try it
 
-Take a noisy incident description and make two inputs. The first contains every detail you have. The second contains the task, the timestamped symptoms, the known deployment record and the expected output format. Ask an AI tool to identify the next investigation question from each.
+Run `workbench advanced` from the cloned Workbench folder. It prints the exact context packet: task, chosen evidence and character budget. It also records which sources did not fit. Run it again after changing the budget in the code or tests, then inspect what entered and what stayed out.
 
-Compare the answers. If the smaller input is worse, add the missing evidence deliberately. Do not respond by dumping the whole system into the prompt.
+The practical question is not “what else can fit?” It is “what missing evidence would make the next decision safer?” Add only that.
 
 ## Keep this with you
 

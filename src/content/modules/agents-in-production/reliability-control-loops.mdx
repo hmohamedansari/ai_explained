@@ -31,7 +31,7 @@ Make the handoff to a human clear: what failed, what evidence was gathered, what
 
 ## Try it
 
-Pick a single tool call. Write its timeout, maximum attempts, retryable errors, idempotency key, fallback and escalation condition. If you cannot state one of these, the tool is not ready for unattended use.
+Run the Workbench's `delayed-metric` and `duplicate-alert` scenarios. The first records one bounded retry; the second makes the idempotency key visible. Idempotent means that repeating an action produces the same intended result as doing it once—not merely that no test regressed. Then pick a single tool call and write its timeout, maximum attempts, retryable errors, idempotency key, fallback and escalation condition.
 
 ## Keep this with you
 

@@ -13,7 +13,7 @@ estimatedMinutes:
 draft: false
 references:
   - title: "OpAMP specification"
-    url: "https://opamp.io/docs/specification/"
+    url: "https://opentelemetry.io/docs/specs/opamp/"
     checked: "2026-09-03"
     note: "Check the supported collector and control-plane implementation before enabling a lab."
 ---
@@ -40,7 +40,7 @@ You do not need a large fleet before learning the lesson. Collector configuratio
 
 ## Try it
 
-For any collector or sidecar configuration you use, identify the owner, the configuration source, the rollout method, the health signal and the rollback mechanism. If any answer is “we edit it when things break,” write the safer next step.
+Inspect `observability/otel-collector.yaml` in the Workbench. It receives OTLP traces on port 4318 and exports them to Tempo; Compose mounts that configuration read-only. This is a single local collector, not an OpAMP fleet. For any collector or sidecar configuration you use, identify the owner, configuration source, rollout method, health signal and rollback mechanism. If any answer is “we edit it when things break,” write the safer next step.
 
 ## Keep this with you
 

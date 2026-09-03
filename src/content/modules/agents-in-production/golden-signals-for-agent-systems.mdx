@@ -36,7 +36,7 @@ Measure the user-facing request and its dependencies. Break down latency by mode
 
 ## Try it
 
-Take one feature and write one metric for each Golden Signal. Add one quality guardrail and one cost measure. For every metric, state what a human would do if it moved sharply. If there is no action, it may not belong on the first dashboard.
+Start the local lab with `docker compose up --build`, then open the Workbench at `http://localhost:8501` and change a visible rule. Prometheus scrapes the Workbench's separate metrics endpoint at port 9100. In Grafana, inspect the investigation rate, duration and active-investigation panels. Then take one feature of your own and write one metric for each Golden Signal. Add one quality guardrail and one cost measure. For every metric, state what a human would do if it moved sharply.
 
 ## Keep this with you
 

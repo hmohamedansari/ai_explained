@@ -41,7 +41,19 @@ Use delegation when the other system owns a genuinely separate capability or con
 
 ## Try it
 
-Write a delegation request for a security review of a proposed infrastructure change. Include the goal, allowed evidence, expected artifact, deadline, classification and what the caller must verify before using the result. Notice how much system design happens before a model writes a word.
+Open two terminals in the cloned Workbench folder. In the first, start the bounded peer:
+
+```bash
+workbench a2a-server
+```
+
+In the second, send one request through the SDK client:
+
+```bash
+workbench a2a-review
+```
+
+The client discovers the Agent Card, sends a named synthetic scenario plus two permitted evidence sources, and receives a task and `Synthetic evidence review` artifact. The peer rejects unknown evidence and cannot deploy, notify, read secrets or reach another system. Stop the server with `Ctrl+C` when you are done.
 
 ## Keep this with you
 

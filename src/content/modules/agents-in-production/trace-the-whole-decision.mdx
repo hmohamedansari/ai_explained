@@ -43,7 +43,7 @@ Logs explain discrete events. Metrics show patterns. Traces connect a request pa
 
 ## Try it
 
-Draw a trace for the Workbench scenario from click to final route. Mark the span you would create for evidence collection, a model proposal, validation and a tool action. Then circle the fields that would be unsafe to put into telemetry unchanged.
+Run `docker compose up --build`, exercise the Workbench once, then open Grafana at `http://localhost:3000`. The Workbench exports the `workbench.investigation`, `workbench.context-selection` and `workbench.policy` spans through the OpenTelemetry Collector to Tempo. Draw the same path from click to final route, then circle the fields that would be unsafe to put into telemetry unchanged.
 
 ## Keep this with you
 

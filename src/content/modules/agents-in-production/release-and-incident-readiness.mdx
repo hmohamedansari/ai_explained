@@ -40,7 +40,7 @@ Can you explain what the model is allowed to do? Can you trace one request? Can 
 
 ## Try it
 
-Run a pre-release review for one feature using the five questions above. Capture one gap each in evaluation, observability, security and rollback. Turn the smallest high-risk gap into a concrete release condition, not a future aspiration.
+Run the Workbench gates: `pytest`, `docker compose config --quiet`, and `docker compose up --build` when Docker is available. Confirm a synthetic interaction appears in Prometheus and the trace path reaches Tempo through the Collector. Then run a pre-release review for one feature using the five questions above. Capture one gap each in evaluation, observability, security and rollback. Turn the smallest high-risk gap into a concrete release condition, not a future aspiration.
 
 ## Keep this with you
 
