@@ -29,11 +29,11 @@ export async function generateOGImage({ title, trackLabel, moduleId }: OGParams)
         display: 'flex',
         width: '1200px',
         height: '630px',
-        backgroundColor: '#0f1117',
+        backgroundColor: '#121613',
       },
     },
     // Left brand accent bar
-    h('div', { style: { width: '8px', height: '630px', backgroundColor: '#4f62fa', flexShrink: 0 } }),
+    h('div', { style: { width: '8px', height: '630px', backgroundColor: '#d38caf', flexShrink: 0 } }),
 
     // Content column
     h(
@@ -41,7 +41,7 @@ export async function generateOGImage({ title, trackLabel, moduleId }: OGParams)
       { style: { display: 'flex', flexDirection: 'column', flex: 1, padding: '60px 72px' } },
 
       // Site name — top
-      h('div', { style: { fontSize: '15px', fontWeight: 700, color: '#4f62fa', letterSpacing: '3px' } }, 'AI EXPLAINED'),
+      h('div', { style: { fontSize: '15px', fontWeight: 700, color: '#72c19f', letterSpacing: '3px' } }, 'AI EXPLAINED'),
 
       // Spacer
       h('div', { style: { flex: 1 } }),
@@ -53,7 +53,7 @@ export async function generateOGImage({ title, trackLabel, moduleId }: OGParams)
           style: {
             fontSize: title.length > 40 ? '56px' : '68px',
             fontWeight: 700,
-            color: '#ffffff',
+            color: '#eef2ec',
             lineHeight: '1.1',
             marginBottom: '28px',
             maxWidth: '1020px',
@@ -66,17 +66,17 @@ export async function generateOGImage({ title, trackLabel, moduleId }: OGParams)
       h(
         'div',
         { style: { display: 'flex', alignItems: 'center', gap: '16px' } },
-        h('span', { style: { fontSize: '22px', fontWeight: 400, color: '#94a3b8' } }, trackLabel),
+        h('span', { style: { fontSize: '22px', fontWeight: 400, color: '#b0b9b1' } }, trackLabel),
         h(
           'span',
           {
             style: {
               fontSize: '14px',
               fontWeight: 700,
-              color: '#4f62fa',
-              backgroundColor: 'rgba(79,98,250,0.15)',
+              color: '#d38caf',
+              backgroundColor: '#402935',
               padding: '5px 14px',
-              borderRadius: '8px',
+              borderRadius: '0px',
             },
           },
           moduleId,

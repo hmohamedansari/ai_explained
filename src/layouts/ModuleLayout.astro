@@ -55,7 +55,7 @@ const learningResource = {
 };
 
 const VOLATILITY_BADGE: Record<string, { label: string; classes: string }> = {
-  volatile: { label: 'Fast-moving: verify before relying on this', classes: 'border-orange-500/30 text-orange-400 bg-orange-950/20' },
+  volatile: { label: 'Fast-moving: verify before relying on this', classes: 'border-mulberry-500/30 text-mulberry-700 bg-mulberry-100 dark:text-mulberry-300 dark:bg-mulberry-950/20' },
   emerging: { label: 'Emerging area',  classes: 'border-brand-500/30 text-brand-400 bg-brand-950/20' },
   stable:   { label: '',               classes: '' },
 };
@@ -93,7 +93,7 @@ const badge = VOLATILITY_BADGE[volatility];
           <header class="mb-8 sm:mb-10">
             <div class="flex items-center gap-3 mb-4 flex-wrap">
               {badge.label && (
-                <span class={`text-xs px-2 py-0.5 rounded-full border ${badge.classes}`}>
+                <span class={`text-xs px-2 py-0.5 font-mono border ${badge.classes}`}>
                   {badge.label}
                 </span>
               )}
@@ -111,7 +111,7 @@ const badge = VOLATILITY_BADGE[volatility];
           </article>
 
           {references.length > 0 && (
-            <section class="mt-10 rounded-xl border border-white/10 bg-surface-1 p-5 sm:p-6" aria-labelledby="check-sources">
+            <section class="mt-10 border border-white/10 border-l-4 border-l-mulberry-600 bg-surface-1 p-5 sm:p-6" aria-labelledby="check-sources">
               <h2 id="check-sources" class="text-lg font-semibold text-white mb-2">Check the source</h2>
               <p class="text-sm text-slate-400 mb-4">These are the primary sources behind the moving parts of this lesson. Check them again when you make an implementation decision.</p>
               <ul class="space-y-3">
@@ -159,7 +159,7 @@ const badge = VOLATILITY_BADGE[volatility];
             {prev ? (
               <a
                 href={`/learn/${track}/${prev.slug}`}
-                class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                class="group flex flex-col gap-1 p-4 border border-white/10
                        hover:border-brand-500/40 hover:bg-surface-1 transition-all text-left"
               >
                 <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">← Previous</span>
@@ -170,7 +170,7 @@ const badge = VOLATILITY_BADGE[volatility];
             {next ? (
               <a
                 href={`/learn/${track}/${next.slug}`}
-                class="group flex flex-col gap-1 p-4 rounded-xl border border-white/10
+                class="group flex flex-col gap-1 p-4 border border-white/10
                        hover:border-brand-500/40 hover:bg-surface-1 transition-all text-right ml-auto w-full"
               >
                 <span class="text-xs text-slate-500 group-hover:text-brand-400 transition-colors">Next →</span>

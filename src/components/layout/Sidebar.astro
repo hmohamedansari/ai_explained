@@ -34,9 +34,9 @@ const trackModules = allModules.sort((a, b) => a.data.order - b.data.order);
             data-module-id={mod.data.moduleId}
             data-active={isActive ? 'true' : undefined}
             class:list={[
-              'flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm transition-colors',
+              'flex items-center gap-2.5 px-3 py-2.5 border-l-2 border-transparent text-sm transition-colors',
               isActive
-                ? 'bg-brand-600/20 text-brand-300 font-medium'
+                ? 'bg-brand-600/20 border-mulberry-600 text-brand-300 font-medium'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             ]}
           >

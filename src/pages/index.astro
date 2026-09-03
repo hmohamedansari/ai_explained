@@ -14,18 +14,16 @@ const journeys = (await getCollection('journeys')).sort((a, b) => a.data.order -
   <Header />
 
   <main id="main-content" tabindex="-1" class="flex-1">
-    <section class="relative overflow-hidden bg-surface">
-      <div class="absolute inset-0 pointer-events-none opacity-80 [background:radial-gradient(circle_at_12%_18%,rgba(201,107,67,.14),transparent_30%),radial-gradient(circle_at_85%_8%,rgba(251,146,60,.10),transparent_26%)]" />
-      <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-20 sm:pt-32 pb-20 sm:pb-28">
+    <section class="home-hero overflow-hidden bg-surface">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-10 pb-20 sm:pb-28">
         <div class="max-w-3xl">
-          <p class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-500/30 bg-brand-950/30 text-brand-400 text-xs font-medium mb-6 sm:mb-8">
-            <span class="w-1.5 h-1.5 rounded-full bg-brand-400" />
+          <p class="inline-flex items-center gap-2 px-3 py-1.5 border-l-4 border-mulberry-600 bg-brand-950/30 text-brand-400 text-xs font-mono font-medium mb-6 sm:mb-8">
             An engineering field guide for AI systems
           </p>
 
           <h1 class="text-4xl sm:text-5xl lg:text-6xl font-semibold text-white leading-tight tracking-tight mb-5 sm:mb-6">
             Learn AI by looking<br />
-            <span class="text-brand-400">under the hood.</span>
+            <span>under the hood.</span>
           </h1>
 
           <p class="text-lg sm:text-xl text-slate-400 max-w-2xl mb-8 sm:mb-10 leading-relaxed">

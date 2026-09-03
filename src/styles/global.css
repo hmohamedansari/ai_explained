@@ -1,8 +1,49 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Pine + Mulberry: semantic colour roles, shared by light and dark modes. */
+:root {
+  --aex-page: #f1eee8;
+  --aex-paper: #fbfaf6;
+  --aex-raised: #e9e7e1;
+  --aex-raised-strong: #deded5;
+  --aex-ink: #202723;
+  --aex-muted: #5d6761;
+  --aex-subtle: #7a847d;
+  --aex-line: #cbd1ca;
+  --aex-pine: #235a47;
+  --aex-pine-strong: #1b4638;
+  --aex-pine-soft: #d7e8de;
+  --aex-mulberry: #77465f;
+  --aex-mulberry-soft: #eadce3;
+  --aex-code: #1b2720;
+  --aex-code-ink: #e9f4ed;
+  --aex-success: #256d45;
+  --aex-danger: #a33944;
+}
+
+html.dark {
+  --aex-page: #121613;
+  --aex-paper: #1a211c;
+  --aex-raised: #222b24;
+  --aex-raised-strong: #2c372e;
+  --aex-ink: #eef2ec;
+  --aex-muted: #b0b9b1;
+  --aex-subtle: #879289;
+  --aex-line: #3b463e;
+  --aex-pine: #72c19f;
+  --aex-pine-strong: #a0d5b6;
+  --aex-pine-soft: #173728;
+  --aex-mulberry: #d38caf;
+  --aex-mulberry-soft: #402935;
+  --aex-code: #090d0a;
+  --aex-code-ink: #cbe8d7;
+  --aex-success: #75ce99;
+  --aex-danger: #f09ba2;
+}
 
 .skip-link {
   position: fixed;
@@ -10,280 +51,198 @@
   top: 1rem;
   z-index: 100;
   transform: translateY(-200%);
-  border-radius: 0.5rem;
-  background: #ffffff;
-  color: #0f172a;
+  border: 1px solid var(--aex-line);
+  border-radius: 0;
+  background: var(--aex-paper);
+  color: var(--aex-ink);
   padding: 0.75rem 1rem;
-  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 .skip-link:focus { transform: translateY(0); }
 
 @layer base {
-  :root {
-    --color-brand: 201 107 67;
-    --color-bg: 23 20 18;
-  }
-
-  * {
-    @apply border-white/10;
-  }
+  * { border-color: var(--aex-line); }
 
   html {
+    font-size: 107.5%;
     @apply scroll-smooth;
   }
 
   body {
-    @apply bg-surface text-slate-200 font-sans antialiased;
+    background: var(--aex-page);
+    color: var(--aex-ink);
+    @apply font-sans antialiased;
     overflow-wrap: break-word;
     word-break: break-word;
   }
 
-  body > * {
-    min-width: 0;
+  body > * { min-width: 0; }
+
+  ::selection { background: var(--aex-mulberry-soft); color: var(--aex-ink); }
+
+  :focus-visible {
+    outline: 2px solid var(--aex-mulberry);
+    outline-offset: 3px;
   }
 
-  ::selection {
-    @apply bg-brand-500/40 text-white;
-  }
-
-  /* Dark mode scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-surface-1; }
-  ::-webkit-scrollbar-thumb { @apply bg-white/20 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-white/30; }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
+  ::-webkit-scrollbar-track { background: var(--aex-raised); }
+  ::-webkit-scrollbar-thumb { background: var(--aex-subtle); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--aex-muted); }
 }
 
 @layer components {
   .prose-lesson {
-    @apply prose prose-invert prose-slate max-w-none
-      prose-headings:font-semibold prose-headings:text-white
-      prose-h1:text-3xl prose-h2:text-xl prose-h2:mt-10 prose-h2:border-b prose-h2:border-white/10 prose-h2:pb-2
-      prose-h3:text-lg prose-h3:text-slate-200
-      prose-p:text-slate-300 prose-p:leading-7
-      prose-a:text-brand-400 prose-a:no-underline hover:prose-a:underline
-      prose-code:text-slate-300 prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
-      prose-pre:bg-surface-2 prose-pre:border prose-pre:border-white/10 prose-pre:rounded-xl
-      prose-blockquote:border-l-brand-500 prose-blockquote:text-slate-400 prose-blockquote:bg-brand-950/30 prose-blockquote:rounded-r-lg prose-blockquote:py-1
-      prose-table:text-sm
-      prose-th:text-slate-300 prose-th:bg-surface-2
-      prose-td:text-slate-400
-      prose-strong:text-white
-      prose-hr:border-white/10;
+    @apply prose max-w-none
+      prose-headings:font-semibold
+      prose-h1:text-3xl prose-h2:text-xl prose-h2:mt-10 prose-h2:border-b prose-h2:pb-2
+      prose-h3:text-lg
+      prose-p:leading-7
+      prose-a:no-underline hover:prose-a:underline
+      prose-code:px-1.5 prose-code:py-0.5 prose-code:text-sm prose-code:font-normal prose-code:before:content-none prose-code:after:content-none
+      prose-pre:border
+      prose-blockquote:border-l-4 prose-blockquote:py-1
+      prose-table:text-sm;
+    --tw-prose-body: var(--aex-ink);
+    --tw-prose-headings: var(--aex-ink);
+    --tw-prose-lead: var(--aex-muted);
+    --tw-prose-links: var(--aex-pine);
+    --tw-prose-bold: var(--aex-ink);
+    --tw-prose-counters: var(--aex-subtle);
+    --tw-prose-bullets: var(--aex-mulberry);
+    --tw-prose-hr: var(--aex-line);
+    --tw-prose-quotes: var(--aex-muted);
+    --tw-prose-quote-borders: var(--aex-mulberry);
+    --tw-prose-captions: var(--aex-subtle);
+    --tw-prose-code: var(--aex-ink);
+    --tw-prose-pre-code: var(--aex-code-ink);
+    --tw-prose-pre-bg: var(--aex-code);
+    --tw-prose-th-borders: var(--aex-line);
+    --tw-prose-td-borders: var(--aex-line);
   }
 
   .card {
-    @apply bg-surface-1 border border-white/10 rounded-xl p-6
-           transition-colors hover:border-brand-500/40 hover:bg-surface-2;
+    background: var(--aex-paper);
+    border: 1px solid var(--aex-line);
+    border-radius: 0;
+    padding: 1.5rem;
+    transition: border-color 150ms ease, background-color 150ms ease;
   }
+
+  .card:hover { background: var(--aex-raised); border-color: var(--aex-pine); }
 
   .btn-primary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
-           bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm
-           transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500;
+    @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm transition-colors;
+    border: 1px solid var(--aex-pine);
+    border-radius: 0;
+    background: var(--aex-pine);
+    color: var(--aex-page);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
   }
+
+  .btn-primary:hover { background: var(--aex-pine-strong); }
 
   .btn-secondary {
-    @apply inline-flex items-center gap-2 px-5 py-2.5 rounded-lg
-           bg-white/10 hover:bg-white/15 text-slate-200 font-medium text-sm
-           border border-white/10 transition-colors;
+    @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm transition-colors;
+    border: 1px solid var(--aex-line);
+    border-radius: 0;
+    background: var(--aex-paper);
+    color: var(--aex-ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
   }
+
+  .btn-secondary:hover { border-color: var(--aex-pine); background: var(--aex-raised); }
 
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+    @apply inline-flex items-center px-2.5 py-0.5 text-xs font-medium;
+    border-radius: 0;
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* Circuit board hero background */
-.circuit-bg {
-  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><defs><pattern id='p' width='100' height='100' patternUnits='userSpaceOnUse'><line x1='50' y1='0' x2='50' y2='35' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='50' y1='65' x2='50' y2='100' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='0' y1='50' x2='35' y2='50' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><line x1='65' y1='50' x2='100' y2='50' stroke='%2310b981' stroke-width='0.5' opacity='0.2'/><circle cx='50' cy='50' r='2' fill='%2310b981' opacity='0.3'/><circle cx='0' cy='0' r='1' fill='%2310b981' opacity='0.15'/><circle cx='100' cy='100' r='1' fill='%2310b981' opacity='0.15'/><circle cx='100' cy='0' r='1' fill='%2310b981' opacity='0.15'/><circle cx='0' cy='100' r='1' fill='%2310b981' opacity='0.15'/><path d='M 0 25 L 25 25 L 25 50' stroke='%2310b981' stroke-width='0.4' fill='none' opacity='0.12'/><path d='M 75 50 L 75 75 L 100 75' stroke='%2310b981' stroke-width='0.4' fill='none' opacity='0.12'/><circle cx='25' cy='25' r='1' fill='%2310b981' opacity='0.2'/><circle cx='75' cy='75' r='1' fill='%2310b981' opacity='0.2'/></pattern></defs><rect width='100' height='100' fill='url(%23p)'/></svg>");
-  background-size: 100px 100px;
+/* Global bridge for the existing content classes. This keeps lesson content intact
+   while moving the entire public surface onto semantic Pine + Mulberry tokens. */
+.bg-surface { background-color: var(--aex-page) !important; }
+.bg-surface-1 { background-color: var(--aex-raised) !important; }
+.bg-surface-2 { background-color: var(--aex-raised-strong) !important; }
+.bg-surface-3 { background-color: var(--aex-line) !important; }
+.bg-surface\/80 { background-color: color-mix(in srgb, var(--aex-page) 88%, transparent) !important; }
+.bg-surface\/95 { background-color: color-mix(in srgb, var(--aex-page) 96%, transparent) !important; }
+.bg-surface-1\/50 { background-color: color-mix(in srgb, var(--aex-raised) 50%, transparent) !important; }
+
+.text-white, .text-slate-200 { color: var(--aex-ink) !important; }
+.text-slate-300 { color: color-mix(in srgb, var(--aex-ink) 88%, var(--aex-muted)) !important; }
+.text-slate-400, .text-slate-500 { color: var(--aex-muted) !important; }
+.text-slate-600 { color: var(--aex-subtle) !important; }
+.text-white\/20 { color: var(--aex-line) !important; }
+
+.text-brand-300, .text-brand-400, .text-brand-500 { color: var(--aex-pine) !important; }
+.bg-brand-950, .bg-brand-950\/20, .bg-brand-950\/30, .bg-brand-950\/40, .bg-brand-950\/50 { background-color: var(--aex-pine-soft) !important; }
+.bg-brand-600\/20 { background-color: var(--aex-pine-soft) !important; }
+.border-brand-500\/30, .border-brand-500\/40, .border-brand-400\/60 { border-color: color-mix(in srgb, var(--aex-pine) 55%, var(--aex-line)) !important; }
+
+.bg-white\/5 { background-color: color-mix(in srgb, var(--aex-ink) 4%, transparent) !important; }
+.bg-white\/10 { background-color: color-mix(in srgb, var(--aex-ink) 7%, transparent) !important; }
+.bg-white\/15 { background-color: color-mix(in srgb, var(--aex-ink) 10%, transparent) !important; }
+.bg-white\/20 { background-color: color-mix(in srgb, var(--aex-ink) 13%, transparent) !important; }
+.hover\:bg-white\/5:hover { background-color: color-mix(in srgb, var(--aex-ink) 5%, transparent) !important; }
+.hover\:bg-white\/15:hover { background-color: color-mix(in srgb, var(--aex-ink) 10%, transparent) !important; }
+.hover\:text-white:hover, .hover\:text-slate-300:hover { color: var(--aex-ink) !important; }
+.border-white\/5, .border-white\/10, .border-white\/20, .border-white\/25 { border-color: var(--aex-line) !important; }
+
+.text-orange-400 { color: var(--aex-mulberry) !important; }
+.bg-orange-950\/20 { background-color: var(--aex-mulberry-soft) !important; }
+.border-orange-500\/30 { border-color: color-mix(in srgb, var(--aex-mulberry) 60%, var(--aex-line)) !important; }
+.text-green-300, .text-green-400 { color: var(--aex-success) !important; }
+.bg-green-950\/20, .bg-green-950\/30 { background-color: color-mix(in srgb, var(--aex-success) 15%, transparent) !important; }
+.border-green-400\/40, .border-green-500\/30, .border-green-500\/50 { border-color: color-mix(in srgb, var(--aex-success) 55%, var(--aex-line)) !important; }
+.text-red-300 { color: var(--aex-danger) !important; }
+.bg-red-950\/20, .bg-red-950\/30 { background-color: color-mix(in srgb, var(--aex-danger) 14%, transparent) !important; }
+.border-red-500\/30, .border-red-500\/50 { border-color: color-mix(in srgb, var(--aex-danger) 55%, var(--aex-line)) !important; }
+.bg-slate-900\/30 { background-color: color-mix(in srgb, var(--aex-ink) 7%, transparent) !important; }
+
+.rounded, .rounded-sm, .rounded-md, .rounded-lg, .rounded-xl, .rounded-2xl,
+.rounded-t, .rounded-t-lg, .rounded-t-xl, .rounded-b, .rounded-b-lg, .rounded-b-xl,
+.rounded-r, .rounded-r-lg, .rounded-r-xl { border-radius: 0 !important; }
+
+.font-mono, .font-mono * { font-family: 'JetBrains Mono', monospace; }
+
+/* Inline code stays quiet. Wide structures scroll inside their own container. */
+.prose-lesson :not(pre) > code { background-color: transparent; color: var(--aex-ink); }
+.prose-lesson table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.prose-lesson td, .prose-lesson th { word-break: normal; overflow-wrap: normal; white-space: nowrap; }
+.prose-lesson pre { white-space: pre; overflow-x: auto; word-break: normal; border-radius: 0; }
+.prose-lesson blockquote { background: var(--aex-mulberry-soft); border-radius: 0; }
+
+/* The editorial, flat home-page system. */
+.home-hero {
+  border-bottom: 1px solid var(--aex-line);
+  background: var(--aex-page);
 }
 
-/* Inline code: no background — the pre block already provides context */
-.prose-lesson :not(pre) > code {
-  background-color: transparent;
-}
-
-/* Prose tables: scroll horizontally on mobile — avoids mid-word breaks in code cells */
-.prose-lesson table {
+.home-hero::before {
+  content: '// FOUNDATIONS BEFORE AGENTS';
   display: block;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 4.5rem 1rem 0;
+  color: var(--aex-pine);
+  font: 500 0.75rem/1.3 'JetBrains Mono', monospace;
+  letter-spacing: 0.09em;
 }
 
-.prose-lesson td,
-.prose-lesson th {
-  word-break: normal;
-  overflow-wrap: normal;
-  white-space: nowrap;
+.home-hero h1 { letter-spacing: -0.055em; }
+.home-hero h1 span { color: var(--aex-ink) !important; }
+
+@media (min-width: 640px) {
+  .home-hero::before { padding-inline: 1.5rem; padding-top: 6.5rem; }
 }
 
-/* Code blocks: horizontal scroll, no forced wrapping */
-.prose-lesson pre {
-  white-space: pre;
-  overflow-x: auto;
-  word-break: normal;
+@media (max-width: 639px) {
+  .home-hero::before { padding-top: 3.5rem; }
 }
-
-/* =============================================================
-   LIGHT MODE OVERRIDES
-   These are outside @layer so they win over layered Tailwind
-   utilities without needing !important.
-   ============================================================= */
-
-html:not(.dark) body {
-  background-color: #fdfbf9;
-  color: #0f172a;
-}
-
-/* Surfaces */
-html:not(.dark) .bg-surface    { background-color: #fffdfa; }
-html:not(.dark) .bg-surface-1  { background-color: #f8f3ee; }
-html:not(.dark) .bg-surface-2  { background-color: #f0e6dd; }
-html:not(.dark) .bg-surface-3  { background-color: #e4d5c9; }
-
-/* Text */
-html:not(.dark) .text-white    { color: #0f172a; }
-html:not(.dark) .text-slate-200 { color: #1e293b; }
-html:not(.dark) .text-slate-300 { color: #334155; }
-html:not(.dark) .text-slate-400 { color: #475569; }
-html:not(.dark) .text-slate-500 { color: #475569; }
-html:not(.dark) .text-slate-600 { color: #334155; }
-html:not(.dark) .text-white\/20  { color: rgb(0 0 0 / 0.25); }
-
-/* Borders */
-html:not(.dark) .border-white\/10 { border-color: rgb(0 0 0 / 0.08); }
-html:not(.dark) .border-white\/5  { border-color: rgb(0 0 0 / 0.05); }
-
-/* Alpha backgrounds */
-html:not(.dark) .bg-white\/5   { background-color: rgb(0 0 0 / 0.04); }
-html:not(.dark) .bg-white\/10  { background-color: rgb(0 0 0 / 0.07); }
-html:not(.dark) .bg-white\/15  { background-color: rgb(0 0 0 / 0.1);  }
-html:not(.dark) .bg-white\/20  { background-color: rgb(0 0 0 / 0.12); }
-html:not(.dark) .hover\:bg-white\/5:hover  { background-color: rgb(0 0 0 / 0.04); }
-html:not(.dark) .hover\:bg-white\/15:hover { background-color: rgb(0 0 0 / 0.09); }
-html:not(.dark) .hover\:text-white:hover   { color: #0f172a; }
-
-/* Card */
-html:not(.dark) .card {
-  background-color: #fffdfa;
-  border-color: rgb(0 0 0 / 0.08);
-}
-html:not(.dark) .card:hover {
-  background-color: #f8f3ee;
-  border-color: rgb(173 83 48 / 0.35);
-}
-
-/* Buttons */
-html:not(.dark) .btn-secondary {
-  background-color: rgb(0 0 0 / 0.06);
-  color: #0f172a;
-  border-color: rgb(0 0 0 / 0.1);
-}
-html:not(.dark) .btn-secondary:hover {
-  background-color: rgb(0 0 0 / 0.1);
-}
-
-/* Header */
-html:not(.dark) header.sticky {
-  background-color: rgb(255 253 250 / 0.85);
-  border-bottom-color: rgb(0 0 0 / 0.08);
-}
-
-/* Homepage hero: remove "drop shadow" look in light mode */
-html:not(.dark) .home-hero-glow {
-  opacity: 0;
-}
-html:not(.dark) .home-hero-circuit {
-  opacity: 0.2;
-}
-html:not(.dark) .home-hero-bottom-fade {
-  display: none;
-}
-
-/* Sidebar */
-html:not(.dark) aside[aria-label="Track navigation"] {
-  background-color: #f8fafc;
-  border-right-color: rgb(0 0 0 / 0.08);
-}
-html:not(.dark) aside[aria-label="Track navigation"] .text-slate-400 { color: #475569; }
-html:not(.dark) aside[aria-label="Track navigation"] .hover\:text-white:hover { color: #0f172a; }
-
-/* Prose (module content)
-   Two-layer strategy:
-   1. CSS variables: fix li/em/::marker and all elements that inherit from prose-invert variables.
-   2. Explicit selectors: override prose-headings:text-white etc. which compile to direct color
-      values inside @layer components and ignore variable changes. */
-html:not(.dark) .prose-lesson {
-  --tw-prose-body:          #334155;
-  --tw-prose-headings:      #0f172a;
-  --tw-prose-lead:          #475569;
-  --tw-prose-links:         #8d3f27;
-  --tw-prose-bold:          #0f172a;
-  --tw-prose-counters:      #64748b;
-  --tw-prose-bullets:       #94a3b8;
-  --tw-prose-hr:            rgb(0 0 0 / 0.1);
-  --tw-prose-quotes:        #334155;
-  --tw-prose-quote-borders: #8d3f27;
-  --tw-prose-captions:      #64748b;
-  --tw-prose-code:          #475569;
-  --tw-prose-pre-bg:        #f1f5f9;
-  --tw-prose-th-borders:    rgb(0 0 0 / 0.1);
-  --tw-prose-td-borders:    rgb(0 0 0 / 0.07);
-}
-html:not(.dark) .prose-lesson h1,
-html:not(.dark) .prose-lesson h2,
-html:not(.dark) .prose-lesson h3,
-html:not(.dark) .prose-lesson h4,
-html:not(.dark) .prose-lesson h5,
-html:not(.dark) .prose-lesson h6  { color: #0f172a; }
-html:not(.dark) .prose-lesson p   { color: #334155; }
-html:not(.dark) .prose-lesson li  { color: #334155; }
-html:not(.dark) .prose-lesson em  { color: inherit; }
-html:not(.dark) .prose-lesson strong     { color: #0f172a; }
-html:not(.dark) .prose-lesson a          { color: #8d3f27; }
-html:not(.dark) .prose-lesson blockquote { color: #64748b; background-color: rgb(173 83 48 / 0.06); }
-html:not(.dark) .prose-lesson :not(pre) > code { background-color: transparent; color: #475569; }
-html:not(.dark) .prose-lesson pre  { background-color: #f1f5f9; border-color: rgb(0 0 0 / 0.08); }
-html:not(.dark) .prose-lesson th   { background-color: #f1f5f9; color: #1e293b; }
-html:not(.dark) .prose-lesson td   { color: #334155; }
-
-/* Badge */
-html:not(.dark) .badge { color: #334155; }
-html:not(.dark) .bg-brand-950\/20 { background-color: rgb(173 83 48 / 0.06); }
-html:not(.dark) .bg-brand-950\/30 { background-color: rgb(173 83 48 / 0.08); }
-html:not(.dark) .bg-brand-950\/50 { background-color: rgb(173 83 48 / 0.1);  }
-html:not(.dark) .bg-brand-600\/20 { background-color: rgb(173 83 48 / 0.12); }
-html:not(.dark) .bg-brand-950     { background-color: #fdf3ed; }
-html:not(.dark) .text-brand-300   { color: #8d3f27; }
-html:not(.dark) .text-brand-400   { color: #8d3f27; }
-html:not(.dark) .text-brand-500   { color: #8d3f27; }
-
-/* Orange "Fast-moving" volatility badge */
-html:not(.dark) .text-orange-400      { color: #c2410c; }
-html:not(.dark) .bg-orange-950\/20    { background-color: rgb(194 65 12 / 0.06); }
-html:not(.dark) .border-orange-500\/30 { border-color: rgb(249 115 22 / 0.25); }
-
-/* Green "Free" badge and tools page */
-html:not(.dark) .text-green-400       { color: #15803d; }
-html:not(.dark) .bg-green-950\/20     { background-color: rgb(21 128 61 / 0.06); }
-html:not(.dark) .border-green-500\/30  { border-color: rgb(34 197 94 / 0.3); }
-html:not(.dark) .bg-slate-900\/30     { background-color: rgb(100 116 139 / 0.08); }
-
-/* Tools alternating row tint — bg-surface-1/50 bakes in the dark surface color */
-html:not(.dark) .bg-surface-1\/50 { background-color: rgb(0 0 0 / 0.025); }
-
-/* Scrollbar */
-html:not(.dark) ::-webkit-scrollbar-track { background-color: #f1f5f9; }
-html:not(.dark) ::-webkit-scrollbar-thumb { background-color: rgb(0 0 0 / 0.15); }
-html:not(.dark) ::-webkit-scrollbar-thumb:hover { background-color: rgb(0 0 0 / 0.25); }
-
-/* Mobile nav drawer in light mode */
-html:not(.dark) #mobile-menu {
-  background-color: rgb(255 255 255 / 0.97);
-  border-top-color: rgb(0 0 0 / 0.08);
-}
-
-/* Progress dots in sidebar */
-html:not(.dark) .bg-white\/20 { background-color: rgb(0 0 0 / 0.15); }

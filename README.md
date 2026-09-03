@@ -37,6 +37,10 @@ npm run build
 - Tailwind CSS
 - GitHub Actions and GitHub Pages
 
+## Visual design
+
+The site uses the Pine + Mulberry visual system. See the [visual system runbook](docs/visual-system-runbook.md) before changing fonts, colours, spacing, themes, shared components or social preview cards.
+
 ## Content and publishing
 
 Published lessons live in `src/content/modules/`; their quiz data lives in `src/content/quizzes/`. Curriculum journeys are defined in `src/content/journeys/` and tracks in `src/content/tracks/`.

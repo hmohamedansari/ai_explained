@@ -61,7 +61,7 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-white min-w-0">{title}</h2>
         {showResults && (
-          <div className="text-sm font-medium px-3 py-1.5 rounded-full bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0" aria-live="polite">
+          <div className="text-sm font-mono font-medium px-3 py-1.5 bg-brand-950/50 border border-brand-500/30 text-brand-300 shrink-0" aria-live="polite">
             {score} / {questions.length} correct
           </div>
         )}
@@ -73,9 +73,9 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
         return (
           <fieldset key={q.id} data-testid={`quiz-question-${qi + 1}`} className="m-0 min-w-0 border-0 p-0" disabled={state.locked}>
             <legend className="sr-only">Question {qi + 1}: {q.question}</legend>
-            <div data-testid="quiz-question-card" className="space-y-4 rounded-xl border border-white/10 bg-surface-1 p-6">
+            <div data-testid="quiz-question-card" className="space-y-4 border border-white/10 border-l-4 border-l-mulberry-600 bg-surface-1 p-6">
               <div className="flex gap-3" aria-hidden="true">
-                <span className="mt-0.5 shrink-0 font-mono text-xs text-slate-500">Q{qi + 1}</span>
+                <span className="mt-0.5 shrink-0 font-mono text-xs text-mulberry-700 dark:text-mulberry-300">Q{qi + 1}</span>
                 <p className="text-sm leading-relaxed text-slate-200">{q.question}</p>
               </div>
 
@@ -85,7 +85,7 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
                   const isAnswerKey = i === q.answer;
 
                   let cls =
-                    'flex w-full items-start gap-3 rounded-lg border px-4 py-3 text-left text-sm transition-all ';
+                    'flex w-full items-start gap-3 border px-4 py-3 text-left text-sm transition-all ';
 
                   if (!state.locked) {
                     cls += isSelected
@@ -130,7 +130,7 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
                   </button>
                 ) : (
                   <div className={[
-                    'rounded-lg border p-4 text-sm leading-relaxed',
+                    'border border-l-4 border-l-mulberry-600 p-4 text-sm leading-relaxed',
                     isCorrect
                       ? 'border-green-500/30 bg-green-950/20 text-green-300'
                       : 'border-red-500/30 bg-red-950/20 text-red-300',
@@ -165,7 +165,7 @@ export default function Quiz({ title, moduleId, questions, defaultReadMore }: Qu
       )}
 
       {showResults && (
-        <div className="p-6 rounded-xl border border-brand-500/30 bg-brand-950/20 text-center space-y-3">
+        <div className="p-6 border border-brand-500/30 border-t-4 border-t-mulberry-600 bg-brand-950/20 text-center space-y-3">
           <div className="text-4xl font-bold text-white">
             {score}<span className="text-slate-500 text-2xl">/{questions.length}</span>
           </div>
