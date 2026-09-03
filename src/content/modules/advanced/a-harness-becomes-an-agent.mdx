@@ -1,0 +1,46 @@
+---
+moduleId: "A2.1"
+title: "A harness becomes an agent"
+description: "An agent is not a chat window with tools. It is a bounded control loop that can observe, propose, act and stop under rules that somebody can inspect."
+track: "advanced"
+order: 1
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## The word is doing too much work
+
+People call a model, a workflow and a whole product an “agent.” The label is not useful until we can point to what the system is allowed to do.
+
+A bounded tool-using agent is simply a small system with a loop. It reads a defined input, gathers permitted evidence, asks a model for a proposal, validates that proposal, uses only approved tools, records what happened, then stops or asks a human. It is not a promise of autonomy.
+
+```text
+input → observe → propose → validate → act or ask → record → stop
+                         ↑                         │
+                         └──── bounded retry ──────┘
+```
+
+The **model** proposes. The **harness** runs the loop. **Policy** decides what is allowed. The **tool** performs a real effect. **State and events** preserve the evidence. Keep those jobs separate and the system remains explainable.
+
+## Boundaries are the feature
+
+“Investigate this incident and open a ticket if the evidence is strong” is bounded. It has a purpose, a limited set of evidence sources, a small set of allowed outcomes and a human checkpoint before a consequential change.
+
+“Keep our platform healthy” is a slogan. A model cannot turn a vague ambition into safe authority.
+
+Start small: one goal, one loop, a few tools, an explicit stop condition. A workflow is still the better answer when every branch can be stated as a rule.
+
+## Try it
+
+Open the Workbench and run the checkout regression scenario. Imagine adding one model call after the evidence is collected: it may write a plain-English incident summary and propose the next question. It does not choose the route, change the workflow state or deploy anything.
+
+That is a useful first agent boundary. No API key is required to understand it. When you do experiment with a free model through OpenCode or a provider, treat the model as the proposal writer—not the owner of your system.
+
+## Keep this with you
+
+An agent is a control loop with authority. Design the authority before you admire the loop.

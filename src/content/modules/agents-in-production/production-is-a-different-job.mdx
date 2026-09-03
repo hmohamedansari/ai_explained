@@ -1,0 +1,42 @@
+---
+moduleId: "P3.1"
+title: "Production is a different job"
+description: "A useful prototype proves an idea. A production service makes an ongoing promise to people who depend on it, including a promise about failure."
+track: "agents-in-production"
+order: 1
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## A demo answers one question
+
+A demo asks, “Can this do something useful?” Production asks harder questions: who owns it, what data may it handle, when is it available, how quickly can it recover, how do users get help and how do we know it is behaving badly?
+
+An agentic feature has the same obligations as any other service. The model does not make it exempt from normal engineering.
+
+## Name the service promise
+
+Define a service boundary first. For example: “The incident assistant creates a cited summary for an on-call engineer.” It is not “AI helps with operations.” Then state what a successful request looks like, who may use it, its important dependencies and what happens when the model or a tool is unavailable.
+
+An SLO is a measurable service promise over time. An error budget is the room allowed for missing that promise. They turn “reliable enough” into a conversation an engineering team can have.
+
+```text
+user need → service boundary → measurable objective → alert and response
+```
+
+## Quality deserves an honest boundary
+
+Availability and latency do not prove that an answer is useful. Define a separate quality evaluation for the task, such as citation completeness or reviewer acceptance. Do not blend it into an uptime number just because it is hard to measure.
+
+## Try it
+
+Write one sentence that names your agentic service, user and artifact. Then write two promises: one operational promise, such as successful requests within a time target; and one quality guardrail, such as every operational recommendation having cited evidence. Notice that both need owners.
+
+## Keep this with you
+
+Production begins when somebody must rely on the system on a bad day.

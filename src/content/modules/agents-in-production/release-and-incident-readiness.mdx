@@ -1,0 +1,42 @@
+---
+moduleId: "P3.9"
+title: "Release and incident readiness"
+description: "Before a model-enabled feature is trusted in production, prove that it can be evaluated, observed, constrained, rolled back and supported when it fails."
+track: "agents-in-production"
+order: 9
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 15
+draft: false
+---
+
+## A release is a hypothesis with a rollback
+
+Test the service contract, the policy boundary and the operational path before broad release. Use representative evaluation cases for model behaviour, including hard and unsafe inputs. Keep the evaluation set separate from casual demo examples so it can reveal regressions.
+
+Release progressively where possible. Observe the agreed success and guardrail measures. Be explicit about the rollback: disable the feature, route to a deterministic fallback, revert a configuration or revoke tool access. “Turn the model off” is not enough if the queue and state machine keep processing old work.
+
+## Prepare the incident path
+
+An operator needs a runbook, dashboard, trace entry point, dependency contacts, known failure modes and a way to place the system into a safe reduced mode. A user needs a clear failure message and a path to human help. The team needs a blameless way to learn from the outcome.
+
+```text
+evaluate → limited release → observe → expand or rollback
+                         ↓
+                    incident path
+```
+
+## The honest checklist
+
+Can you explain what the model is allowed to do? Can you trace one request? Can you prove which policy allowed an effect? Can you stop new effects safely? Can you tell whether answer quality changed? If not, the feature may be useful, but it is not yet ready to earn production trust.
+
+## Try it
+
+Run a pre-release review for one feature using the five questions above. Capture one gap each in evaluation, observability, security and rollback. Turn the smallest high-risk gap into a concrete release condition, not a future aspiration.
+
+## Keep this with you
+
+Production readiness is not paperwork. It is the evidence that people can rely on the system.

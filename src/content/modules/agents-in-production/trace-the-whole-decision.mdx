@@ -1,0 +1,43 @@
+---
+moduleId: "P3.3"
+title: "Trace the whole decision"
+description: "A trace should let an operator follow one request through context selection, model calls, tools, policy decisions and final outcome without exposing secrets or private content."
+track: "agents-in-production"
+order: 3
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 14
+draft: false
+---
+
+## One request, one story
+
+An OpenTelemetry trace represents work triggered by a request. Spans inside it show operations and timing. For an agentic service, that can include context retrieval, a model call, schema validation, policy evaluation, tool execution, approval and the final response.
+
+```text
+request
+ ├─ retrieve approved context
+ ├─ model proposal
+ ├─ validate proposal
+ ├─ policy decision
+ └─ tool call or human approval
+```
+
+Use a correlation ID across asynchronous queues and delegated tasks. Without it, a failure becomes a scavenger hunt across logs, vendor dashboards and chat transcripts.
+
+## Telemetry is not a data exfiltration channel
+
+Do not copy full prompts, secrets, tokens, customer records or raw model output into traces by default. Capture bounded metadata: provider, model identifier, duration, result class, token count when appropriate, tool name, policy outcome and stable resource identifiers. Decide retention and access before data reaches your telemetry backend.
+
+Logs explain discrete events. Metrics show patterns. Traces connect a request path. You usually need all three.
+
+## Try it
+
+Draw a trace for the Workbench scenario from click to final route. Mark the span you would create for evidence collection, a model proposal, validation and a tool action. Then circle the fields that would be unsafe to put into telemetry unchanged.
+
+## Keep this with you
+
+If a request cannot be followed safely, it cannot be operated confidently.

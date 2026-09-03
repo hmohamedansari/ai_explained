@@ -1,0 +1,8 @@
+{
+  "title": "OpAMP: operating the telemetry fleet",
+  "moduleId": "P3.6",
+  "questions": [
+    {"id":"P3.6-q1","type":"multiple-choice","question":"In OpAMP, what does the managed agent normally refer to?","options":["An LLM planner","A telemetry component such as a collector","A user-facing chatbot","A Kubernetes admission controller"],"answer":1,"explanation":"Here agent is operational terminology for a managed telemetry component, not an AI agent.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.6-q2","type":"multiple-choice","question":"What is a safe approach to collector configuration?","options":["Edit it in production only","Version, review, test and roll it out with rollback","Treat it as unrelated to reliability","Store it only in an operator's notes"],"answer":1,"explanation":"Telemetry configuration is production configuration and needs normal change discipline.","personas":["leader","junior","senior","sre"]}
+  ]
+}

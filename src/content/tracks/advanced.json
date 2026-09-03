@@ -1,0 +1,9 @@
+{
+  "title": "Advanced Agent Systems",
+  "description": "Move from one bounded harness to cooperating systems. Learn context, memory, tool boundaries, MCP, A2A and delegation without mistaking a protocol name for an architecture.",
+  "order": 1,
+  "icon": "⚡",
+  "color": "orange",
+  "volatility": "emerging",
+  "personas": ["curious", "leader", "junior", "senior", "sre"]
+}

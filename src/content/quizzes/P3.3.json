@@ -1,0 +1,8 @@
+{
+  "title": "Trace the whole decision",
+  "moduleId": "P3.3",
+  "questions": [
+    {"id":"P3.3-q1","type":"multiple-choice","question":"What should a request trace connect?","options":["Only the final model answer","The request's relevant model, policy and tool operations","Every raw prompt and secret","Only infrastructure spans"],"answer":1,"explanation":"A trace tells the story of one request across the operations that made its outcome possible.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.3-q2","type":"multiple-choice","question":"What is a safe default for prompt content in telemetry?","options":["Store all of it forever","Capture bounded, useful metadata and protect content","Use it as a metric label","Send it to every dashboard viewer"],"answer":1,"explanation":"Telemetry must help operation without becoming an uncontrolled data copy.","personas":["leader","junior","senior","sre"]}
+  ]
+}

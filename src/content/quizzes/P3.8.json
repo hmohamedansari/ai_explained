@@ -1,0 +1,8 @@
+{
+  "title": "Security boundaries for agentic systems",
+  "moduleId": "P3.8",
+  "questions": [
+    {"id":"P3.8-q1","type":"multiple-choice","question":"What is the architectural response to prompt injection?","options":["Ask the model politely to ignore it","Constrain authority and enforce controls outside the model","Give the model more secrets","Trust retrieved documents"],"answer":1,"explanation":"Untrusted content must not become policy. Runtime authorization and narrow tools enforce the boundary.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.8-q2","type":"multiple-choice","question":"Which principle should govern an agentic tool's credentials?","options":["Broad access for convenience","Least privilege and separate identities","Shared long-lived production tokens","Whatever the model requests"],"answer":1,"explanation":"Credentials should provide only the smallest authority needed for the stated job.","personas":["leader","junior","senior","sre"]}
+  ]
+}

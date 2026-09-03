@@ -1,0 +1,42 @@
+---
+moduleId: "P3.6"
+title: "OpAMP: operating the telemetry fleet"
+description: "Open Agent Management Protocol helps manage OpenTelemetry Collector-style agents at scale. It is about operating telemetry components, not about an AI agent making decisions."
+track: "agents-in-production"
+order: 6
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## A useful naming collision
+
+OpAMP stands for Open Agent Management Protocol. Here, “agent” means a managed telemetry component, such as an OpenTelemetry Collector. It has nothing to do with an LLM tool-using agent. The industry reuses words; good engineers check the boundary before assuming the meaning.
+
+At fleet scale, you need to know which collectors are connected, which configuration they run, whether an update was applied and whether the agent is healthy. A management protocol can help a control plane distribute and observe configuration consistently.
+
+## Separate data plane and control plane
+
+The collector moves telemetry data: that is the data plane. The system that reports status and distributes managed configuration is the control plane. Treat both as production infrastructure: authenticate connections, authorize configuration changes, version the configuration and have a rollback path.
+
+```text
+service → collector → telemetry backend
+             ↑
+     management/control plane
+```
+
+## Start with boring operational discipline
+
+You do not need a large fleet before learning the lesson. Collector configuration is code. Review it, test it, deploy it progressively and observe the collector itself. A telemetry outage during a production incident is a very expensive surprise.
+
+## Try it
+
+For any collector or sidecar configuration you use, identify the owner, the configuration source, the rollout method, the health signal and the rollback mechanism. If any answer is “we edit it when things break,” write the safer next step.
+
+## Keep this with you
+
+Observability is also a service. Operate its agents with the same care as your applications.

@@ -1,0 +1,8 @@
+{
+  "title": "Kubernetes is an execution environment, not a strategy",
+  "moduleId": "P3.4",
+  "questions": [
+    {"id":"P3.4-q1","type":"multiple-choice","question":"What can a Pod restart expose in an application design?","options":["That retries may repeat an external effect","That the model forgot context","That metrics are unnecessary","That authorization was automatic"],"answer":0,"explanation":"Restarted or retried work makes idempotency and durable state essential.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.4-q2","type":"multiple-choice","question":"What should a readiness check normally answer?","options":["Whether every external provider is perfect","Whether this instance should receive traffic","Whether a user likes the response","Whether a Job completed last week"],"answer":1,"explanation":"Readiness is about safely receiving traffic, not broad dependency perfection.","personas":["leader","junior","senior","sre"]}
+  ]
+}

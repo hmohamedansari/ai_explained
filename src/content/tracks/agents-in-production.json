@@ -1,0 +1,9 @@
+{
+  "title": "Agents in Production",
+  "description": "Run systems that deserve trust: service objectives, Golden Signals, telemetry, Kubernetes, Grafana, fleet configuration, resilience and security boundaries.",
+  "order": 2,
+  "icon": "🏗️",
+  "color": "cyan",
+  "volatility": "emerging",
+  "personas": ["leader", "junior", "senior", "sre"]
+}

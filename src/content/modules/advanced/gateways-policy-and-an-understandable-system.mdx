@@ -1,0 +1,42 @@
+---
+moduleId: "A2.8"
+title: "Gateways, policy and an understandable system"
+description: "A gateway can make cross-cutting controls consistent, but it cannot decide your architecture for you. Put identity, policy, limits and evidence at boundaries you can operate."
+track: "advanced"
+order: 8
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 14
+draft: false
+---
+
+## Boundaries are where systems become governable
+
+Once multiple models, tools and peers are involved, repeated controls appear everywhere: identity, authorization, rate limits, data classification, cost limits, observability and audit. A gateway can provide a consistent enforcement point for some of those concerns.
+
+The AAIF Agent Gateway project is one emerging effort in this space. Treat any gateway as an implementation choice, not a magic security blanket. You still need a clear ownership model for every underlying model provider, tool server and agent endpoint.
+
+## Ask the operational questions
+
+Before adopting a gateway, ask what it sees, what it can deny, how it identifies a caller, where it stores logs, how policy changes are reviewed, and what happens when it is unavailable. A gateway that cannot be observed or safely bypassed during an incident becomes another opaque dependency.
+
+```text
+caller identity → gateway controls → agent or tool boundary → effect
+                         ↓
+                  traces, logs, policy decisions
+```
+
+## Architecture before product names
+
+You may need an API gateway, a service mesh, a model proxy, an MCP gateway or none of the above. Start from the unwanted effects you must prevent and the evidence you must keep. Then choose the smallest set of controls that can enforce them.
+
+## Try it
+
+Draw one request from a user to a model-enabled tool. Mark where identity is authenticated, authorization is decided, sensitive fields are removed, the call is rate-limited, the effect is audited and an operator can see failure. If two boxes claim the same policy, name the source of truth.
+
+## Keep this with you
+
+The goal is not a gateway. The goal is a system you can explain during an incident.

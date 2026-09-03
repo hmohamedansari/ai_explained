@@ -1,0 +1,38 @@
+---
+moduleId: "P3.7"
+title: "Reliability control loops"
+description: "Timeouts, retries, queues, idempotency and human escalation work together. A retry without a stop condition is just a faster way to make a bad incident bigger."
+track: "agents-in-production"
+order: 7
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 14
+draft: false
+---
+
+## Failure is part of the path
+
+Model providers throttle. Tool APIs time out. Queues grow. A human does not approve a change. Your service needs an intentional response for each one: retry safely, fall back, defer, escalate or fail clearly.
+
+A control loop observes an outcome, compares it to an expected condition, takes a limited correction and stops when it reaches a bound. The bound protects users and dependencies from infinite activity.
+
+## The core patterns
+
+Use timeouts to reclaim stuck work. Use bounded retries with backoff and jitter for transient faults. Use circuit breakers or load shedding when a dependency is failing. Use queues to absorb a known amount of asynchronous work, with a visible backlog limit. Use idempotency keys so a repeated request has the same intended result as the first one.
+
+Do not call everything a retry. A request that was rejected by policy should not be retried until it “wins.” A tool that creates an external effect may need human approval after uncertainty, not another automated attempt.
+
+## Escalation is a feature
+
+Make the handoff to a human clear: what failed, what evidence was gathered, what was attempted, what remains permitted and what deadline applies. A human should not have to reconstruct the whole control loop from logs.
+
+## Try it
+
+Pick a single tool call. Write its timeout, maximum attempts, retryable errors, idempotency key, fallback and escalation condition. If you cannot state one of these, the tool is not ready for unattended use.
+
+## Keep this with you
+
+Reliability is a set of controlled responses to the failures you already expect.

@@ -1,0 +1,42 @@
+---
+moduleId: "A2.4"
+title: "Tool calls are proposals"
+description: "A tool call from a model is structured input to your application. Validate it, authorize it and record it before it changes anything."
+track: "advanced"
+order: 4
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 13
+draft: false
+---
+
+## The model did not call your production API
+
+When a model returns something like `restart_service(name="checkout")`, it has generated text in a structured shape. Your harness receives it. Nothing should happen until ordinary code validates the arguments, checks the caller's authority, applies policy and invokes the tool.
+
+```text
+model proposal → schema validation → authorization → policy → tool runtime → audit event
+```
+
+The distinction protects you from malformed arguments, invented capability names, prompt injection and a perfectly valid request made by somebody without permission.
+
+## Design tools like APIs
+
+Give tools a small, specific contract. Prefer `get_deployment(deployment_id)` over `run_any_query(query)`. Prefer a dry-run or a change request over direct mutation. Return structured results and a stable error shape. Make effects idempotent where possible so retries do not create a second change.
+
+“The model chose it” is not an authorization model. Tool access must be enforced by the runtime, even if the model is supplied a tool list.
+
+## Approval is a real state
+
+For consequential actions, create an approval request with the proposed arguments, evidence, actor and expiry. A human approves the request, not a vague chat message. The resulting event trail tells you what was proposed, allowed, executed and observed.
+
+## Try it
+
+Pick one action you wish an assistant could take for you. Rewrite it as a narrow tool contract: name, required inputs, allowed caller, dry-run result, side effect and audit record. If the contract still says “do whatever is needed,” it is not ready to be a tool.
+
+## Keep this with you
+
+Tools give a system authority. A schema gives it a shape. Policy gives it permission.

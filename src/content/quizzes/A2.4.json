@@ -1,0 +1,8 @@
+{
+  "title": "Tool calls are proposals",
+  "moduleId": "A2.4",
+  "questions": [
+    {"id":"A2.4-q1","type":"multiple-choice","question":"What should happen after a model returns structured tool arguments?","options":["Run them immediately","Validate, authorize and apply policy","Assume the model checked permissions","Store them only in chat history"],"answer":1,"explanation":"Structured output is still untrusted input to the application. It needs normal control checks.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.4-q2","type":"multiple-choice","question":"Which tool contract is safer?","options":["run_any_query(query)","get_deployment(deployment_id)","fix_production()","execute_instructions(text)"],"answer":1,"explanation":"Small, specific tool contracts constrain authority and make validation practical.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

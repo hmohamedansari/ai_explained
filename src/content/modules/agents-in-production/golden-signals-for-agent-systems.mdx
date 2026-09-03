@@ -1,0 +1,43 @@
+---
+moduleId: "P3.2"
+title: "Golden Signals for agent systems"
+description: "Start with latency, traffic, errors and saturation. Then add agent-specific measures such as quality and cost without losing the SRE signals that explain the service."
+track: "agents-in-production"
+order: 2
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 13
+draft: false
+---
+
+## The four signals still apply
+
+The SRE Golden Signals are latency, traffic, errors and saturation. They apply whether your service calls a database, a model or a person.
+
+| Signal | An agent-system question |
+| --- | --- |
+| Latency | How long does a request take, including tools and approvals? |
+| Traffic | How many requests, tasks and tool calls arrive? |
+| Errors | Which requests, tool calls or policy decisions fail? |
+| Saturation | Which resource is near a limit: queue, worker, token budget, provider quota or connection pool? |
+
+## Add, do not replace
+
+Agent systems often need extra measures: model and tool cost, token use, retry rate, policy denial rate, human-approval time and task-quality evaluation. These are valuable, but they do not replace the four basics.
+
+For example, high model latency may be the symptom while your worker queue is the saturated dependency. A beautiful token dashboard will not tell the on-call engineer that a timeout broke the user journey.
+
+## Measure at the boundary
+
+Measure the user-facing request and its dependencies. Break down latency by model, retrieval and tool phases. Classify expected policy denials separately from unexpected system errors. Give every metric a definition and an owner.
+
+## Try it
+
+Take one feature and write one metric for each Golden Signal. Add one quality guardrail and one cost measure. For every metric, state what a human would do if it moved sharply. If there is no action, it may not belong on the first dashboard.
+
+## Keep this with you
+
+Models add new dependencies. They do not repeal the old physics of a service.

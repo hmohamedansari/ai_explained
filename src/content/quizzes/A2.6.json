@@ -1,0 +1,8 @@
+{
+  "title": "A2A: handing work to another system",
+  "moduleId": "A2.6",
+  "questions": [
+    {"id":"A2.6-q1","type":"multiple-choice","question":"What remains with the delegating system after it asks another agent to work?","options":["No responsibility","Responsibility for peer selection and use of the result","The receiving system's credentials","The receiving model's context"],"answer":1,"explanation":"Delegation transfers a task, not accountability for the outcome.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.6-q2","type":"multiple-choice","question":"When might an internal function be clearer than agent-to-agent delegation?","options":["When systems belong to separate organizations","When all workers share one application and tools","When the task needs an artifact","When a protocol is available"],"answer":1,"explanation":"A2A is valuable across genuine system boundaries. Do not add protocol machinery inside one simple application without need.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

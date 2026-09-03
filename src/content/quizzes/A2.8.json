@@ -1,0 +1,8 @@
+{
+  "title": "Gateways, policy and an understandable system",
+  "moduleId": "A2.8",
+  "questions": [
+    {"id":"A2.8-q1","type":"multiple-choice","question":"What is a gateway's primary value in an agent system?","options":["It makes every system safe automatically","It can centralize observable cross-cutting controls","It replaces underlying authorization","It chooses the best model"],"answer":1,"explanation":"Gateways can provide a consistent control point. They do not eliminate the need for sound architecture and service controls.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.8-q2","type":"multiple-choice","question":"What should you map before selecting a gateway product?","options":["The vendor's logo","The effects to prevent and evidence to retain","The number of agents in a diagram","The model's temperature"],"answer":1,"explanation":"Start from policy and operations requirements, then choose the smallest useful control surface.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

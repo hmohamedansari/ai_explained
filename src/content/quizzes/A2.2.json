@@ -1,0 +1,8 @@
+{
+  "title": "Context is a budget, not a brain",
+  "moduleId": "A2.2",
+  "questions": [
+    {"id":"A2.2-q1","type":"multiple-choice","question":"What is context?","options":["A model's permanent memory","Information deliberately supplied for a model call","Only the system prompt","A database table"],"answer":1,"explanation":"Context is the material available in this turn. The harness decides what arrives on later calls.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.2-q2","type":"multiple-choice","question":"What is the best first response to an uncertain model answer?","options":["Add every document available","Select the missing evidence deliberately","Increase temperature","Ask the model to be more confident"],"answer":1,"explanation":"Find the evidence or constraint that is missing. More irrelevant material usually creates more ambiguity.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

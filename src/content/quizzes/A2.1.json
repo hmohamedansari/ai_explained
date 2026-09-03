@@ -1,0 +1,8 @@
+{
+  "title": "A harness becomes an agent",
+  "moduleId": "A2.1",
+  "questions": [
+    {"id":"A2.1-q1","type":"multiple-choice","question":"What makes a tool-using agent bounded?","options":["It has a long prompt","It has explicit purpose, allowed actions and stop conditions","It uses more than one model","It never asks a human"],"answer":1,"explanation":"A bounded agent has defined authority and an exit. Model count does not make it safer or more agentic.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.1-q2","type":"multiple-choice","question":"Who should enforce a consequential action?","options":["The model","The harness and policy layer","The prompt author","The user interface"],"answer":1,"explanation":"The model proposes. The harness and policy layer validate and authorize the effect.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

@@ -1,0 +1,36 @@
+---
+moduleId: "P3.8"
+title: "Security boundaries for agentic systems"
+description: "Treat model input as untrusted, tool authority as sensitive and every integration as a supply-chain decision. Security is enforced by systems, not by asking a model to behave."
+track: "agents-in-production"
+order: 8
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 15
+draft: false
+---
+
+## The model reads untrusted content
+
+A ticket, web page, document or tool result can contain instructions aimed at the model. That is prompt injection. It becomes dangerous when the system lets untrusted content influence tool selection, permissions or data disclosure.
+
+The mitigation is architectural: separate instructions from data, constrain tools, validate arguments, enforce authorization in the runtime and require approval for consequential effects. Telling the model to ignore malicious text helps, but it is not a security control.
+
+## Least privilege all the way down
+
+Give the user, application, model provider integration, tool server and workload separate identities where practical. Give each the smallest useful permission. Use short-lived credentials, managed secrets and audited authorization decisions. A read-only investigation assistant should not possess a production deployment token “just in case.”
+
+## Protect data and dependencies
+
+Classify data before it enters prompts, retrieval stores or telemetry. Know provider retention and training settings. Redact what is unnecessary. Review MCP servers, plugins, containers and packages as dependencies with code, permissions and update risk. Log actions without logging the secrets needed to perform them.
+
+## Try it
+
+Use this short threat-model prompt: who can influence the model's input; what data could leave the boundary; which tool causes the most harm; which identity can call it; and what evidence would show misuse? Pick one answer and turn it into a control.
+
+## Keep this with you
+
+The safest prompt is not a substitute for a safe permission boundary.

@@ -1,0 +1,8 @@
+{
+  "title": "MCP without the fog",
+  "moduleId": "A2.5",
+  "questions": [
+    {"id":"A2.5-q1","type":"multiple-choice","question":"What does MCP help standardize?","options":["All authorization decisions","Connections between an AI host and declared capabilities","Whether an agent should exist","A model's factual accuracy"],"answer":1,"explanation":"MCP offers a common integration shape. Authorization and architecture remain the application's responsibility.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.5-q2","type":"multiple-choice","question":"A discovered MCP tool is automatically safe to use. True or false?","options":["True","False"],"answer":1,"explanation":"Discovery is not trust or permission. Inspect the server and enforce least-privilege access.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "title": "Grafana dashboards that lead to a decision",
+  "moduleId": "P3.5",
+  "questions": [
+    {"id":"P3.5-q1","type":"multiple-choice","question":"What makes a dashboard panel useful?","options":["It uses many colours","It supports a specific operational decision and next step","It contains every metric","It avoids thresholds"],"answer":1,"explanation":"A panel is useful when someone can act on it during operation or review.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.5-q2","type":"multiple-choice","question":"Where should a high-cardinality correlation ID usually go?","options":["A Prometheus metric label","A log or trace field with safe access","Every dashboard title","A Kubernetes namespace"],"answer":1,"explanation":"Metrics labels must be bounded. Logs and traces are better for request-level identifiers.","personas":["leader","junior","senior","sre"]}
+  ]
+}

@@ -1,0 +1,43 @@
+---
+moduleId: "A2.6"
+title: "A2A: handing work to another system"
+description: "A2A is about one agentic system asking another to perform a bounded task. It is different from giving a host direct access to a tool."
+track: "advanced"
+order: 6
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 13
+draft: false
+---
+
+## A different boundary
+
+MCP commonly connects an AI application to a capability provider. Agent-to-Agent protocols address another situation: a system delegates a task to another system that has its own skills, state, tools and control loop.
+
+An A2A-style exchange needs more than a request. The caller needs to understand the receiving agent's advertised capabilities, send a bounded task, receive status or artifacts, and decide what to do with the result.
+
+```text
+delegating system → task with scope and identity → receiving system
+delegating system ← status, result, artifact, evidence ← receiving system
+```
+
+## Delegation does not remove responsibility
+
+The delegating system is still accountable for selecting a trustworthy peer and for what it does with the result. The receiving system must enforce its own authorization and policies. A received artifact is evidence to review, not a command that automatically runs.
+
+This is why identity, tenant boundaries, task expiry, trace correlation and a clear failure contract matter. “Ask another agent” is an integration, not a shortcut around controls.
+
+## When to use it
+
+Use delegation when the other system owns a genuinely separate capability or context: a security-review service, a specialist data system, or an external organization. If all workers share one application and one set of tools, ordinary internal functions or a queue may be clearer.
+
+## Try it
+
+Write a delegation request for a security review of a proposed infrastructure change. Include the goal, allowed evidence, expected artifact, deadline, classification and what the caller must verify before using the result. Notice how much system design happens before a model writes a word.
+
+## Keep this with you
+
+Delegation transfers work, never accountability.

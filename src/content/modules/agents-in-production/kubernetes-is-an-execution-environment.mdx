@@ -1,0 +1,38 @@
+---
+moduleId: "P3.4"
+title: "Kubernetes is an execution environment, not a strategy"
+description: "Kubernetes can schedule and recover workloads. It cannot choose your task boundaries, retries, data controls or release policy for you."
+track: "agents-in-production"
+order: 4
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 13
+draft: false
+---
+
+## Put the right work in the right place
+
+An interactive API usually belongs in a Deployment behind a Service. Finite asynchronous work may fit a Job or a worker consuming a queue. Scheduled maintenance can use a CronJob. These are execution choices; your application still needs idempotency, state ownership and a retry policy.
+
+Long-running model or tool calls require careful timeouts, cancellation and resource requests. A Pod restart can repeat work. If a repeated action creates another ticket, charges another account or changes an environment twice, Kubernetes has exposed an application design gap.
+
+## Health checks have a job
+
+Readiness answers whether this instance should receive traffic. Liveness answers whether Kubernetes should restart a stuck process. Neither should depend on every external model provider being healthy, or a provider outage can turn into an unnecessary restart storm.
+
+Use resource requests and limits based on measured load. Autoscaling is a response to a signal, not a substitute for queue backpressure or provider quotas.
+
+## Keep secrets out of the image
+
+Use workload identity and a supported secret mechanism. Avoid shipping provider keys in images, manifests or logs. Give each workload the least Kubernetes and cloud permissions it needs.
+
+## Try it
+
+Classify an agentic feature into API, worker and scheduled work. For each, write its timeout, retry owner, durable state location and what makes a request safe to repeat. This exercise is useful even if you do not run Kubernetes today.
+
+## Keep this with you
+
+Kubernetes runs your system. It does not make the system's decisions for it.

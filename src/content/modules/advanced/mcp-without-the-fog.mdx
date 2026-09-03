@@ -1,0 +1,44 @@
+---
+moduleId: "A2.5"
+title: "MCP without the fog"
+description: "MCP is a way for an AI application to discover and use declared capabilities. It does not replace your authorization, your API design or your production controls."
+track: "advanced"
+order: 5
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "volatile"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 14
+draft: false
+---
+
+## Start with the actors
+
+In the Model Context Protocol, an AI application acts as a host. It connects through a client to an MCP server. The server exposes declared capabilities such as tools, resources and prompts.
+
+```text
+AI application / host → MCP client → MCP server → capability
+```
+
+This makes integration less bespoke. A host can discover what a server offers and invoke a tool through a shared protocol shape. It does not mean the host should trust every server, or that the model itself gains an unrestricted network identity.
+
+## Discovery is not permission
+
+A discovered tool may be poorly designed, overly broad or unavailable to this user. The host still needs to decide whether the server is trusted, what identity reaches it, which capabilities are exposed in this session and whether an action needs approval.
+
+Treat an MCP server like any third-party integration: inspect its code or vendor posture, pin versions where appropriate, protect tokens, use least privilege and know where its data goes.
+
+## The useful comparison
+
+MCP is often useful inside an application: it helps that application connect to tools and context providers. It is not the same thing as an agent architecture. The harness still owns the loop; policy still owns authorization; the underlying service still owns the effect.
+
+The protocol evolves quickly. Read the current specification and a server's documentation before building against a detail you saw in a social post.
+
+## Try it
+
+Choose one existing internal API. List its safe read-only operations first. If you exposed it through an MCP server, which identity would call it, what data would be redacted, and which operation would remain unavailable? The answer is your integration design—not the protocol name.
+
+## Keep this with you
+
+MCP standardizes a connection. It does not outsource judgement.

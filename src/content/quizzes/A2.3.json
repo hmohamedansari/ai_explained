@@ -1,0 +1,8 @@
+{
+  "title": "Memory: working, durable and retrieved",
+  "moduleId": "A2.3",
+  "questions": [
+    {"id":"A2.3-q1","type":"multiple-choice","question":"Where should an approved workflow state live?","options":["In a conversation summary","In durable system state","Only in vector retrieval","In the model's hidden reasoning"],"answer":1,"explanation":"State that controls future behaviour needs a durable, validated system of record.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.3-q2","type":"multiple-choice","question":"What does retrieval prove about a document?","options":["That it is authoritative","That it is current","That it may be relevant","That it is safe to execute"],"answer":2,"explanation":"Retrieval finds candidates. Authority, recency and safety still need separate checks.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

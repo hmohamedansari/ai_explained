@@ -1,0 +1,8 @@
+{
+  "title": "Reliability control loops",
+  "moduleId": "P3.7",
+  "questions": [
+    {"id":"P3.7-q1","type":"multiple-choice","question":"What makes a retry safe?","options":["It happens immediately and forever","It is bounded, appropriate for the failure and protects effects","It uses a larger model","It ignores policy denials"],"answer":1,"explanation":"Retries need limits, classification and idempotency. They are not suitable for every failure.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.7-q2","type":"multiple-choice","question":"What does an idempotency key protect against?","options":["The model hallucinating","A repeated request producing an additional unintended effect","Kubernetes scheduling","A slow dashboard"],"answer":1,"explanation":"Idempotency ensures repeated requests have the same intended outcome as the first one.","personas":["leader","junior","senior","sre"]}
+  ]
+}

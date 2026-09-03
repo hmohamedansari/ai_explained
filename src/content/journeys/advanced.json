@@ -4,8 +4,9 @@
   "description": "The good stuff: agent roles, delegation, MCP, A2A, capability boundaries and how to make a multi-agent system understandable instead of merely impressive.",
   "track": "advanced",
   "order": 2,
-  "status": "next",
+  "status": "published",
   "icon": "⚡",
+  "lessons": 8,
   "outcome": "the ability to design and review a multi-agent system with clear ownership and evidence.",
   "evidence": "fast-moving"
 }

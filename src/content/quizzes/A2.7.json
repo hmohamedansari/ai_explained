@@ -1,0 +1,8 @@
+{
+  "title": "Multi-agent systems: roles, delegation and evidence",
+  "moduleId": "A2.7",
+  "questions": [
+    {"id":"A2.7-q1","type":"multiple-choice","question":"When is a separate agent role justified?","options":["When it has a cool name","When it owns a distinct input, capability boundary or evaluation method","Whenever a prompt exceeds one paragraph","When a model is cheap"],"answer":1,"explanation":"A role earns its place by a real responsibility and a checkable boundary.","personas":["curious","leader","junior","senior","sre"]},
+    {"id":"A2.7-q2","type":"multiple-choice","question":"What should a reviewer receive with a proposed result?","options":["Only a confidence score","The evidence and an evaluation rubric","A longer system prompt","The planner's hidden reasoning"],"answer":1,"explanation":"Evidence and explicit criteria give a reviewer something inspectable to evaluate.","personas":["curious","leader","junior","senior","sre"]}
+  ]
+}

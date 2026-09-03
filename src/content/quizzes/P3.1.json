@@ -1,0 +1,8 @@
+{
+  "title": "Production is a different job",
+  "moduleId": "P3.1",
+  "questions": [
+    {"id":"P3.1-q1","type":"multiple-choice","question":"What changes when a feature becomes production service?","options":["It needs a better demo","People rely on an ongoing, measurable service promise","The model becomes deterministic","It no longer needs human support"],"answer":1,"explanation":"Production adds ownership, operational promises, failure paths and support obligations.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.1-q2","type":"multiple-choice","question":"Where should task quality be measured?","options":["As a separate defined guardrail or evaluation","Only in uptime","By model confidence alone","Nowhere until an incident"],"answer":0,"explanation":"Operational health and task quality are distinct and should both have explicit definitions.","personas":["leader","junior","senior","sre"]}
+  ]
+}

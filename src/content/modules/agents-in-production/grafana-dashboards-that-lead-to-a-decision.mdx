@@ -1,0 +1,38 @@
+---
+moduleId: "P3.5"
+title: "Grafana dashboards that lead to a decision"
+description: "A useful dashboard answers an operational question quickly. It does not try to display every metric your service has ever emitted."
+track: "agents-in-production"
+order: 5
+personas: ["leader", "junior", "senior", "sre"]
+volatility: "stable"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 11
+draft: false
+---
+
+## Build around decisions
+
+An on-call dashboard should answer: is the user journey failing, where is latency spent, which dependency is unhealthy, and what changed? A service-owner dashboard may answer: are we meeting the SLO, is cost within its guardrail, and is task quality drifting?
+
+Those are different audiences. One enormous dashboard rarely serves either well.
+
+## Use Grafana as a window, not the system of record
+
+Grafana can bring metrics, logs and traces together, link panels to a related trace view and place alert state beside the signal. The underlying telemetry still needs clear names, labels, retention and access controls.
+
+Avoid high-cardinality labels such as raw prompt text, arbitrary user input or unbounded IDs in metrics. Put a correlation ID in logs or traces where it can be queried safely instead.
+
+## Make the next click obvious
+
+Every red panel should lead somewhere: an SLO definition, a runbook, a trace search, a dependency dashboard or an incident command. Put thresholds and units in the panel. Show a meaningful time range. A graph without a decision path is decoration.
+
+## Try it
+
+Sketch a two-page dashboard. Page one is for the on-call engineer: SLO, Golden Signals and dependency breakdown. Page two is for the service owner: quality guardrail, cost and approval/rejection trends. Write the action each panel supports.
+
+## Keep this with you
+
+The point of a dashboard is not visibility. It is faster, safer decisions.

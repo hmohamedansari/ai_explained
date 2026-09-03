@@ -1,0 +1,8 @@
+{
+  "title": "Golden Signals for agent systems",
+  "moduleId": "P3.2",
+  "questions": [
+    {"id":"P3.2-q1","type":"multiple-choice","question":"Which list names the SRE Golden Signals?","options":["Cost, quality, models, prompts","Latency, traffic, errors, saturation","Agents, tools, memory, context","Logs, metrics, traces, dashboards"],"answer":1,"explanation":"The Golden Signals describe user-facing service health and its resource pressure.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.2-q2","type":"multiple-choice","question":"What should an agent-specific cost metric do?","options":["Replace latency and error measures","Supplement the core service signals","Be kept only by finance","Include raw user prompts as labels"],"answer":1,"explanation":"Cost is an important guardrail, but it does not explain the full health of the service.","personas":["leader","junior","senior","sre"]}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "title": "Release and incident readiness",
+  "moduleId": "P3.9",
+  "questions": [
+    {"id":"P3.9-q1","type":"multiple-choice","question":"What should a rollback plan include?","options":["Only a promise to turn the model off","A way to stop or safely reroute effects and recover state","A new prompt","A larger error budget"],"answer":1,"explanation":"Rollback needs to account for queued work, state and downstream effects—not only the model call.","personas":["leader","junior","senior","sre"]},
+    {"id":"P3.9-q2","type":"multiple-choice","question":"What does production readiness provide?","options":["Paperwork after the release","Evidence that people can rely on the system and respond to failure","A guarantee that no incident will occur","A reason to skip evaluation"],"answer":1,"explanation":"Readiness is operational evidence: evaluation, controls, visibility, support and recovery.","personas":["leader","junior","senior","sre"]}
+  ]
+}

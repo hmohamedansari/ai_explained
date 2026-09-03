@@ -1,0 +1,44 @@
+---
+moduleId: "A2.3"
+title: "Memory: working, durable and retrieved"
+description: "Memory is not one magical feature. Separate what is needed now, what the system must retain as a record, and what it may retrieve later."
+track: "advanced"
+order: 3
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 12
+draft: false
+---
+
+## Three different jobs
+
+Working memory is the material for the current turn: recent messages, tool results and the immediate plan. Durable state is the system record: an incident ID, an approval, a ticket link, a workflow state or an audit event. Retrieved knowledge is optional reference material found when a task needs it.
+
+```text
+working context  → what this call can use now
+durable state    → what the system must remember correctly
+retrieval        → what may be useful if it is relevant and current
+```
+
+Do not put a workflow state in a conversation summary and call it memory. A summary can be wrong, omitted or rewritten. If a fact controls permission, money, safety or a state transition, store it in a system of record and validate it.
+
+## Retrieval is not truth
+
+Search and vector retrieval can surface useful material. They do not prove that a document is current, authoritative or applicable. Attach source, version and access control. Let the harness decide which repositories are eligible before a model sees their contents.
+
+This matters even more with untrusted content. A document can contain an instruction to the model. It is still a document, not policy.
+
+## A simple design question
+
+For each fact, ask: must this be correct later, or merely helpful now? Correct later means durable state. Helpful now may be working context or retrieval. This one question removes a lot of fake “agent memory” complexity.
+
+## Try it
+
+For the Workbench, classify these facts: the active incident state, yesterday's incident summary, the current checkout latency and a runbook paragraph. Decide which belongs in durable state, current context or retrieved knowledge. Then write down who is allowed to update each one.
+
+## Keep this with you
+
+Memory is a data design problem before it is an AI feature.

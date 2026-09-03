@@ -1,0 +1,42 @@
+---
+moduleId: "A2.7"
+title: "Multi-agent systems: roles, delegation and evidence"
+description: "Specialized roles can help when they create a useful boundary. They create theatre when they merely split one prompt into several names."
+track: "advanced"
+order: 7
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 14
+draft: false
+---
+
+## Roles are jobs, not personalities
+
+A worker gathers a defined kind of evidence. A reviewer checks a proposed result against a rubric. A supervisor coordinates work and owns the stop condition. A judge chooses among alternatives using explicit criteria. A planner suggests a sequence; it does not gain permission to execute it.
+
+These are useful roles when each one has a different input, capability boundary or evaluation method. They are not a reason to create five chat windows for a task one well-designed loop can finish.
+
+## Make the handoff inspectable
+
+For every handoff, write down the task, selected context, permitted tools, expected artifact, evaluation rule, timeout and owner. Pass evidence forward with the result. A later role should not have to trust a prior role's confidence score as though it were proof.
+
+```text
+evidence collector → proposed diagnosis → reviewer against rubric → human or policy gate
+```
+
+The simplest valuable multi-agent pattern is often producer-and-reviewer. One component proposes; another evaluates against a deterministic rubric or independent evidence. Both can be wrong, so the result still needs an escalation rule.
+
+## Cost, delay and failure multiply
+
+Each extra model call adds latency, tokens, a new context selection problem and another place for the system to loop or fail. Instrument every role. Set budgets. Stop when additional deliberation has no decision value.
+
+## Try it
+
+Take the Workbench's investigation flow. Split it only where the boundary is real: one role may turn evidence into a draft incident summary; a reviewer may check whether every claim has a cited finding. Keep route selection and state transition in deterministic code.
+
+## Keep this with you
+
+A good role owns a clear responsibility. A fancy role name owns nothing.

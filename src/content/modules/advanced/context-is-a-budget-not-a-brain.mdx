@@ -1,0 +1,50 @@
+---
+moduleId: "A2.2"
+title: "Context is a budget, not a brain"
+description: "A model can only work from the information supplied in this turn. Good context is selected evidence with a job to do, not every document you can fit into a window."
+track: "advanced"
+order: 2
+personas: ["curious", "leader", "junior", "senior", "sre"]
+volatility: "emerging"
+status: "published"
+lastReviewed: "2026-09-03"
+estimatedMinutes:
+  layer1: 11
+draft: false
+---
+
+## What context really is
+
+Context is the material available to a model for one response: instructions, the user request, selected documents, tool results and the recent conversation. It is not durable memory. When the next call begins, the harness decides what comes back in.
+
+That makes context engineering an ordinary engineering task: choose the smallest reliable input that lets the next decision be made.
+
+```text
+raw logs, tickets, docs, prior state
+              ↓ select and summarize
+task + constraints + relevant evidence + expected output
+              ↓
+             model
+```
+
+## More is often worse
+
+A huge context window is not an excuse to throw in every runbook, ticket and log line. Irrelevant material competes with the real signal. Stale instructions can quietly override the current task. Sensitive data may be copied into a provider request without a reason.
+
+Give each item a reason to exist: Does it constrain the action? Does it establish evidence? Does it define the output? If not, leave it out or retrieve it only when needed.
+
+## Context needs provenance
+
+When the model makes a proposal, a reviewer should be able to answer: which sources did it see, when were they retrieved, and which claim came from where? This is how a confident summary becomes something an engineer can check.
+
+The model is stateless between calls unless your harness restores information. That is a design fact, not a model flaw.
+
+## Try it
+
+Take a noisy incident description and make two inputs. The first contains every detail you have. The second contains the task, the timestamped symptoms, the known deployment record and the expected output format. Ask an AI tool to identify the next investigation question from each.
+
+Compare the answers. If the smaller input is worse, add the missing evidence deliberately. Do not respond by dumping the whole system into the prompt.
+
+## Keep this with you
+
+Context is rented attention. Spend it on evidence and constraints.
