@@ -100,16 +100,15 @@ const breadcrumb = {
           return (
             <a
               href={`/learn/${trackSlug}/${slug}`}
-              class="flex items-center gap-5 p-5 rounded-xl border border-white/10 bg-surface-1
-                     hover:border-brand-500/40 hover:bg-surface-2 transition-all group"
+              class="lesson-card flex items-center gap-5 p-5"
             >
-              <div class="w-10 h-10 rounded-full border border-white/10 group-hover:border-brand-500/40
-                          flex items-center justify-center text-xs font-mono text-slate-500
-                          group-hover:text-brand-400 transition-colors shrink-0">
+              <div class="lesson-card-marker w-10 h-10 rounded-full border
+                          flex items-center justify-center text-xs font-mono
+                          transition-colors shrink-0">
                 {mod.data.moduleId}
               </div>
               <div class="flex-1 min-w-0">
-                <p class="font-medium text-white group-hover:text-brand-300 transition-colors mb-0.5">
+                <p class="card-title font-medium transition-colors mb-0.5">
                   {mod.data.title}
                 </p>
                 <p class="text-sm text-slate-500 truncate">{mod.data.description}</p>
@@ -119,7 +118,7 @@ const breadcrumb = {
                   {mod.data.estimatedMinutes.layer1} min
                 </span>
               )}
-              <span class="text-slate-600 group-hover:text-brand-400 transition-colors shrink-0">→</span>
+              <span class="lesson-card-arrow transition-colors shrink-0">→</span>
             </a>
           );
         })}

@@ -133,7 +133,29 @@ html.dark {
     transition: border-color 150ms ease, background-color 150ms ease;
   }
 
-  .card:hover { background: var(--aex-raised); border-color: var(--aex-pine); }
+  .card:is(:hover, :focus-visible) { background: var(--aex-raised); border-color: var(--aex-pine); }
+
+  .lesson-card {
+    background: var(--aex-raised);
+    border: 1px solid var(--aex-line);
+    transition: border-color 150ms ease, background-color 150ms ease;
+  }
+
+  .lesson-card:is(:hover, :focus-visible) {
+    background: var(--aex-raised-strong);
+    border-color: var(--aex-pine);
+  }
+
+  .lesson-card-marker { color: var(--aex-muted); border-color: var(--aex-line); }
+  .card-title { color: var(--aex-ink); }
+  .lesson-card-arrow { color: var(--aex-subtle); }
+
+  :is(.card, .lesson-card):is(:hover, :focus-visible) .card-title,
+  .lesson-card:is(:hover, :focus-visible) :is(.lesson-card-marker, .lesson-card-arrow) {
+    color: var(--aex-pine);
+  }
+
+  .lesson-card:is(:hover, :focus-visible) .lesson-card-marker { border-color: var(--aex-pine); }
 
   .btn-primary {
     @apply inline-flex items-center gap-2 px-5 py-2.5 text-sm transition-colors;
